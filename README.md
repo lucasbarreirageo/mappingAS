@@ -244,4 +244,5 @@ Ao usar este pacote, cite também as fontes de dados e métodos:
 
 ## Licença
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20570407.svg)](https://doi.org/10.5281/zenodo.20570407)
+
 MIT. Veja o arquivo `LICENSE`.
