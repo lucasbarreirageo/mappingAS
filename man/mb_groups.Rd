@@ -7,15 +7,14 @@
 mb_groups(collection = 10)
 }
 \arguments{
-\item{collection}{Integer collection number (default 10).}
-
+\item{collection}{Integer collection number. Only \code{10} (default) is
+currently shipped; other values emit a warning and fall back to 10.}
 }
 \value{
-A named list with elements natural, anthropic, water, other and not_observed, each an integer vector of MapBiomas pixel codes.
+A named list with elements \code{natural}, \code{anthropic},
+\code{water}, \code{other} and \code{not_observed}, each an integer vector
+of MapBiomas pixel codes.
 }
 \description{
-Convenience wrapper returning the pixel codes that belong to each conservation group.
-}
-\examples{
-mb_groups()$anthropic
+Convenience wrapper returning the pixel codes that belong to each group.
 }

@@ -1,6 +1,6 @@
 test_that("export_ranges writes EOO and AOO (gpkg and shapefile)", {
   skip_if_not_installed("sf")
-  f <- system.file("extdata", "example_occurrences.csv", package = "geoConvBR")
+  f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
   skip_if(identical(f, ""))
 
   occ <- read_occurrences(f)

@@ -1,4 +1,4 @@
-#' geoConvBR: Range Metrics and MapBiomas Habitat Conversion
+#' mappingAS: Range Metrics and MapBiomas Habitat Conversion
 #'
 #' A GeoCat-style toolkit for IUCN Red List Criterion B screening. It imports
 #' species occurrence points from XLSX, CSV, or shapefile inputs, computes the

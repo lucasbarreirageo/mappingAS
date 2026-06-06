@@ -7,23 +7,32 @@
 mb_raster_local(aoi, year = 2024, collection = 10, src = NULL, mask = TRUE)
 }
 \arguments{
-\item{aoi}{An sf/sfc polygon (any CRS) defining the area to extract (e.g. an EOO hull or the union of AOO cells).}
+\item{aoi}{An \code{sf}/\code{sfc} polygon (any CRS) defining the area to
+extract, e.g. an EOO hull or the union of AOO cells.}
 
-\item{year}{Integer year (default 2024).}
+\item{year}{Integer year (default \code{2024}).}
 
-\item{collection}{Integer collection number (default 10).}
+\item{collection}{Integer collection number (default \code{10}).}
 
-\item{src}{Optional path or URL to a MapBiomas GeoTIFF. If NULL (default) the public Collection URL for `year` is used through /vsicurl/.}
+\item{src}{Optional path or URL to a MapBiomas GeoTIFF. If \code{NULL}
+(default) the public Collection \code{collection} URL for \code{year} is
+used through \code{/vsicurl/}.}
 
-\item{mask}{Logical; if TRUE (default) pixels outside the polygon are set to NA. If FALSE only a rectangular crop is returned.}
-
+\item{mask}{Logical; if \code{TRUE} (default) pixels outside the polygon are
+set to \code{NA}. If \code{FALSE} only a rectangular crop is returned.}
 }
 \value{
-A terra SpatRaster of MapBiomas pixel codes restricted to the AOI, in the raster's native CRS.
+A \pkg{terra} \code{SpatRaster} of MapBiomas pixel codes restricted to
+the AOI, in the raster's native CRS.
 }
 \description{
-Reads the MapBiomas national mosaic and crops/masks it to `aoi` using terra. By default it streams a windowed read of only the AOI bounding box from the public GeoTIFF via GDAL /vsicurl/, so there is no Earth Engine account and no full-country download.
+Reads the MapBiomas national mosaic and crops/masks it to \code{aoi} using
+\pkg{terra}. By default it streams a \emph{windowed} read of only the AOI's
+bounding box from the public GeoTIFF via GDAL's \code{/vsicurl/} driver, so
+there is no Google Earth Engine account and no full-country download. For
+offline or repeated use, point \code{src} to a local GeoTIFF instead.
 }
-\seealso{
-\code{\link{mb_class_areas_raster}}, \code{\link{mb_class_areas_gee}}
+\details{
+For very large ranges (e.g. continental EOOs) the windowed read can still
+transfer a lot of data; in that case prefer \code{\link{mb_class_areas_gee}}.
 }

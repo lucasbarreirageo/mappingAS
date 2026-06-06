@@ -2,7 +2,7 @@
 % Please edit documentation in R/import_data.R
 \name{read_occurrences}
 \alias{read_occurrences}
-\title{Read species occurrence points from CSV, Excel or a spatial vector file}
+\title{Read species occurrence points from XLSX, CSV or vector files}
 \usage{
 read_occurrences(
   path,
@@ -16,29 +16,44 @@ read_occurrences(
 )
 }
 \arguments{
-\item{path}{Path to a .csv/.tsv/.txt, .xlsx/.xls, or vector file (.shp, .gpkg, .geojson, or a .zip containing a shapefile).}
+\item{path}{Path to the input file.}
 
-\item{species_col}{Optional name of the species column. If NULL it is auto-detected.}
+\item{species_col, lon_col, lat_col}{Optional column names to override
+auto-detection. \code{lon_col}/\code{lat_col} are ignored for vector files
+that already carry geometry.}
 
-\item{lon_col, lat_col}{Optional longitude/latitude column names (for tabular input). If NULL they are auto-detected from common aliases (Darwin Core, x/y, etc.).}
+\item{crs}{Input CRS for tabular coordinates (default \code{4326}). Output is
+always reprojected to WGS84.}
 
-\item{crs}{Coordinate reference system of the input coordinates (default EPSG:4326).}
+\item{sheet}{For Excel inputs, the sheet name or index (default first sheet).}
 
-\item{sheet}{Sheet name or index for Excel files (default: first sheet).}
+\item{sep}{For delimited text, the field separator. If \code{NULL} (default)
+it is guessed from the file extension (\code{.tsv} -> tab, else comma).}
 
-\item{sep}{Field separator for delimited text (default: auto).}
-
-\item{default_species}{Species label used when no species column is found (default "sp1").}
-
+\item{default_species}{Species label used when no species column is found
+(default \code{"sp1"}).}
 }
 \value{
-An sf object of POINT geometries in EPSG:4326 with a `species` column. Rows with missing/invalid coordinates are dropped.
+An \code{sf} of POINT geometries in EPSG:4326 with a \code{species}
+column plus all original attributes.
 }
 \description{
-Imports occurrence points and returns a standardised point sf in WGS84, auto-detecting the species, longitude and latitude columns when they are not supplied.
+Imports occurrence records from a spreadsheet (\code{.xlsx}/\code{.xls}),
+delimited text (\code{.csv}/\code{.tsv}/\code{.txt}) or a vector file
+(\code{.shp}, \code{.gpkg}, \code{.geojson}; for shapefiles you may also pass
+a \code{.zip} containing the .shp/.shx/.dbf/.prj set) and returns a clean
+point \code{sf} in WGS84 (EPSG:4326) with a standardised \code{species}
+column.
+}
+\details{
+Longitude, latitude and species columns are auto-detected from common header
+names (Darwin Core \code{decimalLongitude}/\code{decimalLatitude},
+\code{lon}/\code{lat}, \code{x}/\code{y}, \code{scientificName}, etc.). You can
+override the detection with the corresponding arguments. Rows with missing or
+out-of-range coordinates are dropped with a message.
 }
 \examples{
-f <- system.file("extdata", "example_occurrences.csv", package = "geoConvBR")
+f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
 occ <- read_occurrences(f)
-head(occ)
+table(occ$species)
 }

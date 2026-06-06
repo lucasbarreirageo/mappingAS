@@ -7,15 +7,12 @@
 mb_years(collection = 10)
 }
 \arguments{
-\item{collection}{Integer collection number (default 10).}
-
+\item{collection}{Integer collection number. Only \code{10} (default) is
+currently shipped; other values emit a warning and fall back to 10.}
 }
 \value{
 An integer vector of years (Collection 10 / 9 cover 1985-2024).
 }
 \description{
-Returns the years covered by a MapBiomas collection.
-}
-\examples{
-range(mb_years())
+Years available for a MapBiomas collection
 }

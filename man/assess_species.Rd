@@ -2,7 +2,7 @@
 % Please edit documentation in R/assess.R
 \name{assess_species}
 \alias{assess_species}
-\title{Assess species: EOO, AOO and MapBiomas habitat conversion}
+\title{Assess one or many species: EOO, AOO and MapBiomas habitat conversion}
 \usage{
 assess_species(
   occ,
@@ -18,41 +18,53 @@ assess_species(
 )
 }
 \arguments{
-\item{occ}{A point sf from read_occurrences() (one or more species via a `species` column).}
+\item{occ}{An \code{sf} of POINT geometries from
+\code{\link{read_occurrences}}. If it has a \code{species} column with more
+than one value, every species is assessed in turn.}
 
-\item{year}{MapBiomas year for the cover snapshot (default 2024).}
+\item{year}{Integer MapBiomas year (default \code{2024}, the latest in
+Collection 10).}
 
-\item{collection}{MapBiomas collection (default 10).}
+\item{collection}{Integer MapBiomas collection number (default \code{10}).}
 
-\item{backend}{"local" (windowed GeoTIFF read; default) or "gee" (Earth Engine).}
+\item{backend}{Habitat backend: \code{"local"} (default; \pkg{terra} +
+\code{/vsicurl/} or a local GeoTIFF) or \code{"gee"} (Google Earth Engine
+via \pkg{rgee}).}
 
-\item{cell_km}{AOO grid cell size in kilometres (default 2).}
+\item{cell_km}{AOO grid cell size in km (default \code{2}).}
 
-\item{mapbiomas}{Logical; compute the habitat conversion (default TRUE). If FALSE, only EOO/AOO are returned.}
+\item{mapbiomas}{Logical; if \code{FALSE}, only EOO/AOO are computed and the
+conversion columns are \code{NA} (fast, fully offline).}
 
-\item{src}{Optional GeoTIFF path/URL for the local backend.}
+\item{src}{Optional local path / URL to a MapBiomas GeoTIFF for the local
+backend.}
 
-\item{water_in_denominator}{Logical; treat water as natural in the terrestrial denominator (default FALSE).}
+\item{water_in_denominator}{Passed to \code{\link{summarise_conversion}}.}
 
-\item{min_records}{Minimum number of records for a species to be assessed (default 1).}
+\item{min_records}{Minimum records required to attempt an assessment
+(default \code{1}). Species below this are skipped with a note.}
 
-\item{verbose}{Logical; print progress (default TRUE).}
-
+\item{verbose}{Logical; print progress (default \code{TRUE}).}
 }
 \value{
-An object of class `geoconv_assessment`: a list with `summary` (one row per species), `detail` (per-species geometries and conversion results) and `settings`.
+An object of class \code{geoconv_assessment}: a list with
+\code{summary} (a \code{data.frame}, one row per species) and \code{detail}
+(a named list per species with \code{points}, \code{eoo}, \code{aoo},
+\code{eoo_conversion}, \code{aoo_conversion}).
 }
 \description{
-Runs the full pipeline for each species: EOO, AOO, provisional Criterion B category and, optionally, the MapBiomas land-cover conversion within both the EOO and the AOO.
-}
-\seealso{
-\code{\link{class_table}}, \code{\link{export_ranges}}, \code{\link{timeseries_for_species}}, \code{\link{map_species}}, \code{\link{plot_conversion}}
+End-to-end pipeline. For each species it computes the EOO (minimum convex
+polygon) and AOO (2 km grid), then quantifies the percentage of converted
+(anthropic) and remaining natural habitat from the most recent MapBiomas
+collection inside both the EOO and the AOO. Returns a tidy per-species
+summary plus the spatial objects needed for mapping.
 }
 \examples{
 \dontrun{
-occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
-                                    package = "geoConvBR"))
-res <- assess_species(occ, backend = "local")
+f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
+occ <- read_occurrences(f)
+res <- assess_species(occ, year = 2024)          # local windowed read
 res$summary
+map_species(res, species = res$summary$species[1])
 }
 }

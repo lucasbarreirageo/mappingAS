@@ -1,9 +1,9 @@
 ---
-title: "geoConvBR: triagem do Critério B (EOO, AOO e conversão MapBiomas)"
-author: "geoConvBR"
+title: "mappingAS: triagem do Critério B (EOO, AOO e conversão MapBiomas)"
+author: "mappingAS"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{geoConvBR: triagem do Critério B (EOO, AOO e conversão MapBiomas)}
+  %\VignetteIndexEntry{mappingAS: triagem do Critério B (EOO, AOO e conversão MapBiomas)}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -18,7 +18,7 @@ knitr::opts_chunk$set(
 
 ## O que o pacote faz
 
-`geoConvBR` é uma ferramenta no estilo do [GeoCat](https://geocat.iucnredlist.org/)
+`mappingAS` é uma ferramenta no estilo do [GeoCat](https://geocat.iucnredlist.org/)
 para **triagem do Critério B** da Lista Vermelha da IUCN. A partir de pontos de
 ocorrência (`.xlsx`, `.csv` ou shapefile), ele:
 
@@ -33,7 +33,7 @@ ocorrência (`.xlsx`, `.csv` ou shapefile), ele:
 > EOO/AOO) e servem só para triagem.
 
 ```{r load}
-library(geoConvBR)
+library(mappingAS)
 ```
 
 ## 1. Importar os pontos
@@ -44,7 +44,7 @@ automaticamente** as colunas de espécie, longitude e latitude.
 
 ```{r import}
 # arquivo de exemplo que acompanha o pacote
-ex <- system.file("extdata", "example_occurrences.csv", package = "geoConvBR")
+ex <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
 occ <- read_occurrences(ex)
 
 # se a deteccao falhar, informe as colunas manualmente:

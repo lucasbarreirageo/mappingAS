@@ -15,24 +15,34 @@ mb_class_areas_gee(
 )
 }
 \arguments{
-\item{aoi}{An sf/sfc polygon (any CRS).}
+\item{aoi}{An \code{sf}/\code{sfc} polygon (any CRS).}
 
-\item{year}{Integer year (default 2024).}
+\item{year}{Integer year (default \code{2024}).}
 
-\item{collection}{Integer MapBiomas collection id (default 10).}
+\item{collection}{Integer MapBiomas collection id (default \code{10}).}
 
-\item{version}{Asset version string for the public LULC collection (default "v1").}
+\item{version}{Asset version string for the public LULC collection
+(default \code{"v1"}; some mirrors expose \code{"v2"} for Collection 10.1).}
 
-\item{asset}{Earth Engine ImageCollection id.}
+\item{asset}{Earth Engine \code{ImageCollection} id
+(default \code{"projects/mapbiomas-public/assets/brazil/lulc/v1"}).}
 
-\item{scale}{Nominal pixel scale in metres for the reduction (default 30).}
+\item{scale}{Nominal pixel scale in metres for the reduction (default
+\code{30}).}
 
-\item{max_pixels}{Maximum pixels for the server-side reduction (default 1e13).}
-
+\item{max_pixels}{Maximum pixels for the server-side reduction
+(default \code{1e13}).}
 }
 \value{
-A data.frame with columns code and area_km2.
+A \code{data.frame} with columns \code{code} and \code{area_km2}.
 }
 \description{
-Computes the area (km^2) of each MapBiomas pixel class inside `aoi` entirely on Google Earth Engine, without downloading any raster. Recommended for very large ranges. Requires the rgee package and an initialised Earth Engine session.
+Computes the area (km^2) of each MapBiomas pixel class inside \code{aoi}
+entirely on Google Earth Engine, without downloading any raster. This is the
+recommended backend for very large ranges (e.g. continental EOOs) where a
+local windowed read would transfer too much data.
+}
+\details{
+Requires the \pkg{rgee} package and an initialised Earth Engine session
+(\code{rgee::ee_Initialize()}); see the package README for one-time setup.
 }

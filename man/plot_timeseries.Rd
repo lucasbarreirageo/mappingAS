@@ -7,19 +7,20 @@
 plot_timeseries(ts, title = NULL, legend = TRUE)
 }
 \arguments{
-\item{ts}{A long data frame from cover_timeseries() or timeseries_for_species().}
+\item{ts}{A long data frame from \code{\link{cover_timeseries}} or
+\code{\link{timeseries_for_species}}.}
 
-\item{title}{Optional plot title. If NULL, a title is built from the species/range attributes when present.}
+\item{title}{Optional plot title. If \code{NULL}, a title is built from the
+\code{species}/\code{range} attributes when present.}
 
-\item{legend}{Logical; draw the class legend (default TRUE).}
-
+\item{legend}{Logical; draw the class legend (default \code{TRUE}).}
 }
 \value{
-A ggplot object (invisibly) when ggplot2 is available; otherwise NULL after drawing a base plot.
+A \pkg{ggplot} object (invisibly) when ggplot2 is available; otherwise
+\code{NULL} after drawing a base plot.
 }
 \description{
-Draws percentage of area versus year as stacked areas, one band per class (or group), using the official MapBiomas colours, in the style of the MapBiomas coverage figures. Uses ggplot2 when available, otherwise base graphics.
-}
-\seealso{
-\code{\link{cover_timeseries}}, \code{\link{timeseries_for_species}}
+Draws percentage of area versus year as stacked areas, one band per class (or
+group), using the official MapBiomas colours, in the style of the MapBiomas
+coverage figures. Uses \pkg{ggplot2} when available, otherwise base graphics.
 }

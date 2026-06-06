@@ -27,7 +27,7 @@
 #' @return An \code{sf} of POINT geometries in EPSG:4326 with a \code{species}
 #'   column plus all original attributes.
 #' @examples
-#' f <- system.file("extdata", "example_occurrences.csv", package = "geoConvBR")
+#' f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
 #' occ <- read_occurrences(f)
 #' table(occ$species)
 #' @export
@@ -75,7 +75,7 @@ read_occurrences <- function(path,
 #' @noRd
 .read_vector <- function(path, ext) {
   if (ext == "zip") {
-    tmp <- file.path(tempdir(), paste0("geoConvBR_shp_", as.integer(Sys.time())))
+    tmp <- file.path(tempdir(), paste0("mappingAS_shp_", as.integer(Sys.time())))
     dir.create(tmp, showWarnings = FALSE, recursive = TRUE)
     utils::unzip(path, exdir = tmp)
     shp <- list.files(tmp, pattern = "\\.shp$", recursive = TRUE, full.names = TRUE)

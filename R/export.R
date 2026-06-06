@@ -13,7 +13,7 @@
 #'
 #' @param assessment A `geoconv_assessment` object from [assess_species()].
 #' @param dir Output directory (created if it does not exist). Default `"."`.
-#' @param layer_prefix File/layer name prefix. Default `"geoConvBR"`.
+#' @param layer_prefix File/layer name prefix. Default `"mappingAS"`.
 #' @param what Which ranges to export: `"both"` (default), `"eoo"` or `"aoo"`.
 #' @param format `"shapefile"` (default; one file set per range, i.e.
 #'   `*_EOO.shp` and `*_AOO.shp`) or `"gpkg"` (a single GeoPackage holding both
@@ -44,7 +44,7 @@
 #' @examples
 #' \dontrun{
 #' occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
-#'                                     package = "geoConvBR"))
+#'                                     package = "mappingAS"))
 #' res <- assess_species(occ, mapbiomas = FALSE)
 #'
 #' # Two shapefiles (EOO + AOO) in the current directory:
@@ -57,7 +57,7 @@
 #' export_ranges(res, zip = TRUE)
 #' }
 #' @export
-export_ranges <- function(assessment, dir = ".", layer_prefix = "geoConvBR",
+export_ranges <- function(assessment, dir = ".", layer_prefix = "mappingAS",
                           what = c("both", "eoo", "aoo"),
                           format = c("shapefile", "gpkg"),
                           crs = 4326, aoo_as = c("union", "cells"),

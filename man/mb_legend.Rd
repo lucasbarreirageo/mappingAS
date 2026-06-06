@@ -7,14 +7,29 @@
 mb_legend(collection = 10)
 }
 \arguments{
-\item{collection}{Integer collection number. Only 10 (default) is shipped; other values warn and fall back to 10.}
-
+\item{collection}{Integer collection number. Only \code{10} (default) is
+currently shipped; other values emit a warning and fall back to 10.}
 }
 \value{
-A data.frame with columns code, class_en, class_pt, hex (official MapBiomas colour), level1 and group.
+A \code{data.frame} with columns \code{code}, \code{class_en},
+\code{class_pt}, \code{hex} (official MapBiomas colour), \code{level1} and
+\code{group}.
 }
 \description{
-Returns the official MapBiomas land-use/land-cover legend for Collection 10 (Brazil), with each pixel class assigned to a conservation-relevant group: "natural", "anthropic", "water", "not_observed" or "other".
+Returns the official MapBiomas land-use/land-cover legend for Collection 10
+(Brazil), with each pixel class assigned to a conservation-relevant group:
+\code{"natural"}, \code{"anthropic"}, \code{"water"}, \code{"not_observed"} or
+\code{"other"}. The \code{"anthropic"} classes are what counts as
+\emph{converted} habitat; \code{"natural"} is the remaining (current) natural
+habitat. By default \code{"water"}, \code{"not_observed"} and \code{"other"}
+are excluded from the conversion denominator (see
+\code{\link{summarise_conversion}}).
+}
+\details{
+Codes follow "Códigos das classes da legenda da Coleção 10 do MapBiomas
+Brasil". A handful of parent/aggregation codes (e.g. 10, 13, 14, 18, 19, 36)
+and codes from neighbouring collections are included so the table also works
+if applied to Collection 9 rasters; unused codes simply contribute zero area.
 }
 \examples{
 head(mb_legend())

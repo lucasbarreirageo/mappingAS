@@ -4,21 +4,27 @@
 \alias{mb_palette}
 \title{Official MapBiomas colours for a set of class codes}
 \usage{
-mb_palette(codes = NULL, collection = 10, by = c("code", "class_pt", "class_en"))
+mb_palette(
+  codes = NULL,
+  collection = 10,
+  by = c("code", "class_pt", "class_en")
+)
 }
 \arguments{
-\item{codes}{Optional integer vector of MapBiomas pixel codes. If NULL (default) colours for the full legend are returned.}
+\item{codes}{Optional integer vector of MapBiomas pixel codes. If \code{NULL}
+(default) colours for the full legend are returned.}
 
-\item{collection}{Integer collection number (default 10).}
+\item{collection}{Integer collection number. Only \code{10} (default) is
+currently shipped; other values emit a warning and fall back to 10.}
 
-\item{by}{One of "code" (names are codes) or "class_pt"/"class_en" (names are class labels). Default "code".}
-
+\item{by}{One of \code{"code"} (names are codes) or \code{"class_pt"} /
+\code{"class_en"} (names are class labels). Default \code{"code"}.}
 }
 \value{
 A named character vector of hex colours.
 }
 \description{
-Returns the official MapBiomas hex colours for the requested class codes.
+Official MapBiomas colours for a set of class codes
 }
 \examples{
 mb_palette(c(3, 15, 39, 33))

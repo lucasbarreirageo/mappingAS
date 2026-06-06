@@ -7,14 +7,16 @@
 map_species(assessment, species = NULL)
 }
 \arguments{
-\item{assessment}{A `geoconv_assessment` from assess_species().}
+\item{assessment}{A \code{geoconv_assessment} from
+\code{\link{assess_species}}.}
 
-\item{species}{Species name to plot. If NULL, the first assessed species is used.}
-
+\item{species}{Species name to plot. If \code{NULL}, the first assessed
+species is used.}
 }
 \value{
-A leaflet widget.
+A \code{leaflet} widget.
 }
 \description{
-Builds a leaflet map showing the occurrence points, the EOO hull and the occupied AOO cells for one species.
+Builds a \pkg{leaflet} map showing the occurrence points, the EOO hull and
+the occupied AOO cells for one species from an assessment.
 }

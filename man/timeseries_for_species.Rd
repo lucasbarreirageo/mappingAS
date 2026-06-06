@@ -15,21 +15,20 @@ timeseries_for_species(
 )
 }
 \arguments{
-\item{assessment}{A `geoconv_assessment` from assess_species().}
+\item{assessment}{A \code{geoconv_assessment} from \code{\link{assess_species}}.}
 
 \item{species}{Species name (default: first assessed species).}
 
-\item{range}{"eoo" (default) or "aoo".}
+\item{range}{\code{"eoo"} (default) or \code{"aoo"}.}
 
-\item{years, by, src, verbose}{Passed to cover_timeseries().}
-
+\item{years, by, src, verbose}{Passed to \code{\link{cover_timeseries}}.}
 }
 \value{
-The long data frame from cover_timeseries(), with attributes `species` and `range` set.
+The long data frame from \code{\link{cover_timeseries}}, with
+attributes \code{species} and \code{range} set.
 }
 \description{
-Convenience wrapper that pulls the stored EOO hull or AOO geometry from an assessment and runs cover_timeseries() on it, reusing the assessment's collection and backend by default.
-}
-\seealso{
-\code{\link{cover_timeseries}}, \code{\link{plot_timeseries}}
+Convenience wrapper that pulls the stored EOO hull or AOO geometry from an
+assessment and runs \code{\link{cover_timeseries}} on it, reusing the
+assessment's collection and backend by default.
 }

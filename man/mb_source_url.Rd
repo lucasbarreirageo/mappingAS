@@ -9,14 +9,14 @@ mb_source_url(year = 2024, collection = 10)
 \arguments{
 \item{year}{Integer year (1985-2024 for Collection 10).}
 
-\item{collection}{Integer collection number (default 10).}
-
+\item{collection}{Integer collection number (default \code{10}).}
 }
 \value{
 A length-1 character URL.
 }
 \description{
-Returns the public Google Cloud Storage URL of the MapBiomas Brazil land-use/land-cover annual mosaic.
+Returns the public Google Cloud Storage URL of the MapBiomas Brazil
+land-use/land-cover annual mosaic. Collection 10 covers 1985-2024.
 }
 \examples{
 mb_source_url(2024)

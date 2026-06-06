@@ -1,4 +1,4 @@
-Package: geoConvBR
+Package: mappingAS
 Type: Package
 Title: Range Metrics (EOO/AOO) and MapBiomas Habitat Conversion for Species Assessment
 Version: 0.1.0
@@ -50,5 +50,5 @@ VignetteBuilder: knitr
 Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.1
-URL: https://github.com/seu-usuario/geoConvBR
-BugReports: https://github.com/seu-usuario/geoConvBR/issues
+URL: https://github.com/seu-usuario/mappingAS
+BugReports: https://github.com/seu-usuario/mappingAS/issues

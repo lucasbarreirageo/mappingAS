@@ -1,5 +1,5 @@
 test_that("read_occurrences imports the bundled example", {
-  f <- system.file("extdata", "example_occurrences.csv", package = "geoConvBR")
+  f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
   skip_if(f == "", "example file not installed")
   occ <- read_occurrences(f)
   expect_s3_class(occ, "sf")
