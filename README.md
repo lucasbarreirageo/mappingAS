@@ -1,4 +1,4 @@
-# geoConvBR <img src="man/figures/logo1.png" align="right" height="139" />
+# geoConvBR <img src="man/figures/featured_Resultado.png" align="right" height="139" />
 
 **Métricas de distribuição (EOO/AOO) e conversão de habitat (MapBiomas) para avaliação de espécies — no estilo do GeoCat.**
 
