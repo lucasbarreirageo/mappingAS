@@ -23,7 +23,7 @@ remotes::install_github("seu-usuario/geoConvBR")
 
 Dependências principais (instaladas automaticamente): `sf`, `terra`, `readxl`, `dplyr`, `leaflet`, `DT`, `shiny`, `bslib`.
 
-O backend **local** do MapBiomas usa o **GDAL com `/vsicurl/`**, que acompanha o `terra`/`sf` — **não é preciso conta no Google Earth Engine nem baixar o mosaico nacional inteiro** (apenas a janela da área de cada espécie é lida pela internet).
+O backend **local** do MapBiomas usa o **GDAL com `/vsicurl/`**, que acompanha o `terra`/`sf` — **não é preciso conta no Google Earth Engine nem baixar o mosaico nacional inteiro** (apenas a janela da área de cada espécie é lida).
 
 O backend opcional via Earth Engine requer `rgee` configurado:
 
@@ -50,7 +50,8 @@ occ <- read_occurrences("minhas_ocorrencias.xlsx")
 #                         lat_col = "latitude")
 
 # 2. Rodar a avaliação completa (EOO, AOO e conversão MapBiomas)
-res <- assess_species(occ, year = 2024, collection = 10, backend = "local")
+res <- assess_speci
+s(occ, year = 2024, collection = 10, backend = "local")
 
 # 3. Ver a tabela-resumo (uma linha por espécie)
 res$summary
@@ -83,7 +84,7 @@ library(geoConvBR)
 run_app()
 ```
 
-No app você pode: enviar o arquivo (`.xlsx`/`.csv`/`.shp` em `.zip`), mapear colunas se necessário, escolher o **ano** (1985–2024) e a **coleção** do MapBiomas, o **tamanho da célula** do AOO, o **backend** (local/GEE), **baixar os resultados em CSV** e **baixar o EOO e o AOO** como **shapefile (.zip)** ou **GeoPackage (.gpkg)**. Há abas de **Resultados**, **Mapa**, **Conversão** e **Métodos**.
+Na aplicação você pode: enviar o arquivo (`.xlsx`/`.csv`/`.shp` em `.zip`), mapear colunas se necessário, escolher o **ano** (1985–2024) e a **coleção** do MapBiomas, o **tamanho da célula** do AOO, o **backend** (local/GEE), **baixar os resultados em CSV** e **baixar o EOO e o AOO** como **shapefile (.zip)** ou **GeoPackage (.gpkg)**. Há abas de **Resultados**, **Mapa**, **Conversão** e **Métodos**.
 
 ---
 
