@@ -4,9 +4,10 @@
 #' enclosing all occurrence points, following IUCN Red List guidelines and
 #' GeoCat. The hull is built and measured on a data-centred equal-area
 #' projection (see \code{\link{laea_crs}}) to avoid areal distortion. A polygon
-#' requires at least three non-collinear points; with fewer points the EOO is
-#' returned as \code{NA} (as in GeoCat, where EOO is undefined / 0 for 1-2
-#' points).
+#' requires at least three non-collinear points; with fewer than three points,
+#' or with perfectly collinear points (where the hull degenerates to a line),
+#' the EOO is returned as \code{NA} (as in GeoCat, where EOO is undefined / 0
+#' for such cases).
 #'
 #' @param points An \code{sf} of POINT geometries (one species). Use
 #'   \code{\link{read_occurrences}} to produce it.
@@ -37,8 +38,15 @@ calc_eoo <- function(points) {
   crs_laea <- laea_crs(pts)
   pts_p <- sf::st_transform(pts, crs_laea)
   hull_p <- sf::st_convex_hull(sf::st_union(pts_p))
-  area <- as.numeric(sf::st_area(hull_p)) / 1e6  # m^2 -> km^2
 
+  # >= 3 unique but collinear points yield a LINESTRING/POINT, not a polygon:
+  # the EOO is undefined (avoids a spurious area of 0 and a non-polygon hull).
+  if (!(as.character(sf::st_geometry_type(hull_p)) %in% c("POLYGON", "MULTIPOLYGON"))) {
+    message("EOO undefined: collinear points (no polygon); returning NA.")
+    return(out)
+  }
+
+  area <- as.numeric(sf::st_area(hull_p)) / 1e6  # m^2 -> km^2
   out$area_km2 <- area
   out$hull <- sf::st_transform(hull_p, 4326)
   out$crs_laea <- crs_laea
@@ -102,3 +110,4 @@ calc_aoo <- function(points, cell_km = 2, origin = c(0, 0)) {
     crs_laea = crs_laea
   )
 }
+

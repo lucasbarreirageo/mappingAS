@@ -12,6 +12,8 @@ read_occurrences(
   crs = 4326,
   sheet = NULL,
   sep = NULL,
+  dec = NULL,
+  encoding = "UTF-8",
   default_species = "sp1"
 )
 }
@@ -28,7 +30,14 @@ always reprojected to WGS84.}
 \item{sheet}{For Excel inputs, the sheet name or index (default first sheet).}
 
 \item{sep}{For delimited text, the field separator. If \code{NULL} (default)
-it is guessed from the file extension (\code{.tsv} -> tab, else comma).}
+it is auto-detected from the header line (\code{;}, \code{,} or tab).}
+
+\item{dec}{Decimal mark for delimited text. If \code{NULL} (default) it is
+inferred from \code{sep} (\code{,} when \code{sep} is \code{;}, else
+\code{.}), matching Brazilian Excel exports.}
+
+\item{encoding}{File encoding for delimited text (default \code{"UTF-8"};
+use e.g. \code{"latin1"} for Windows-1252 files).}
 
 \item{default_species}{Species label used when no species column is found
 (default \code{"sp1"}).}
@@ -51,6 +60,10 @@ names (Darwin Core \code{decimalLongitude}/\code{decimalLatitude},
 \code{lon}/\code{lat}, \code{x}/\code{y}, \code{scientificName}, etc.). You can
 override the detection with the corresponding arguments. Rows with missing or
 out-of-range coordinates are dropped with a message.
+
+For delimited text the field separator and decimal mark are auto-detected, so
+Brazilian-style CSVs exported from Excel (\code{;} separator, \code{,}
+decimals, optional UTF-8 BOM) are read correctly without extra arguments.
 }
 \examples{
 f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")

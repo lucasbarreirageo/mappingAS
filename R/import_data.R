@@ -13,6 +13,10 @@
 #' override the detection with the corresponding arguments. Rows with missing or
 #' out-of-range coordinates are dropped with a message.
 #'
+#' For delimited text the field separator and decimal mark are auto-detected, so
+#' Brazilian-style CSVs exported from Excel (\code{;} separator, \code{,}
+#' decimals, optional UTF-8 BOM) are read correctly without extra arguments.
+#'
 #' @param path Path to the input file.
 #' @param species_col,lon_col,lat_col Optional column names to override
 #'   auto-detection. \code{lon_col}/\code{lat_col} are ignored for vector files
@@ -21,7 +25,12 @@
 #'   always reprojected to WGS84.
 #' @param sheet For Excel inputs, the sheet name or index (default first sheet).
 #' @param sep For delimited text, the field separator. If \code{NULL} (default)
-#'   it is guessed from the file extension (\code{.tsv} -> tab, else comma).
+#'   it is auto-detected from the header line (\code{;}, \code{,} or tab).
+#' @param dec Decimal mark for delimited text. If \code{NULL} (default) it is
+#'   inferred from \code{sep} (\code{,} when \code{sep} is \code{;}, else
+#'   \code{.}), matching Brazilian Excel exports.
+#' @param encoding File encoding for delimited text (default \code{"UTF-8"};
+#'   use e.g. \code{"latin1"} for Windows-1252 files).
 #' @param default_species Species label used when no species column is found
 #'   (default \code{"sp1"}).
 #' @return An \code{sf} of POINT geometries in EPSG:4326 with a \code{species}
@@ -38,6 +47,8 @@ read_occurrences <- function(path,
                              crs = 4326,
                              sheet = NULL,
                              sep = NULL,
+                             dec = NULL,
+                             encoding = "UTF-8",
                              default_species = "sp1") {
   if (!file.exists(path)) stop("File not found: ", path, call. = FALSE)
   ext <- tolower(tools::file_ext(path))
@@ -48,7 +59,8 @@ read_occurrences <- function(path,
     occ <- .standardise_species(occ, species_col, default_species)
     occ <- sf::st_transform(occ, 4326)
   } else {
-    df <- .read_table(path, ext, sheet = sheet, sep = sep)
+    df <- .read_table(path, ext, sheet = sheet, sep = sep, dec = dec,
+                      file_encoding = encoding)
     occ <- .table_to_sf(df, species_col, lon_col, lat_col, crs, default_species)
   }
 
@@ -60,23 +72,39 @@ read_occurrences <- function(path,
 
 #' @keywords internal
 #' @noRd
-.read_table <- function(path, ext, sheet = NULL, sep = NULL) {
+.read_table <- function(path, ext, sheet = NULL, sep = NULL, dec = NULL,
+                        file_encoding = "UTF-8") {
   if (ext %in% c("xlsx", "xls")) {
     if (is.null(sheet)) sheet <- 1
-    as.data.frame(readxl::read_excel(path, sheet = sheet))
-  } else {
-    if (is.null(sep)) sep <- if (ext == "tsv") "\t" else ","
-    utils::read.csv(path, sep = sep, stringsAsFactors = FALSE,
-                    check.names = FALSE, fileEncoding = "UTF-8")
+    return(as.data.frame(readxl::read_excel(path, sheet = sheet)))
   }
+
+  hdr <- readLines(path, n = 1L, warn = FALSE)
+  if (!length(hdr)) hdr <- ""
+  hdr <- sub("^\ufeff", "", hdr)            # drop UTF-8 BOM before sniffing
+
+  if (is.null(sep)) {
+    count <- function(ch) lengths(regmatches(hdr, gregexpr(ch, hdr, fixed = TRUE)))
+    cnt <- c(";" = count(";"), "," = count(","), "\t" = count("\t"))
+    sep <- if (max(cnt) == 0) "," else names(cnt)[which.max(cnt)]
+  }
+  if (is.null(dec)) dec <- if (identical(sep, ";")) "," else "."
+
+  # comment.char = "" reproduces read.csv(): a '#' in a field is data, not a comment
+  df <- utils::read.table(path, sep = sep, dec = dec, header = TRUE,
+                          stringsAsFactors = FALSE, check.names = FALSE,
+                          quote = "\"", fill = TRUE, comment.char = "",
+                          fileEncoding = file_encoding)
+  names(df) <- sub("^\ufeff", "", names(df))  # strip BOM left on first column
+  df
 }
 
 #' @keywords internal
 #' @noRd
 .read_vector <- function(path, ext) {
   if (ext == "zip") {
-    tmp <- file.path(tempdir(), paste0("mappingAS_shp_", as.integer(Sys.time())))
-    dir.create(tmp, showWarnings = FALSE, recursive = TRUE)
+    tmp <- tempfile("mappingAS_shp_")
+    dir.create(tmp)
     utils::unzip(path, exdir = tmp)
     shp <- list.files(tmp, pattern = "\\.shp$", recursive = TRUE, full.names = TRUE)
     if (!length(shp)) stop("No .shp found inside the zip archive.", call. = FALSE)
