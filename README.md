@@ -201,40 +201,6 @@ Cada ano é lido separadamente do MapBiomas (uma janela do GeoTIFF por ano), ent
 
 ---
 
-## Desenvolvimento
-
-```r
-# Na raiz do pacote:
-devtools::document()   # regenera man/*.Rd e o NAMESPACE a partir do roxygen
-devtools::test()       # roda os testes offline (testthat)
-devtools::build_vignettes()
-devtools::check()      # checagem completa do pacote
-```
-
-A documentação (`man/*.Rd`) já acompanha o pacote, mas é regenerada por
-`devtools::document()` sempre que você editar os comentários roxygen. A vinheta
-(tutorial passo a passo) fica em `vignettes/geoConvBR.Rmd` e pode ser lida com
-`vignette("geoConvBR")` depois de instalada.
-
-## Publicar no GitHub (com checagem automática)
-
-O pacote já inclui um workflow de **R CMD check** em
-`.github/workflows/R-CMD-check.yaml` (Linux, macOS e Windows). Para publicar:
-
-```bash
-git init
-git add .
-git commit -m "geoConvBR 0.1.0"
-git branch -M main
-git remote add origin https://github.com/seu-usuario/geoConvBR.git
-git push -u origin main
-```
-
-A cada push/PR o GitHub Actions roda `R CMD check` automaticamente. Lembre de
-atualizar o campo `Authors@R` e as URLs no `DESCRIPTION` com seus dados.
-
----
-
 ## Citação
 
 Ao usar este pacote, cite também as fontes de dados e métodos:
