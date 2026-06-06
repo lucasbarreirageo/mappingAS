@@ -18,7 +18,7 @@
 
 ```r
 # install.packages("remotes")
-remotes::install_github("seu-usuario/geoConvBR")
+remotes::install_github("lucasbarreirageo/geoConvBR")
 ```
 
 Dependências principais (instaladas automaticamente): `sf`, `terra`, `readxl`, `dplyr`, `leaflet`, `DT`, `shiny`, `bslib`.
