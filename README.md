@@ -1,5 +1,5 @@
 # geoConvBR
-
+# geoConvBR <img src="man/figures/logo.png" align="right" height="139" />
 **Métricas de distribuição (EOO/AOO) e conversão de habitat (MapBiomas) para avaliação de espécies — no estilo do GeoCat.**
 
 `geoConvBR` é um pacote R com interface Shiny para triagem do **Critério B** da Lista Vermelha da IUCN. Ele:
