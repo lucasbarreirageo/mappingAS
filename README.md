@@ -1,8 +1,8 @@
-# geoConvBR <img src="man/figures/featured_Resultado.png" align="right" height="139" />
+# mappingAS <img src="man/figures/featured_Resultado.png" align="right" height="139" />
 
 **Métricas de distribuição (EOO/AOO) e conversão de habitat (MapBiomas) para avaliação de espécies — no estilo do GeoCat.**
 
-`geoConvBR` é um pacote R com interface Shiny para triagem do **Critério B** da Lista Vermelha da IUCN. Ele:
+`mappingAS` é um pacote R com interface Shiny para triagem do **Critério B** da Lista Vermelha da IUCN. Ele:
 
 1. **Importa pontos de ocorrência** a partir de `.xlsx`, `.csv` e **shapefile** (também `.gpkg`, `.geojson`, `.zip`), detectando automaticamente as colunas de espécie, longitude e latitude;
 2. Calcula a **Extensão de Ocorrência (EOO**, polígono convexo mínimo) e a **Área de Ocupação (AOO**, grade de 2 km), em projeção de áreas iguais centrada nos dados;
@@ -18,7 +18,7 @@
 
 ```r
 # install.packages("remotes")
-remotes::install_github("lucasbarreirageo/geoConvBR")
+remotes::install_github("lucasbarreirageo/mappingAS")
 ```
 
 Dependências principais (instaladas automaticamente): `sf`, `terra`, `readxl`, `dplyr`, `leaflet`, `DT`, `shiny`, `bslib`.
@@ -38,7 +38,7 @@ rgee::ee_Initialize()   # autentica na sua conta Earth Engine
 ## Uso rápido (linha de comando)
 
 ```r
-library(geoConvBR)
+library(mappingAS)
 
 # 1. Importar pontos (csv/xlsx/shp) — detecta colunas automaticamente
 occ <- read_occurrences("minhas_ocorrencias.xlsx")
@@ -61,7 +61,7 @@ map_species(res)            # leaflet com pontos + EOO + AOO
 plot_conversion(res)        # barras natural vs. convertido
 
 # 5. Exportar EOO e AOO como dados espaciais (shapefile ou GeoPackage)
-export_ranges(res)                      # cria geoConvBR_EOO.shp e geoConvBR_AOO.shp
+export_ranges(res)                      # cria mappingAS_EOO.shp e mappingAS_AOO.shp
 export_ranges(res, format = "gpkg")     # um GeoPackage com as camadas eoo e aoo
 export_ranges(res, zip = TRUE)          # tudo num único .zip (bom para enviar)
 ```
@@ -69,7 +69,7 @@ export_ranges(res, zip = TRUE)          # tudo num único .zip (bom para enviar)
 ### Exemplo incluído
 
 ```r
-ex <- system.file("extdata", "example_occurrences.csv", package = "geoConvBR")
+ex <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
 occ <- read_occurrences(ex)
 res <- assess_species(occ, backend = "local")
 res
@@ -80,7 +80,7 @@ res
 ## Aplicativo Shiny
 
 ```r
-library(geoConvBR)
+library(mappingAS)
 run_app()
 ```
 
@@ -117,7 +117,7 @@ Como o **shapefile limita nomes de campo a 10 caracteres**, a tabela de atributo
 
 O **GeoPackage** (`format = "gpkg"`) guarda as duas camadas (`eoo` e `aoo`) em **um único arquivo** e não tem o limite de 10 caracteres — é a opção mais prática para abrir no QGIS.
 
-> Por padrão, `export_ranges()` também grava `geoConvBR_classes.csv` com a **área e o % de cada classe** do MapBiomas (todas as classes) dentro do EOO e do AOO. Desligue com `class_csv = FALSE`.
+> Por padrão, `export_ranges()` também grava `mappingAS_classes.csv` com a **área e o % de cada classe** do MapBiomas (todas as classes) dentro do EOO e do AOO. Desligue com `class_csv = FALSE`.
 
 ---
 
