@@ -1,4 +1,4 @@
-#' Launch the geoConvBR Shiny application
+#' Launch the mappingAS Shiny application
 #'
 #' Starts the interactive app for uploading occurrences, computing EOO/AOO and
 #' MapBiomas habitat conversion, and exploring/exporting the results.
@@ -16,9 +16,9 @@ run_app <- function(launch.browser = TRUE, ...) {
       stop("Package '", p, "' is required to run the app.", call. = FALSE)
     }
   }
-  app_dir <- system.file("shiny", package = "geoConvBR")
+  app_dir <- system.file("shiny", package = "mappingAS")
   if (app_dir == "" || !file.exists(file.path(app_dir, "app.R"))) {
-    stop("Could not locate the Shiny app. Reinstall geoConvBR.", call. = FALSE)
+    stop("Could not locate the Shiny app. Reinstall mappingAS.", call. = FALSE)
   }
   shiny::runApp(app_dir, launch.browser = launch.browser, ...)
 }

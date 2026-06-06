@@ -15,7 +15,7 @@
 #'   \code{sfc} in WGS84, or \code{NULL}) and \code{crs_laea} (the equal-area
 #'   proj string used).
 #' @examples
-#' f <- system.file("extdata", "example_occurrences.csv", package = "geoConvBR")
+#' f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
 #' occ <- read_occurrences(f)
 #' sp1 <- occ[occ$species == occ$species[1], ]
 #' calc_eoo(sp1)$area_km2
@@ -64,7 +64,7 @@ calc_eoo <- function(points) {
 #'   \code{cells} (occupied cells as an \code{sfc} polygon set in WGS84) and
 #'   \code{crs_laea}.
 #' @examples
-#' f <- system.file("extdata", "example_occurrences.csv", package = "geoConvBR")
+#' f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
 #' occ <- read_occurrences(f)
 #' sp1 <- occ[occ$species == occ$species[1], ]
 #' calc_aoo(sp1)$area_km2

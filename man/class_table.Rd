@@ -7,21 +7,25 @@
 class_table(assessment, species = NULL, range = c("both", "eoo", "aoo"))
 }
 \arguments{
-\item{assessment}{A `geoconv_assessment` from assess_species() (run with mapbiomas = TRUE).}
+\item{assessment}{A \code{geoconv_assessment} from \code{\link{assess_species}}
+(run with \code{mapbiomas = TRUE}).}
 
-\item{species}{Optional species name or vector. NULL (default) uses all assessed species.}
+\item{species}{Optional species name (or vector). \code{NULL} (default) uses
+all assessed species.}
 
-\item{range}{"both" (default), "eoo" or "aoo".}
-
+\item{range}{\code{"both"} (default), \code{"eoo"} or \code{"aoo"}.}
 }
 \value{
-A long data.frame with columns species, range ("EOO"/"AOO"), code, class_pt, class_en, group, area_km2 and pct (percentage of the mapped area within that range). Empty (with a warning) if MapBiomas was not computed.
+A long \code{data.frame} with columns \code{species}, \code{range}
+(\code{"EOO"}/\code{"AOO"}), \code{code}, \code{class_pt}, \code{class_en},
+\code{group}, \code{area_km2} and \code{pct} (percentage of the mapped area
+within that range). Empty (with a warning) if MapBiomas was not computed.
 }
 \description{
-Returns, for each species, the area and percentage of every MapBiomas class found inside the EOO and/or the AOO, complementing the headline natural-versus-converted summary.
-}
-\seealso{
-\code{\link{assess_species}}, \code{\link{summarise_conversion}}
+Returns, for each species, the area and percentage of \emph{every} MapBiomas
+class found inside the EOO and/or the AOO. This complements the headline
+natural-versus-converted summary in \code{\link{assess_species}} with the full
+class-by-class breakdown.
 }
 \examples{
 \dontrun{

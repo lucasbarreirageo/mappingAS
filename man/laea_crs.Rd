@@ -7,13 +7,15 @@
 laea_crs(geom)
 }
 \arguments{
-\item{geom}{An sf or sfc object (any CRS; treated as WGS84 lon/lat for the centroid computation).}
-
+\item{geom}{An \code{sf} or \code{sfc} object (any CRS; will be treated as
+WGS84 longitude/latitude for centroid computation).}
 }
 \value{
-A character proj4 string suitable for sf::st_transform().
+A character proj4 string suitable for \code{sf::st_transform()}.
 }
 \description{
-EOO and AOO must be measured on an equal-area projection. This helper returns a LAEA proj string centred on the centroid of geom, minimising areal distortion for the extent of a single species.
+EOO and AOO must be measured on an equal-area projection. This helper returns
+a LAEA proj string centred on the centroid of \code{geom}, which minimises
+areal distortion for the spatial extent of a single species.
 }
 \keyword{internal}

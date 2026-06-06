@@ -7,14 +7,17 @@
 plot_conversion(assessment, species = NULL)
 }
 \arguments{
-\item{assessment}{A `geoconv_assessment`.}
+\item{assessment}{A \code{geoconv_assessment}.}
 
 \item{species}{Species name (default: first).}
-
 }
 \value{
 Invisibly, the plotted percentage matrix.
 }
 \description{
-Draws two horizontal stacked bars (EOO and AOO) with the MapBiomas composition as a percentage of the mapped area: natural, altered (anthropic), water and other. Segment labels sit inside each bar and the legend below the plot, so nothing overlaps.
+Draws, for one species, two horizontal stacked bars (EOO and AOO) showing the
+MapBiomas composition as a percentage of the mapped (observed) area: natural,
+altered (anthropic), water and other. Segment labels are placed inside each
+bar and the legend sits below the plot, so nothing overlaps. The headline
+\emph{terrestrial} converted percentage is shown as a subtitle.
 }

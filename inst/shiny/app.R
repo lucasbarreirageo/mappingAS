@@ -1,18 +1,18 @@
-## geoConvBR Shiny app
-## Launch with: geoConvBR::run_app()
+## mappingAS Shiny app
+## Launch with: mappingAS::run_app()
 
 suppressMessages({
   library(shiny)
   library(bslib)
   library(leaflet)
   library(DT)
-  if (requireNamespace("geoConvBR", quietly = TRUE)) library(geoConvBR)
+  if (requireNamespace("mappingAS", quietly = TRUE)) library(mappingAS)
 })
 
 `%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || identical(a, "")) b else a
 
 ui <- bslib::page_sidebar(
-  title = "geoConvBR — EOO/AOO & conversão de habitat (MapBiomas)",
+  title = "mappingAS — EOO/AOO & conversão de habitat (MapBiomas)",
   theme = bslib::bs_theme(version = 5, primary = "#1f8d49"),
   sidebar = bslib::sidebar(
     width = 360,
@@ -144,7 +144,7 @@ server <- function(input, output, session) {
     ext <- tools::file_ext(orig)
     dest <- file.path(tempdir(), paste0("upload_", as.integer(Sys.time()), ".", ext))
     file.copy(input$file$datapath, dest, overwrite = TRUE)
-    geoConvBR::read_occurrences(
+    mappingAS::read_occurrences(
       dest,
       species_col = input$species_col %||% NULL,
       lon_col = input$lon_col %||% NULL,
@@ -169,7 +169,7 @@ server <- function(input, output, session) {
     withProgress(message = "Avaliando especies...", value = 0, {
       sp <- unique(o$species); n <- length(sp)
       res <- tryCatch(
-        geoConvBR::assess_species(
+        mappingAS::assess_species(
           o,
           year = as.integer(input$year),
           collection = as.integer(input$collection),
@@ -208,16 +208,16 @@ server <- function(input, output, session) {
 
   output$map <- leaflet::renderLeaflet({
     req(result(), input$map_species)
-    geoConvBR::map_species(result(), species = input$map_species)
+    mappingAS::map_species(result(), species = input$map_species)
   })
 
   output$chart <- renderPlot({
     req(result(), input$chart_species)
-    geoConvBR::plot_conversion(result(), species = input$chart_species)
+    mappingAS::plot_conversion(result(), species = input$chart_species)
   })
 
   output$dl_csv <- downloadHandler(
-    filename = function() paste0("geoConvBR_resultados_", Sys.Date(), ".csv"),
+    filename = function() paste0("mappingAS_resultados_", Sys.Date(), ".csv"),
     content = function(file) {
       req(result())
       utils::write.csv(result()$summary, file, row.names = FALSE, fileEncoding = "UTF-8")
@@ -227,15 +227,15 @@ server <- function(input, output, session) {
   output$dl_ranges <- downloadHandler(
     filename = function() {
       ext <- if (identical(input$export_fmt, "gpkg")) "gpkg" else "zip"
-      paste0("geoConvBR_EOO_AOO_", Sys.Date(), ".", ext)
+      paste0("mappingAS_EOO_AOO_", Sys.Date(), ".", ext)
     },
     content = function(file) {
       req(result())
       tmp <- file.path(tempdir(), paste0("ranges_", as.integer(Sys.time())))
       dir.create(tmp, showWarnings = FALSE, recursive = TRUE)
       out <- tryCatch(
-        geoConvBR::export_ranges(
-          result(), dir = tmp, layer_prefix = "geoConvBR",
+        mappingAS::export_ranges(
+          result(), dir = tmp, layer_prefix = "mappingAS",
           format = input$export_fmt,
           zip = identical(input$export_fmt, "shapefile")
         ),
@@ -254,7 +254,7 @@ server <- function(input, output, session) {
   output$class_tbl <- DT::renderDT({
     req(result(), input$class_species)
     df <- tryCatch(
-      geoConvBR::class_table(result(), species = input$class_species, range = "both"),
+      mappingAS::class_table(result(), species = input$class_species, range = "both"),
       error = function(e) data.frame())
     validate(need(nrow(df) > 0,
                   "Sem dados por classe. Ative 'Calcular conversao MapBiomas' e reavalie."))
@@ -264,10 +264,10 @@ server <- function(input, output, session) {
   })
 
   output$dl_classes <- downloadHandler(
-    filename = function() paste0("geoConvBR_classes_", Sys.Date(), ".csv"),
+    filename = function() paste0("mappingAS_classes_", Sys.Date(), ".csv"),
     content = function(file) {
       req(result())
-      df <- tryCatch(geoConvBR::class_table(result(), range = "both"),
+      df <- tryCatch(mappingAS::class_table(result(), range = "both"),
                      error = function(e) data.frame())
       utils::write.csv(df, file, row.names = FALSE, fileEncoding = "UTF-8")
     }
@@ -277,12 +277,12 @@ server <- function(input, output, session) {
   ts_data <- eventReactive(input$ts_run, {
     req(result(), input$ts_species)
     coll <- as.integer(input$collection)
-    yy <- geoConvBR::mb_years(coll)
+    yy <- mappingAS::mb_years(coll)
     step <- max(1L, as.integer(input$ts_step))
     yrs <- sort(unique(c(seq(min(yy), max(yy), by = step), max(yy))))
     withProgress(message = "Calculando serie temporal...", value = 0, {
       ts <- tryCatch(
-        geoConvBR::timeseries_for_species(
+        mappingAS::timeseries_for_species(
           result(), species = input$ts_species, range = input$ts_range,
           years = yrs, by = input$ts_by, verbose = FALSE),
         error = function(e) {
@@ -297,7 +297,7 @@ server <- function(input, output, session) {
 
   output$ts_plot <- renderPlot({
     ts <- ts_data(); req(ts)
-    geoConvBR::plot_timeseries(ts)
+    mappingAS::plot_timeseries(ts)
   })
 
   output$ts_summary <- renderUI({
@@ -331,7 +331,7 @@ server <- function(input, output, session) {
   })
 
   output$dl_ts <- downloadHandler(
-    filename = function() paste0("geoConvBR_serie_", input$ts_species, "_", Sys.Date(), ".csv"),
+    filename = function() paste0("mappingAS_serie_", input$ts_species, "_", Sys.Date(), ".csv"),
     content = function(file) {
       ts <- ts_data(); req(ts)
       utils::write.csv(ts, file, row.names = FALSE, fileEncoding = "UTF-8")
@@ -340,16 +340,16 @@ server <- function(input, output, session) {
 
   # ---- Save-image handlers ----
   output$dl_map_html <- downloadHandler(
-    filename = function() paste0("geoConvBR_mapa_", input$map_species, "_", Sys.Date(), ".html"),
+    filename = function() paste0("mappingAS_mapa_", input$map_species, "_", Sys.Date(), ".html"),
     content = function(file) {
       req(result(), input$map_species)
-      m <- geoConvBR::map_species(result(), species = input$map_species)
+      m <- mappingAS::map_species(result(), species = input$map_species)
       htmlwidgets::saveWidget(m, file, selfcontained = TRUE)
     }
   )
 
   output$dl_map_png <- downloadHandler(
-    filename = function() paste0("geoConvBR_mapa_", input$map_species, "_", Sys.Date(), ".png"),
+    filename = function() paste0("mappingAS_mapa_", input$map_species, "_", Sys.Date(), ".png"),
     content = function(file) {
       req(result(), input$map_species)
       if (!requireNamespace("webshot2", quietly = TRUE)) {
@@ -359,7 +359,7 @@ server <- function(input, output, session) {
           type = "warning", duration = NULL)
         req(FALSE)
       }
-      m <- geoConvBR::map_species(result(), species = input$map_species)
+      m <- mappingAS::map_species(result(), species = input$map_species)
       tmp <- tempfile(fileext = ".html")
       htmlwidgets::saveWidget(m, tmp, selfcontained = TRUE)
       webshot2::webshot(tmp, file = file, vwidth = 1100, vheight = 800, delay = 1)
@@ -367,26 +367,26 @@ server <- function(input, output, session) {
   )
 
   output$dl_chart_png <- downloadHandler(
-    filename = function() paste0("geoConvBR_conversao_", input$chart_species, "_", Sys.Date(), ".png"),
+    filename = function() paste0("mappingAS_conversao_", input$chart_species, "_", Sys.Date(), ".png"),
     content = function(file) {
       req(result(), input$chart_species)
       grDevices::png(file, width = 1100, height = 750, res = 130)
       on.exit(grDevices::dev.off(), add = TRUE)
-      geoConvBR::plot_conversion(result(), species = input$chart_species)
+      mappingAS::plot_conversion(result(), species = input$chart_species)
     }
   )
 
   output$dl_ts_png <- downloadHandler(
-    filename = function() paste0("geoConvBR_serie_", input$ts_species, "_", Sys.Date(), ".png"),
+    filename = function() paste0("mappingAS_serie_", input$ts_species, "_", Sys.Date(), ".png"),
     content = function(file) {
       ts <- ts_data(); req(ts)
-      p <- geoConvBR::plot_timeseries(ts)
+      p <- mappingAS::plot_timeseries(ts)
       if (inherits(p, "ggplot") && requireNamespace("ggplot2", quietly = TRUE)) {
         ggplot2::ggsave(file, plot = p, width = 10, height = 6, dpi = 130)
       } else {
         grDevices::png(file, width = 1200, height = 720, res = 120)
         on.exit(grDevices::dev.off(), add = TRUE)
-        geoConvBR::plot_timeseries(ts)
+        mappingAS::plot_timeseries(ts)
       }
     }
   )

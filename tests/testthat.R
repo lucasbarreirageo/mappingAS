@@ -1,4 +1,4 @@
 library(testthat)
-library(geoConvBR)
+library(mappingAS)
 
-test_check("geoConvBR")
+test_check("mappingAS")

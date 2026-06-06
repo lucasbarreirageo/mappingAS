@@ -7,7 +7,7 @@
 export_ranges(
   assessment,
   dir = ".",
-  layer_prefix = "geoConvBR",
+  layer_prefix = "mappingAS",
   what = c("both", "eoo", "aoo"),
   format = c("shapefile", "gpkg"),
   crs = 4326,
@@ -18,40 +18,74 @@ export_ranges(
 )
 }
 \arguments{
-\item{assessment}{A `geoconv_assessment` from assess_species().}
+\item{assessment}{A \code{geoconv_assessment} object from \code{\link[=assess_species]{assess_species()}}.}
 
-\item{dir}{Output directory (created if it does not exist). Default ".".}
+\item{dir}{Output directory (created if it does not exist). Default \code{"."}.}
 
-\item{layer_prefix}{File/layer name prefix. Default "geoConvBR".}
+\item{layer_prefix}{File/layer name prefix. Default \code{"mappingAS"}.}
 
-\item{what}{Which ranges to export: "both" (default), "eoo" or "aoo".}
+\item{what}{Which ranges to export: \code{"both"} (default), \code{"eoo"} or \code{"aoo"}.}
 
-\item{format}{"shapefile" (default; one file set per range) or "gpkg" (a single GeoPackage holding both layers).}
+\item{format}{\code{"shapefile"} (default; one file set per range, i.e.
+\verb{*_EOO.shp} and \verb{*_AOO.shp}) or \code{"gpkg"} (a single GeoPackage holding both
+layers).}
 
-\item{crs}{Output CRS (default 4326, WGS84). Anything accepted by sf::st_crs() works.}
+\item{crs}{Output CRS (default \code{4326}, WGS84). Anything accepted by
+\code{\link[sf:st_crs]{sf::st_crs()}} also works (an EPSG code or a proj string).}
 
-\item{aoo_as}{"union" (default; one dissolved feature per species) or "cells" (one feature per occupied 2-km grid cell).}
+\item{aoo_as}{\code{"union"} (default; one dissolved feature per species) or
+\code{"cells"} (one feature per occupied 2-km grid cell).}
 
-\item{class_csv}{If TRUE (default), also writes <prefix>_classes.csv with the full per-class MapBiomas breakdown for the EOO and AOO of each species; included in the zip when zip = TRUE. Skipped if MapBiomas was not computed.}
+\item{class_csv}{If \code{TRUE} (default), also writes \verb{<prefix>_classes.csv} with
+the full per-class MapBiomas breakdown (every class) for the EOO and AOO of
+each species; included in the zip when \code{zip = TRUE}. Skipped if MapBiomas
+was not computed.}
 
-\item{zip}{If TRUE, the written files are bundled into a single .zip inside dir and that path is returned. Default FALSE.}
+\item{zip}{If \code{TRUE}, the written files are bundled into a single \code{.zip}
+inside \code{dir} and the path to that zip is returned (most useful for the
+shapefile format, which has several sidecar files). Default \code{FALSE}.}
 
-\item{quiet}{Passed to sf::st_write(). Default TRUE.}
-
+\item{quiet}{Passed to \code{\link[sf:st_write]{sf::st_write()}}. Default \code{TRUE}.}
 }
 \value{
-(Invisibly) a character vector with the file paths written, or the path to the .zip when zip = TRUE.
+(Invisibly) a character vector with the file paths written, or the
+path to the \code{.zip} when \code{zip = TRUE}.
 }
 \description{
-Writes the EOO polygons and the AOO polygons produced by assess_species() to disk, with area, habitat-conversion and provisional-category attributes attached to each feature (one feature per species by default). Shapefile field names are limited to 10 characters, so compact names are used; a GeoPackage stores both ranges as layers in one file.
+Writes the Extent of Occurrence (EOO) polygons and the Area of Occupancy
+(AOO) polygons produced by \code{\link[=assess_species]{assess_species()}} to disk, with the area,
+habitat-conversion and provisional-category attributes attached to each
+feature (one feature per species by default). Handy for opening the results
+in QGIS/ArcGIS or sharing them.
 }
+\details{
+Because the ESRI Shapefile format limits field names to 10 characters, the
+attribute fields use compact names (see the Attribute fields section). A
+GeoPackage (\code{format = "gpkg"}) stores both ranges as two layers (\code{eoo},
+\code{aoo}) inside a single file and has no such limitation.
+}
+\section{Attribute fields}{
+
+\code{species}; \code{eoo_km2} or \code{aoo_km2} (and \code{n_cells} for AOO); \code{conv_pct}
+(percent converted/anthropic within that range); \code{nat_pct} (percent natural);
+\code{cat_B1} or \code{cat_B2} (provisional size-only category); \code{prov_cat}; \code{mb_year};
+\code{mb_coll} (MapBiomas year and collection). Conversion fields are \code{NA} when
+MapBiomas was not computed.
+}
+
 \examples{
 \dontrun{
 occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
-                                    package = "geoConvBR"))
+                                    package = "mappingAS"))
 res <- assess_species(occ, mapbiomas = FALSE)
+
+# Two shapefiles (EOO + AOO) in the current directory:
 export_ranges(res)
+
+# A single GeoPackage with both layers:
 export_ranges(res, format = "gpkg")
+
+# Everything bundled into one .zip (good for downloads):
 export_ranges(res, zip = TRUE)
 }
 }

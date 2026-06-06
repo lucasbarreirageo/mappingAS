@@ -7,24 +7,31 @@
 calc_aoo(points, cell_km = 2, origin = c(0, 0))
 }
 \arguments{
-\item{points}{An sf of POINT geometries (one species).}
+\item{points}{An \code{sf} of POINT geometries (one species).}
 
-\item{cell_km}{Grid cell side length in kilometres (default 2).}
+\item{cell_km}{Grid cell side length in kilometres (default \code{2}).}
 
-\item{origin}{Optional length-2 numeric c(x0, y0) grid origin in the equal-area projection metres (default c(0, 0)).}
-
+\item{origin}{Optional length-2 numeric \code{c(x0, y0)} grid origin in the
+equal-area projection metres (default \code{c(0, 0)}).}
 }
 \value{
-A list with area_km2, n_cells, cell_km, cells (occupied cells as an sfc in WGS84) and crs_laea.
+A list with \code{area_km2}, \code{n_cells}, \code{cell_km},
+\code{cells} (occupied cells as an \code{sfc} polygon set in WGS84) and
+\code{crs_laea}.
 }
 \description{
-Computes the AOO as the number of occupied grid cells times the cell area (IUCN reference scale: 2 km cells = 4 km^2 each). Points are snapped to a regular grid on a data-centred equal-area projection.
+Computes the AOO as the number of occupied grid cells multiplied by the cell
+area, following IUCN Red List guidelines (reference scale: 2 x 2 km cells =
+4 km^2 each). Points are snapped to a regular grid defined on a data-centred
+equal-area projection.
 }
-\seealso{
-\code{\link{calc_eoo}}, \code{\link{assess_species}}
+\details{
+Note: AOO depends slightly on grid placement; the IUCN reference scale is the
+2 km grid. To explore sensitivity you can change \code{cell_km} or shift the
+grid via \code{origin}.
 }
 \examples{
-f <- system.file("extdata", "example_occurrences.csv", package = "geoConvBR")
+f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
 occ <- read_occurrences(f)
 sp1 <- occ[occ$species == occ$species[1], ]
 calc_aoo(sp1)$area_km2

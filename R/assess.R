@@ -30,7 +30,7 @@
 #'   \code{eoo_conversion}, \code{aoo_conversion}).
 #' @examples
 #' \dontrun{
-#' f <- system.file("extdata", "example_occurrences.csv", package = "geoConvBR")
+#' f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
 #' occ <- read_occurrences(f)
 #' res <- assess_species(occ, year = 2024)          # local windowed read
 #' res$summary
@@ -140,7 +140,7 @@ assess_species <- function(occ, year = 2024, collection = 10,
 
 #' @export
 print.geoconv_assessment <- function(x, ...) {
-  cat("<geoConvBR assessment>\n")
+  cat("<mappingAS assessment>\n")
   s <- x$settings
   cat(sprintf("  MapBiomas Collection %s, year %s | backend: %s | AOO cell: %g km\n",
               s$collection, s$year, s$backend, s$cell_km))

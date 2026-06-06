@@ -1,4 +1,4 @@
-# geoConvBR 0.1.0
+# mappingAS 0.1.0
 
 * Primeira versão.
 * Importação de pontos de ocorrência a partir de `.csv`/`.tsv`/`.txt`, `.xlsx`/`.xls`
@@ -32,6 +32,6 @@
 * Aplicativo Shiny (`run_app()`) para uso interativo, com botões para salvar o
   mapa (HTML; PNG via `webshot2`) e os gráficos de conversão e da série temporal
   como imagem (PNG).
-* Documentação `man/*.Rd`, vinheta/tutorial (`vignette("geoConvBR")`) e workflow
+* Documentação `man/*.Rd`, vinheta/tutorial (`vignette("mappingAS")`) e workflow
   de checagem no GitHub Actions (`R CMD check` em Linux/macOS/Windows).
 * Testes offline com `testthat`.

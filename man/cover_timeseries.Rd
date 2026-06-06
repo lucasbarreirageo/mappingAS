@@ -16,28 +16,43 @@ cover_timeseries(
 )
 }
 \arguments{
-\item{geom}{An sf/sfc polygon (any CRS).}
+\item{geom}{An \code{sf}/\code{sfc} polygon (any CRS).}
 
-\item{years}{Integer vector of years. If NULL (default) a 5-year step across the collection span (plus the last year) is used.}
+\item{years}{Integer vector of years. If \code{NULL} (default) a 5-year step
+across the collection span (plus the last year) is used.}
 
-\item{collection}{MapBiomas collection (default 10).}
+\item{collection}{Integer MapBiomas collection (default \code{10}).}
 
-\item{backend}{"local" (default) or "gee".}
+\item{backend}{\code{"local"} (default, windowed GeoTIFF read) or
+\code{"gee"} (Earth Engine).}
 
-\item{src}{Optional GeoTIFF path/URL for the local backend.}
+\item{src}{Optional GeoTIFF path/URL for the local backend (overrides the
+public per-year URL).}
 
-\item{by}{"class" (default; one series per MapBiomas class with official colours) or "group".}
+\item{by}{\code{"class"} (default; one series per MapBiomas class, with the
+official colours) or \code{"group"} (natural / anthropic / water / other).}
 
-\item{include_not_observed}{Logical; keep the "Not Observed" class (default FALSE).}
+\item{include_not_observed}{Logical; keep the "Not Observed" class
+(default \code{FALSE}).}
 
-\item{verbose}{Logical; print progress (default TRUE).}
-
+\item{verbose}{Logical; print progress (default \code{TRUE}).}
 }
 \value{
-A long data.frame with columns year, label, hex, group, area_km2 and pct (percentage of the mapped area in that year). For by = "class" it also has code and class_en.
+A \code{data.frame} (long) with columns \code{year}, \code{label},
+\code{hex}, \code{group}, \code{area_km2} and \code{pct} (percentage of the
+mapped area in that year). For \code{by = "class"} it also has \code{code}
+and \code{class_en}.
 }
 \description{
-For a given area (e.g. an EOO hull or the union of AOO cells), computes the area of each MapBiomas class (or conservation group) for several years, returning a tidy long table for a stacked-area chart of percentage of area versus year.
+For a given area (e.g. an EOO hull or the union of AOO cells), computes the
+area of each MapBiomas class (or conservation group) for several years,
+returning a tidy long table suitable for a stacked-area chart of percentage
+of area versus year (as in the MapBiomas coverage figures).
+}
+\details{
+Each year is read independently (local windowed read or Earth Engine), so a
+long span of annual data can take a while. By default a 5-year step is used;
+pass \code{years = mb_years()} for the full annual series.
 }
 \seealso{
 \code{\link{plot_timeseries}}, \code{\link{timeseries_for_species}}

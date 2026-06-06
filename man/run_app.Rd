@@ -2,24 +2,23 @@
 % Please edit documentation in R/run_app.R
 \name{run_app}
 \alias{run_app}
-\title{Launch the geoConvBR Shiny application}
+\title{Launch the mappingAS Shiny application}
 \usage{
 run_app(launch.browser = TRUE, ...)
 }
 \arguments{
-\item{launch.browser}{Logical; open the app in the browser (default TRUE).}
+\item{launch.browser}{Logical; open in the default browser (default
+\code{TRUE}).}
 
-\item{...}{Further arguments passed to shiny::runApp().}
-
+\item{...}{Passed to \code{shiny::runApp()}.}
 }
 \value{
-Called for its side effect; runs the Shiny app.
+Invisibly \code{NULL}; called for its side effect.
 }
 \description{
-Starts the interactive geoConvBR Shiny interface (upload points, compute EOO/AOO and conversion, browse classes and the time series, and download results).
+Starts the interactive app for uploading occurrences, computing EOO/AOO and
+MapBiomas habitat conversion, and exploring/exporting the results.
 }
 \examples{
-\dontrun{
-run_app()
-}
+\dontrun{ run_app() }
 }

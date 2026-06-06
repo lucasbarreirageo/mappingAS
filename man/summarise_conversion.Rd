@@ -4,21 +4,40 @@
 \alias{summarise_conversion}
 \title{Summarise habitat conversion from MapBiomas class areas}
 \usage{
-summarise_conversion(class_areas, collection = 10, water_in_denominator = FALSE)
+summarise_conversion(
+  class_areas,
+  collection = 10,
+  water_in_denominator = FALSE
+)
 }
 \arguments{
-\item{class_areas}{Either a data.frame with columns `code` and `area_km2`, or a terra SpatRaster of MapBiomas codes (tabulated via mb_class_areas_raster()).}
+\item{class_areas}{Either a \code{data.frame} with columns \code{code} and
+\code{area_km2} (e.g. from \code{\link{mb_class_areas_gee}}) or a
+\pkg{terra} \code{SpatRaster} of MapBiomas codes (which is tabulated via
+\code{\link{mb_class_areas_raster}}).}
 
-\item{collection}{MapBiomas collection (default 10).}
+\item{collection}{Integer collection number (default \code{10}).}
 
-\item{water_in_denominator}{Logical; treat water as natural and include it in the terrestrial denominator (default FALSE).}
-
+\item{water_in_denominator}{Logical; if \code{TRUE}, water is treated as
+natural and included in the terrestrial denominator (default \code{FALSE}).}
 }
 \value{
-A list with converted_pct, natural_pct (terrestrial headline numbers), converted_pct_total, natural_pct_total, the group areas (natural_km2, anthropic_km2, water_km2, other_km2, not_observed_km2, total_km2) and by_class (per-class table joined to the legend).
+A list with: \code{converted_pct}, \code{natural_pct} (terrestrial,
+the headline numbers), \code{converted_pct_total}, \code{natural_pct_total},
+the group areas (\code{natural_km2}, \code{anthropic_km2}, \code{water_km2},
+\code{other_km2}, \code{not_observed_km2}, \code{total_km2}) and
+\code{by_class} (the per-class table joined to the legend).
 }
 \description{
-Aggregates per-class areas into conservation groups and computes the percentage of converted (anthropic) versus remaining natural habitat. Headline metrics use a terrestrial denominator (natural + anthropic).
+Aggregates a table of per-class areas into conservation groups and computes
+the percentage of converted (anthropic) versus remaining natural habitat.
+}
+\details{
+The headline metrics use a \emph{terrestrial} denominator (natural +
+anthropic), excluding water, not-observed and ambiguous "other" classes, which
+is the most defensible measure of habitat conversion. A total-area version
+(denominator = everything except not-observed) is also returned for
+transparency.
 }
 \examples{
 ca <- data.frame(code = c(3, 15, 24, 33), area_km2 = c(60, 30, 10, 5))

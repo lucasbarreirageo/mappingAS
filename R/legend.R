@@ -25,7 +25,7 @@
 #' @export
 mb_legend <- function(collection = 10) {
   if (!identical(as.numeric(collection), 10)) {
-    warning("Only the Collection 10 legend ships with geoConvBR; using it.")
+    warning("Only the Collection 10 legend ships with mappingAS; using it.")
   }
 
   leg <- data.frame(

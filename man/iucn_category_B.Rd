@@ -8,14 +8,15 @@ iucn_category_B(eoo_km2 = NA_real_, aoo_km2 = NA_real_)
 }
 \arguments{
 \item{eoo_km2, aoo_km2}{Numeric range sizes in square kilometres.}
-
 }
 \value{
-A list with eoo_category, aoo_category and combined (the more threatened of the two size-based flags).
+A list with \code{eoo_category}, \code{aoo_category} and
+\code{combined} (the more threatened of the two size-based flags).
 }
 \description{
-Returns the category implied by the EOO (B1) and AOO (B2) size thresholds only. This is a screening aid, like GeoCat; a full Criterion B listing also requires at least two of the sub-criteria (fragmentation/locations, continuing decline, extreme fluctuation). Never report these as final categories.
-}
-\examples{
-iucn_category_B(eoo_km2 = 3500, aoo_km2 = 120)
+Returns the category implied by the EOO (B1) and AOO (B2) \emph{size}
+thresholds only. This is a screening aid, exactly like GeoCat: a full
+Criterion B listing additionally requires at least two of the sub-criteria
+(a) severe fragmentation / few locations, (b) continuing decline, and
+(c) extreme fluctuation. Never report these as final categories.
 }

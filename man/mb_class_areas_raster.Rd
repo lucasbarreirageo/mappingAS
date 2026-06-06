@@ -7,12 +7,14 @@
 mb_class_areas_raster(r)
 }
 \arguments{
-\item{r}{A terra SpatRaster of MapBiomas codes (e.g. from mb_raster_local()).}
-
+\item{r}{A \pkg{terra} \code{SpatRaster} of MapBiomas codes (e.g. from
+\code{\link{mb_raster_local}}).}
 }
 \value{
-A data.frame with columns code and area_km2.
+A \code{data.frame} with columns \code{code} and \code{area_km2}.
 }
 \description{
-Computes the true (geodesic, latitude-corrected) area of each MapBiomas pixel class inside a cropped/masked raster, using terra::cellSize().
+Computes the true (geodesic, latitude-corrected) area of each MapBiomas pixel
+class inside a cropped/masked raster. Works for rasters in geographic CRS,
+where pixel area varies with latitude, by using \code{terra::cellSize()}.
 }

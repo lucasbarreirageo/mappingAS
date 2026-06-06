@@ -7,20 +7,26 @@
 calc_eoo(points)
 }
 \arguments{
-\item{points}{An sf of POINT geometries (one species). Use read_occurrences() to produce it.}
-
+\item{points}{An \code{sf} of POINT geometries (one species). Use
+\code{\link{read_occurrences}} to produce it.}
 }
 \value{
-A list with area_km2 (numeric), n_records, n_unique (distinct coordinates), hull (the convex hull as an sfc in WGS84, or NULL) and crs_laea (the equal-area proj string used).
+A list with \code{area_km2} (numeric), \code{n_records} (integer),
+\code{n_unique} (distinct coordinates), \code{hull} (the hull as an
+\code{sfc} in WGS84, or \code{NULL}) and \code{crs_laea} (the equal-area
+proj string used).
 }
 \description{
-Computes the EOO as the area of the convex hull enclosing all occurrence points, following IUCN/GeoCat. The hull is built and measured on a data-centred equal-area projection. With fewer than three unique points the EOO is NA.
-}
-\seealso{
-\code{\link{calc_aoo}}, \code{\link{assess_species}}
+Computes the EOO as the area of the convex hull (minimum convex polygon)
+enclosing all occurrence points, following IUCN Red List guidelines and
+GeoCat. The hull is built and measured on a data-centred equal-area
+projection (see \code{\link{laea_crs}}) to avoid areal distortion. A polygon
+requires at least three non-collinear points; with fewer points the EOO is
+returned as \code{NA} (as in GeoCat, where EOO is undefined / 0 for 1-2
+points).
 }
 \examples{
-f <- system.file("extdata", "example_occurrences.csv", package = "geoConvBR")
+f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
 occ <- read_occurrences(f)
 sp1 <- occ[occ$species == occ$species[1], ]
 calc_eoo(sp1)$area_km2
