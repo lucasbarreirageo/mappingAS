@@ -1,17 +1,20 @@
 # mappingAS <img src="man/figures/featured_Resultado.png" align="right" height="139" />
 
-**Métricas de distribuição (EOO/AOO) e conversão de habitat (MapBiomas) para avaliação de espécies.**
+**Métricas de distribuição geográfica (EOO/AOO) e conversão de habitat (MapBiomas) para avaliação de espécies.**
 
-`mappingAS` é um pacote R com interface Shiny para triagem do **Critério B** da Lista Vermelha da IUCN. Ele:
+`mappingAS` é um pacote R, acompanhado de interface gráfica em Shiny, voltado à triagem do Critério B da Lista Vermelha da IUCN. O pacote executa as seguintes etapas:
 
-1. **Importa pontos de ocorrência** a partir de `.xlsx`, `.csv` e **shapefile** (também `.gpkg`, `.geojson`, `.zip`), detectando automaticamente as colunas de espécie, longitude e latitude;
-2. Calcula a **Extensão de Ocorrência (EOO**, polígono convexo mínimo) e a **Área de Ocupação (AOO**, grade de 2 km), em projeção de áreas iguais centrada nos dados;
-3. Quantifica o **percentual de área convertida (antrópica)** e o **percentual de área natural/atual** dentro **tanto do EOO quanto do AOO**, para **cada espécie**, usando o **MapBiomas mais recente (Coleção 10)**, e detalha a **área de cada classe** do MapBiomas;
-4. Monta a **série temporal** da cobertura (**% da área × ano**) dentro do EOO/AOO, no estilo dos gráficos do MapBiomas;
-5. Abre um **aplicativo Shiny** *friendly use* com mapa, tabelas, gráficos e download dos resultados (CSV, shapefile/GeoPackage).
+1. **Importação dos dados de ocorrência.** Lê registros a partir de planilhas (`.xlsx`, `.csv`) e de arquivos vetoriais (`.shp`, `.gpkg`, `.geojson` ou `.zip`), com detecção automática das colunas de espécie, longitude e latitude.
 
-> ⚠️ As categorias de risco produzidas são **provisórias e apenas para triagem** (baseadas somente nos limiares de tamanho de EOO/AOO). Não substituem uma avaliação formal da IUCN, que exige também as condições de fragmentação, declínio e flutuação (subcritérios a, b, c).
+2. **Cálculo das métricas de distribuição.** Estima a Extensão de Ocorrência (EOO; *minimum convex polygon*) e a Área de Ocupação (AOO; grade de 2 km), ambas computadas em projeção equivalente (de áreas iguais) centrada nos dados, em conformidade com as diretrizes da IUCN.
 
+3. **Quantificação da conversão de habitat.** Calcula, para cada espécie e tanto na EOO quanto na AOO, o percentual de área convertida (antrópica) e o percentual de área natural remanescente, com base na coleção mais recente do MapBiomas (Coleção 10). O índice de conversão adota denominador terrestre — `convertido = antrópico / (antrópico + natural) × 100`, com água e áreas não observadas excluídas por padrão — e o detalhamento por classe do MapBiomas é disponibilizado integralmente.
+
+4. **Série temporal da cobertura.** Gera a evolução da composição da cobertura (percentual de área por ano) no interior da EOO/AOO, em formato análogo aos gráficos de cobertura e uso da terra do MapBiomas.
+
+5. **Aplicação interativa (Shiny).** Disponibiliza uma interface para visualização cartográfica, consulta a tabelas e gráficos e exportação dos resultados (CSV, *shapefile*/GeoPackage).
+
+> **Nota.** As categorias de risco geradas são **provisórias** e destinam-se exclusivamente à triagem, uma vez que se baseiam apenas nos limiares de tamanho de EOO e AOO. Elas **não substituem** uma avaliação formal da IUCN, que requer também a análise das condições de fragmentação, declínio e flutuação (subcritérios a, b e c).
 ---
 
 ## Instalação
