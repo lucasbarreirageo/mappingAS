@@ -1,6 +1,6 @@
 # mappingAS <img src="man/figures/featured_Resultado.png" align="right" height="139" />
 
-**Métricas de distribuição (EOO/AOO) e conversão de habitat (MapBiomas) para avaliação de espécies — no estilo do GeoCat.**
+**Métricas de distribuição (EOO/AOO) e conversão de habitat (MapBiomas) para avaliação de espécies.**
 
 `mappingAS` é um pacote R com interface Shiny para triagem do **Critério B** da Lista Vermelha da IUCN. Ele:
 
