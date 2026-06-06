@@ -1,0 +1,54 @@
+Package: geoConvBR
+Type: Package
+Title: Range Metrics (EOO/AOO) and MapBiomas Habitat Conversion for Species Assessment
+Version: 0.1.0
+Authors@R: 
+    person("Seu", "Nome", email = "voce@exemplo.org", role = c("aut", "cre"))
+Description: A GeoCat-style toolkit for IUCN Red List Criterion B screening that
+    accepts species occurrence points from XLSX, CSV, or shapefile inputs,
+    computes Extent of Occurrence (EOO, minimum convex polygon) and Area of
+    Occupancy (AOO, 2x2 km grid), and quantifies the percentage of converted
+    (anthropic) versus remaining natural habitat inside both the EOO and the AOO
+    using the most recent MapBiomas land-use/land-cover collection. Land cover
+    can be read either locally (windowed reads from the national GeoTIFF, no
+    Google Earth Engine account required) or via Google Earth Engine (for very
+    large ranges). Includes a Shiny application for interactive, friendly use.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Depends: 
+    R (>= 4.1.0)
+Imports:
+    sf (>= 1.0.0),
+    terra (>= 1.7.0),
+    readxl,
+    dplyr,
+    rlang,
+    tools,
+    utils,
+    stats,
+    graphics,
+    grDevices,
+    leaflet,
+    DT,
+    shiny,
+    bslib,
+    htmltools,
+    htmlwidgets
+Suggests:
+    rgee,
+    reticulate,
+    writexl,
+    zip,
+    ggplot2,
+    shinyWidgets,
+    webshot2,
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.1
+URL: https://github.com/seu-usuario/geoConvBR
+BugReports: https://github.com/seu-usuario/geoConvBR/issues

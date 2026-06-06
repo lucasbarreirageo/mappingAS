@@ -1,0 +1,174 @@
+---
+title: "geoConvBR: triagem do Critério B (EOO, AOO e conversão MapBiomas)"
+author: "geoConvBR"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{geoConvBR: triagem do Critério B (EOO, AOO e conversão MapBiomas)}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE        # os exemplos leem o MapBiomas pela rede; nao sao executados aqui
+)
+```
+
+## O que o pacote faz
+
+`geoConvBR` é uma ferramenta no estilo do [GeoCat](https://geocat.iucnredlist.org/)
+para **triagem do Critério B** da Lista Vermelha da IUCN. A partir de pontos de
+ocorrência (`.xlsx`, `.csv` ou shapefile), ele:
+
+- calcula a **EOO** (Extensão de Ocorrência, polígono convexo mínimo) e a
+  **AOO** (Área de Ocupação, grade de 2 km), em projeção de áreas iguais;
+- mede o **% de área convertida (antrópica)** e o **% natural** dentro do EOO e
+  do AOO, além da **área de cada classe** do MapBiomas;
+- monta a **série temporal** da cobertura (% × ano);
+- exporta tudo (tabelas, shapefile/GeoPackage) e tem um **app Shiny**.
+
+> As categorias de risco são **provisórias** (apenas limiares de tamanho de
+> EOO/AOO) e servem só para triagem.
+
+```{r load}
+library(geoConvBR)
+```
+
+## 1. Importar os pontos
+
+`read_occurrences()` aceita `.csv`/`.tsv`/`.txt`, `.xlsx`/`.xls` e arquivos
+vetoriais (`.shp`, `.gpkg`, `.geojson`, `.zip`) e tenta **detectar
+automaticamente** as colunas de espécie, longitude e latitude.
+
+```{r import}
+# arquivo de exemplo que acompanha o pacote
+ex <- system.file("extdata", "example_occurrences.csv", package = "geoConvBR")
+occ <- read_occurrences(ex)
+
+# se a deteccao falhar, informe as colunas manualmente:
+occ <- read_occurrences("meus_dados.csv",
+                        species_col = "especie",
+                        lon_col = "longitude",
+                        lat_col = "latitude")
+```
+
+O resultado é um objeto `sf` de pontos em WGS84, com uma coluna `species`.
+
+## 2. Avaliar as espécies
+
+`assess_species()` roda toda a cadeia para cada espécie: EOO, AOO, conversão e a
+categoria provisória.
+
+```{r assess}
+res <- assess_species(
+  occ,
+  year = 2024,          # ano do MapBiomas para o "retrato" de cobertura
+  collection = 10,      # coleção do MapBiomas
+  backend = "local"     # "local" (sem conta GEE) ou "gee"
+)
+
+res            # impressão resumida
+res$summary    # uma linha por espécie
+```
+
+Principais colunas de `res$summary`: `eoo_km2`, `aoo_km2`, `aoo_cells`,
+`eoo_converted_pct`/`eoo_natural_pct`, `aoo_converted_pct`/`aoo_natural_pct` e
+`provisional_cat`.
+
+O índice de conversão usa um denominador **terrestre**:
+`convertido = antrópico / (antrópico + natural) × 100` (água e "não observado"
+ficam de fora por padrão; mude com `water_in_denominator = TRUE`).
+
+## 3. Mapa e gráfico de conversão
+
+```{r viz}
+map_species(res)            # leaflet: pontos + EOO + AOO
+plot_conversion(res)        # barras: natural / alterado / agua / outros
+```
+
+## 4. Composição por classe (todas as classes do MapBiomas)
+
+Para ver **cada classe** dentro do EOO e do AOO:
+
+```{r classes}
+ct <- class_table(res)
+head(ct)
+# species | range(EOO/AOO) | code | class_pt | class_en | group | area_km2 | pct
+```
+
+## 5. Série temporal (% da área × ano)
+
+```{r timeseries}
+# a cada 5 anos (padrao), dentro do EOO da primeira especie
+ts <- timeseries_for_species(res, range = "eoo", by = "class")
+plot_timeseries(ts)         # grafico de area empilhada, cores oficiais MapBiomas
+
+# anual (mais lento) e por grupo:
+ts_anual <- timeseries_for_species(res, range = "eoo",
+                                   years = mb_years(), by = "group")
+
+# ou sobre uma geometria qualquer:
+ts2 <- cover_timeseries(minha_geometria,
+                        years = c(1990, 2000, 2010, 2020),
+                        by = "class", backend = "local")
+```
+
+Cada ano é lido separadamente do MapBiomas, então séries anuais de toda a
+coleção podem demorar.
+
+## 6. Exportar
+
+```{r export}
+# duas shapefiles (EOO e AOO) + CSV com todas as classes, na pasta "saida"
+export_ranges(res, dir = "saida")
+
+# um GeoPackage com as camadas eoo e aoo
+export_ranges(res, dir = "saida", format = "gpkg")
+
+# tudo num unico .zip (bom para enviar)
+export_ranges(res, dir = "saida", zip = TRUE)
+```
+
+A tabela de atributos traz `species`, `eoo_km2`/`aoo_km2`, `conv_pct`,
+`nat_pct`, `cat_B1`/`cat_B2`, `prov_cat`, `mb_year` e `mb_coll`. O arquivo
+`*_classes.csv` traz a área e o % de cada classe.
+
+## 7. Aplicativo Shiny
+
+```{r app}
+run_app()
+```
+
+A interface tem abas de **Resultados**, **Mapa**, **Conversão**, **Classes**,
+**Série temporal** e **Métodos**, com download de CSV, shapefile/GeoPackage e
+imagens (PNG/HTML).
+
+## 8. Backends do MapBiomas
+
+- **`"local"` (padrão)**: lê pela internet apenas a *janela* do GeoTIFF nacional
+  via GDAL `/vsicurl/`. Não precisa de conta no Earth Engine nem baixar o mosaico
+  inteiro. Para uso offline/repetido, aponte `src=` para um GeoTIFF local.
+- **`"gee"`**: calcula as áreas por classe no servidor do Google Earth Engine
+  (recomendado para distribuições muito grandes). Requer `rgee`:
+
+```{r gee}
+install.packages("rgee")
+rgee::ee_install()
+rgee::ee_Initialize()
+res <- assess_species(occ, backend = "gee")
+```
+
+## Ressalvas
+
+- As **categorias são provisórias** (não incluem fragmentação, declínio ou
+  flutuação) — não as reporte como categorias finais.
+- O **AOO** é sensível ao posicionamento da grade e ao esforço amostral.
+- A **acurácia do MapBiomas** varia por classe, bioma e ano.
+- Para distribuições continentais, prefira `backend = "gee"`.
+
+## Citação
+
+Cite também o **MapBiomas** (Coleção 10), as **diretrizes da IUCN** para o
+Critério B e o **GeoCAT** (Bachman et al., 2011, ZooKeys).

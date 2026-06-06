@@ -1,0 +1,164 @@
+#' MapBiomas legend (Collection 10) with conservation groupings
+#'
+#' Returns the official MapBiomas land-use/land-cover legend for Collection 10
+#' (Brazil), with each pixel class assigned to a conservation-relevant group:
+#' \code{"natural"}, \code{"anthropic"}, \code{"water"}, \code{"not_observed"} or
+#' \code{"other"}. The \code{"anthropic"} classes are what counts as
+#' \emph{converted} habitat; \code{"natural"} is the remaining (current) natural
+#' habitat. By default \code{"water"}, \code{"not_observed"} and \code{"other"}
+#' are excluded from the conversion denominator (see
+#' \code{\link{summarise_conversion}}).
+#'
+#' Codes follow "Códigos das classes da legenda da Coleção 10 do MapBiomas
+#' Brasil". A handful of parent/aggregation codes (e.g. 10, 13, 14, 18, 19, 36)
+#' and codes from neighbouring collections are included so the table also works
+#' if applied to Collection 9 rasters; unused codes simply contribute zero area.
+#'
+#' @param collection Integer collection number. Only \code{10} (default) is
+#'   currently shipped; other values emit a warning and fall back to 10.
+#' @return A \code{data.frame} with columns \code{code}, \code{class_en},
+#'   \code{class_pt}, \code{hex} (official MapBiomas colour), \code{level1} and
+#'   \code{group}.
+#' @examples
+#' head(mb_legend())
+#' subset(mb_legend(), group == "anthropic")$class_en
+#' @export
+mb_legend <- function(collection = 10) {
+  if (!identical(as.numeric(collection), 10)) {
+    warning("Only the Collection 10 legend ships with geoConvBR; using it.")
+  }
+
+  leg <- data.frame(
+    code = c(
+      # Forest (natural)
+      1, 3, 4, 5, 6, 49,
+      # Herbaceous & shrubby vegetation (natural)
+      10, 11, 12, 32, 29, 50, 13, 23,
+      # Farming / anthropic
+      14, 9, 15, 18, 19, 39, 20, 40, 62, 41,
+      36, 46, 47, 35, 48, 21,
+      # Non-vegetated anthropic
+      24, 30, 75,
+      # Ambiguous non-vegetated -> "other" (excluded by default)
+      25,
+      # Water
+      26, 33, 31,
+      # Not observed
+      27
+    ),
+    class_en = c(
+      "Forest", "Forest Formation", "Savanna Formation", "Mangrove",
+      "Floodable Forest", "Wooded Sandbank Vegetation",
+      "Herbaceous and Shrubby Vegetation", "Wetland", "Grassland",
+      "Hypersaline Tidal Flat", "Rocky Outcrop", "Herbaceous Sandbank Vegetation",
+      "Other Non Forest Formations", "Beach, Dune and Sand Spot",
+      "Farming", "Forest Plantation", "Pasture", "Agriculture", "Temporary Crop",
+      "Soybean", "Sugar cane", "Rice", "Cotton (beta)", "Other Temporary Crops",
+      "Perennial Crop", "Coffee", "Citrus", "Palm Oil", "Other Perennial Crops",
+      "Mosaic of Uses",
+      "Urban Area", "Mining", "Photovoltaic Power Plant (beta)",
+      "Other non Vegetated Areas",
+      "Water", "River, Lake and Ocean", "Aquaculture",
+      "Not Observed"
+    ),
+    class_pt = c(
+      "Floresta", "Formacao Florestal", "Formacao Savanica", "Mangue",
+      "Floresta Alagavel", "Restinga Arborea",
+      "Vegetacao Herbacea e Arbustiva", "Campo Alagado e Area Pantanosa",
+      "Formacao Campestre", "Apicum", "Afloramento Rochoso", "Restinga Herbacea",
+      "Outras Formacoes nao Florestais", "Praia, Duna e Areal",
+      "Agropecuaria", "Silvicultura", "Pastagem", "Agricultura", "Lavoura Temporaria",
+      "Soja", "Cana", "Arroz", "Algodao (beta)", "Outras Lavouras Temporarias",
+      "Lavoura Perene", "Cafe", "Citrus", "Dende", "Outras Lavouras Perenes",
+      "Mosaico de Usos",
+      "Area Urbanizada", "Mineracao", "Usina Fotovoltaica (beta)",
+      "Outras Areas nao Vegetadas",
+      "Corpo D'agua", "Rio, Lago e Oceano", "Aquicultura",
+      "Nao Observado"
+    ),
+    hex = c(
+      # forest
+      "#1f8d49", "#1f8d49", "#7dc975", "#04381d", "#007785", "#02d659",
+      # herbaceous / shrubby (+ beach, rocky)
+      "#d6bc74", "#519799", "#d6bc74", "#fc8114", "#ffaa5f", "#ad5100",
+      "#d6bc74", "#ffa07a",
+      # farming block
+      "#ffefc3", "#7a5900", "#edde8e", "#E974ED", "#C27BA0", "#f5b3c8",
+      "#db7093", "#c71585", "#ff69b4", "#f54ca9",
+      "#d082de", "#d68fe2", "#9932cc", "#9065d0", "#e6ccff", "#ffefc3",
+      # non-vegetated anthropic
+      "#d4271e", "#9c0027", "#c12100",
+      # other non-vegetated
+      "#db4d4f",
+      # water
+      "#2532e4", "#2532e4", "#091077",
+      # not observed
+      "#ffffff"
+    ),
+    level1 = c(
+      rep("Forest", 6),
+      rep("Herbaceous/Shrubby", 8),
+      rep("Farming", 16),
+      rep("NonVegetated", 3),
+      "NonVegetated",
+      rep("Water", 3),
+      "NotObserved"
+    ),
+    group = c(
+      rep("natural", 6),     # forest
+      rep("natural", 8),     # herbaceous/shrubby + beach/dune + rocky outcrop
+      rep("anthropic", 16),  # farming block
+      rep("anthropic", 3),   # urban, mining, photovoltaic
+      "other",               # other non-vegetated (ambiguous)
+      "water", "water", "anthropic",  # water, river/lake/ocean, aquaculture
+      "not_observed"
+    ),
+    stringsAsFactors = FALSE
+  )
+
+  leg
+}
+
+#' Group lookup vectors for MapBiomas conservation groups
+#'
+#' Convenience wrapper returning the pixel codes that belong to each group.
+#'
+#' @inheritParams mb_legend
+#' @return A named list with elements \code{natural}, \code{anthropic},
+#'   \code{water}, \code{other} and \code{not_observed}, each an integer vector
+#'   of MapBiomas pixel codes.
+#' @export
+mb_groups <- function(collection = 10) {
+  leg <- mb_legend(collection)
+  split(leg$code, leg$group)
+}
+
+#' Official MapBiomas colours for a set of class codes
+#'
+#' @inheritParams mb_legend
+#' @param codes Optional integer vector of MapBiomas pixel codes. If \code{NULL}
+#'   (default) colours for the full legend are returned.
+#' @param by One of \code{"code"} (names are codes) or \code{"class_pt"} /
+#'   \code{"class_en"} (names are class labels). Default \code{"code"}.
+#' @return A named character vector of hex colours.
+#' @examples
+#' mb_palette(c(3, 15, 39, 33))
+#' @export
+mb_palette <- function(codes = NULL, collection = 10, by = c("code", "class_pt", "class_en")) {
+  by <- match.arg(by)
+  leg <- mb_legend(collection)
+  if (!is.null(codes)) {
+    leg <- leg[match(as.integer(codes), leg$code), , drop = FALSE]
+    leg <- leg[!is.na(leg$code), , drop = FALSE]
+  }
+  stats::setNames(leg$hex, leg[[by]])
+}
+
+#' Years available for a MapBiomas collection
+#'
+#' @inheritParams mb_legend
+#' @return An integer vector of years (Collection 10 / 9 cover 1985-2024).
+#' @export
+mb_years <- function(collection = 10) {
+  1985:2024
+}
