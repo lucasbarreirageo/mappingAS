@@ -4,7 +4,7 @@
 
 `mappingAS` é um pacote R, acompanhado de interface gráfica em Shiny, voltado à triagem do Critério B da Lista Vermelha da IUCN. O pacote executa as seguintes etapas:
 
-1. **Importação dos dados de ocorrência.** Lê registros a partir de planilhas (`.xlsx`, `.csv`) e de arquivos vetoriais (`.shp`, `.gpkg`, `.geojson` ou `.zip`), com detecção automática das colunas de espécie, longitude e latitude.
+1. **Importação dos dados de ocorrência.** Lê registros a partir de planilhas (`.xlsx`, `.csv`) e de arquivos vetoriais (`.shp`, `.gpkg`, `.geojson`), com detecção automática das colunas de espécie, longitude e latitude.
 
 2. **Cálculo das métricas de distribuição.** Estima a Extensão de Ocorrência (EOO; *minimum convex polygon*) e a Área de Ocupação (AOO; grade de 2 km), ambas computadas em projeção equivalente (de áreas iguais) centrada nos dados, em conformidade com as diretrizes da IUCN.
 
@@ -213,6 +213,6 @@ Ao usar este pacote, cite também as fontes de dados e métodos:
 - **GeoCat** — Bachman, S. et al. (2011). *Supporting Red List threat assessments with GeoCAT.* ZooKeys.
 
 ## Licença
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20574863.svg)](https://doi.org/10.5281/zenodo.20574863)
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.20574863-blue.svg)](https://doi.org/10.5281/zenodo.20574863)
 
 MIT. Veja o arquivo `LICENSE`.

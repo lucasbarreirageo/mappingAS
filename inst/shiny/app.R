@@ -52,6 +52,7 @@ ui <- bslib::page_sidebar(
                  selected = "shapefile", inline = TRUE),
     downloadButton("dl_ranges", "Baixar EOO/AOO (espacial)", class = "w-100")
   ),
+  tags$head(tags$link(rel = "stylesheet", href = "styles.css")),
   bslib::navset_card_tab(
     bslib::nav_panel(
       "Resultados",
@@ -63,7 +64,8 @@ ui <- bslib::page_sidebar(
       div(
         class = "d-flex gap-2 mb-2",
         downloadButton("dl_map_html", "Baixar mapa (HTML)"),
-        downloadButton("dl_map_png", "Baixar mapa (PNG)")
+        downloadButton("dl_map_png", "Baixar mapa (PNG)"),
+        downloadButton("dl_map_static", "Mapa publicável (PNG)")
       ),
       leaflet::leafletOutput("map", height = 560)
     ),
@@ -205,10 +207,10 @@ server <- function(input, output, session) {
                   options = list(scrollX = TRUE, pageLength = 25),
                   caption = "EOO, AOO e conversao por especie")
   })
-
   output$map <- leaflet::renderLeaflet({
     req(result(), input$map_species)
-    mappingAS::map_species(result(), species = input$map_species)
+    mappingAS::map_species(result(), species = input$map_species,
+                           mapbiomas = isTRUE(input$do_mb))
   })
 
   outputOptions(output, "map", suspendWhenHidden = FALSE)   
@@ -367,7 +369,23 @@ server <- function(input, output, session) {
       webshot2::webshot(tmp, file = file, vwidth = 1100, vheight = 800, delay = 1)
     }
   )
-
+output$dl_map_static <- downloadHandler(
+    filename = function() paste0("mappingAS_mapa_", input$map_species, "_", Sys.Date(), ".png"),
+    content = function(file) {
+      req(result(), input$map_species)
+      if (!requireNamespace("ggplot2", quietly = TRUE)) {
+        showNotification("Pacote 'ggplot2' necessário para o mapa publicável.",
+                         type = "error", duration = NULL)
+        req(FALSE)
+      }
+      withProgress(message = "Gerando mapa publicável...", value = 0, {
+        m <- mappingAS::map_static(result(), species = input$map_species,
+                                   mapbiomas = isTRUE(input$do_mb))
+        ggplot2::ggsave(file, plot = m, width = 9, height = 8, dpi = 300)
+        incProgress(1)
+      })
+    }
+  )
   output$dl_chart_png <- downloadHandler(
     filename = function() paste0("mappingAS_conversao_", input$chart_species, "_", Sys.Date(), ".png"),
     content = function(file) {
