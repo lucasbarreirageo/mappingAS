@@ -4,7 +4,8 @@
 [![R-CMD-check](https://github.com/lucasbarreirageo/mappingAS/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/lucasbarreirageo/mappingAS/actions/workflows/R-CMD-check.yaml)
 [![Lifecycle: stable](https://img.shields.io/badge/lifecycle-stable-brightgreen.svg)](https://lifecycle.r-lib.org/articles/stages.html#stable)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.20574863-blue.svg)](https://doi.org/10.5281/zenodo.20574863)
+[![DOI](https://img.shields.io/badge/DOI/10.5281/zenodo.20585177.svg)](https://doi.org/10.5281/zenodo.20585177)
+
 <!-- badges: end -->
 
 > **mappingAS** — *Mapping Area of Species.* Geographic range metrics (EOO / AOO) and MapBiomas habitat conversion for extinction-risk screening.
