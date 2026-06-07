@@ -4,7 +4,15 @@
 \alias{mb_raster_local}
 \title{Crop a MapBiomas LULC raster to an area of interest (local backend)}
 \usage{
-mb_raster_local(aoi, year = 2024, collection = 10, src = NULL, mask = TRUE)
+mb_raster_local(
+  aoi,
+  year = 2024,
+  collection = 10,
+  src = NULL,
+  mask = TRUE,
+  cache = TRUE,
+  cache_dir = NULL
+)
 }
 \arguments{
 \item{aoi}{An \code{sf}/\code{sfc} polygon (any CRS) defining the area to
@@ -20,6 +28,15 @@ used through \code{/vsicurl/}.}
 
 \item{mask}{Logical; if \code{TRUE} (default) pixels outside the polygon are
 set to \code{NA}. If \code{FALSE} only a rectangular crop is returned.}
+
+\item{cache}{Logical; if \code{TRUE} (default) the rectangular windowed crop
+is cached on disk (keyed by source + bounding box), so reading the same
+area again (e.g. the EOO during assessment and later when mapping, or a
+re-run) does not re-download. Masking is always applied in memory after the
+cached crop is loaded.}
+
+\item{cache_dir}{Directory for the windowed-crop cache (default a
+\code{mappingAS_mb_cache} folder under \code{tempdir()}).}
 }
 \value{
 A \pkg{terra} \code{SpatRaster} of MapBiomas pixel codes restricted to
