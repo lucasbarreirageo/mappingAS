@@ -72,6 +72,7 @@ ui <- bslib::page_sidebar(
         downloadButton("dl_map_png", "Baixar mapa (PNG)"),
         downloadButton("dl_map_static", "Mapa publicável (PNG)")
       ),
+      leaflet::leafletOutput("map", height = 560)
     ),
     bslib::nav_panel(
       "Conversão",
