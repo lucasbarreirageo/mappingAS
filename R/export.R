@@ -20,8 +20,8 @@
 #'   layers).
 #' @param crs Output CRS (default `4326`, WGS84). Anything accepted by
 #'   [sf::st_crs()] also works (an EPSG code or a proj string).
-#' @param aoo_as `"union"` (default; one dissolved feature per species) or
-#'   `"cells"` (one feature per occupied 2-km grid cell).
+#' @param aoo_as `"cells"` (default; one feature per occupied 2-km grid cell,
+#'   each with a `cell_id`) or `"union"` (one dissolved feature per species).
 #' @param class_csv If `TRUE` (default), also writes `<prefix>_classes.csv` with
 #'   the full per-class MapBiomas breakdown (every class) for the EOO and AOO of
 #'   each species; included in the zip when `zip = TRUE`. Skipped if MapBiomas
@@ -60,7 +60,7 @@
 export_ranges <- function(assessment, dir = ".", layer_prefix = "mappingAS",
                           what = c("both", "eoo", "aoo"),
                           format = c("shapefile", "gpkg"),
-                          crs = 4326, aoo_as = c("union", "cells"),
+                          crs = 4326, aoo_as = c("cells", "union"),
                           class_csv = TRUE, zip = FALSE, quiet = TRUE) {
   if (!inherits(assessment, "geoconv_assessment"))
     stop("`assessment` must be a geoconv_assessment object (from assess_species()).",
@@ -204,10 +204,11 @@ export_ranges <- function(assessment, dir = ".", layer_prefix = "mappingAS",
     for (s in names(d)) {
       cl <- d[[s]]$aoo$cells
       if (is.null(cl) || length(cl) == 0) next
+      base <- .attr_row(assessment, s, "aoo")
       for (j in seq_along(cl)) {
         k <- k + 1L
         geoms[[k]] <- cl[[j]]
-        rows[[k]]  <- .attr_row(assessment, s, "aoo")
+        rows[[k]]  <- cbind(base, cell_id = j)
       }
     }
     if (k == 0L) { warning("No AOO cells to export.", call. = FALSE); return(NULL) }
