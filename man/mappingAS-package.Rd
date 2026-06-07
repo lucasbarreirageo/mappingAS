@@ -36,13 +36,13 @@ ranges.
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://github.com/seu-usuario/mappingAS}
-  \item Report bugs at \url{https://github.com/seu-usuario/mappingAS/issues}
+  \item \url{https://github.com/lucasbarreirageo/mappingAS}
+  \item Report bugs at \url{https://github.com/lucasbarreirageo/mappingAS/issues}
 }
 
 }
 \author{
-\strong{Maintainer}: Seu Nome \email{voce@exemplo.org}
+\strong{Maintainer}: Lucas Barreira \email{barreira_rodrigues@hotmail.com}
 
 }
 \keyword{internal}
