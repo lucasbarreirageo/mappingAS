@@ -1,15 +1,30 @@
-#' Interactive map of a species' points, EOO and AOO
+#' Interactive map of a species' points, EOO and AOO (with optional MapBiomas layer)
 #'
 #' Builds a \pkg{leaflet} map showing the occurrence points, the EOO hull and
-#' the occupied AOO cells for one species from an assessment.
+#' the occupied AOO cells for one species from an assessment. Optionally overlays
+#' the MapBiomas land-cover raster (clipped to the EOO) as a toggleable layer with
+#' the official class legend in the bottom-right corner, so the interactive map is
+#' consistent with \code{\link{map_static}}.
 #'
-#' @param assessment A \code{geoconv_assessment} from
-#'   \code{\link{assess_species}}.
+#' The MapBiomas overlay uses the cached, downsampled windowed reader, so it
+#' reuses the raster already fetched during \code{\link{assess_species}} (same EOO
+#' window) and stays responsive. If the raster cannot be read (offline, host
+#' blocked, or an older \pkg{leaflet} without \code{SpatRaster} support), the
+#' overlay is skipped with a warning and the rest of the map still renders.
+#'
+#' @param assessment A \code{geoconv_assessment} from \code{\link{assess_species}}.
 #' @param species Species name to plot. If \code{NULL}, the first assessed
 #'   species is used.
+#' @param mapbiomas Logical; overlay the MapBiomas raster clipped to the EOO
+#'   (default \code{TRUE}). Set \code{FALSE} to skip the raster read entirely.
+#' @param src Optional local path / URL to a MapBiomas GeoTIFF (same as in
+#'   \code{\link{assess_species}}); \code{NULL} (default) uses the public URL.
+#' @param max_pixels Target maximum raster size (longest side, pixels) for the
+#'   overlay (default \code{800}).
 #' @return A \code{leaflet} widget.
 #' @export
-map_species <- function(assessment, species = NULL) {
+map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
+                        src = NULL, max_pixels = 800) {
   stopifnot(inherits(assessment, "geoconv_assessment"))
   if (!requireNamespace("leaflet", quietly = TRUE)) {
     stop("Package 'leaflet' is required.", call. = FALSE)
@@ -22,6 +37,37 @@ map_species <- function(assessment, species = NULL) {
   m <- leaflet::leaflet()
   m <- leaflet::addProviderTiles(m, "CartoDB.Positron", group = "Light")
   m <- leaflet::addProviderTiles(m, "Esri.WorldImagery", group = "Satellite")
+
+  # --- optional MapBiomas raster overlay (drawn under the vector layers) ---
+  mb_on <- FALSE
+  if (isTRUE(mapbiomas) && !is.null(obj$eoo$hull) &&
+      requireNamespace("terra", quietly = TRUE)) {
+    rr <- tryCatch({
+      st <- assessment$settings
+      r <- .mb_raster_display(obj$eoo$hull, st$year, st$collection, src,
+                              max_pixels = max_pixels, crs = NULL)
+      leg <- mb_legend(st$collection)
+      vals <- terra::unique(r)[, 1]; vals <- vals[!is.na(vals)]
+      keep <- leg[leg$code %in% vals, , drop = FALSE]
+      list(r = r, keep = keep, year = st$year)
+    }, error = function(e) {
+      warning("MapBiomas layer skipped: ", conditionMessage(e), call. = FALSE)
+      NULL
+    })
+    if (!is.null(rr) && nrow(rr$keep) > 0) {
+      pal <- leaflet::colorFactor(rr$keep$hex, levels = rr$keep$code,
+                                  na.color = "transparent")
+      m <- leaflet::addRasterImage(m, rr$r, colors = pal, opacity = 0.75,
+                                   method = "ngb", project = TRUE,
+                                   group = "MapBiomas")
+      m <- leaflet::addLegend(m, position = "bottomright",
+                              colors = rr$keep$hex, labels = rr$keep$class_pt,
+                              opacity = 0.75,
+                              title = sprintf("MapBiomas %s", rr$year),
+                              group = "MapBiomas")
+      mb_on <- TRUE
+    }
+  }
 
   if (!is.null(obj$eoo$hull)) {
     m <- leaflet::addPolygons(
@@ -44,10 +90,13 @@ map_species <- function(assessment, species = NULL) {
     fillColor = "#f1c40f", fillOpacity = 0.9, weight = 1,
     group = "Occurrences"
   )
+
+  overlay <- c("Occurrences", "EOO (hull)", "AOO (2 km cells)")
+  if (mb_on) overlay <- c("MapBiomas", overlay)
   m <- leaflet::addLayersControl(
     m,
     baseGroups = c("Light", "Satellite"),
-    overlayGroups = c("Occurrences", "EOO (hull)", "AOO (2 km cells)"),
+    overlayGroups = overlay,
     options = leaflet::layersControlOptions(collapsed = FALSE)
   )
   m <- leaflet::addControl(m, html = sprintf("<b>%s</b>", species),
@@ -124,3 +173,4 @@ plot_conversion <- function(assessment, species = NULL) {
     bty = "n", cex = 0.9, xpd = NA)
   invisible(M)
 }
+
