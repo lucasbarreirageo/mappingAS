@@ -21,9 +21,10 @@ Computes the EOO as the area of the convex hull (minimum convex polygon)
 enclosing all occurrence points, following IUCN Red List guidelines and
 GeoCat. The hull is built and measured on a data-centred equal-area
 projection (see \code{\link{laea_crs}}) to avoid areal distortion. A polygon
-requires at least three non-collinear points; with fewer points the EOO is
-returned as \code{NA} (as in GeoCat, where EOO is undefined / 0 for 1-2
-points).
+requires at least three non-collinear points; with fewer than three points,
+or with perfectly collinear points (where the hull degenerates to a line),
+the EOO is returned as \code{NA} (as in GeoCat, where EOO is undefined / 0
+for such cases).
 }
 \examples{
 f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
