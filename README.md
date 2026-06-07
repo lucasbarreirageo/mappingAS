@@ -213,6 +213,6 @@ Ao usar este pacote, cite também as fontes de dados e métodos:
 - **GeoCat** — Bachman, S. et al. (2011). *Supporting Red List threat assessments with GeoCAT.* ZooKeys.
 
 ## Licença
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20574863.svg)](https://doi.org/10.5281/zenodo.20574863)
+[![DOI](https://img.shields.io/badge/DOI/10.5281/zenodo.20574863.svg)](https://doi.org/10.5281/zenodo.20574863)
 
 MIT. Veja o arquivo `LICENSE`.
