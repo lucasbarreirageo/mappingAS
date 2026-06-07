@@ -72,6 +72,7 @@ ui <- bslib::page_sidebar(
         downloadButton("dl_map_png", "Baixar mapa (PNG)"),
         downloadButton("dl_map_static", "Mapa publicável (PNG)")
       ),
+      leaflet::leafletOutput("map", height = 560)
     ),
     bslib::nav_panel(
       "Conversão",
@@ -216,6 +217,8 @@ server <- function(input, output, session) {
     mappingAS::map_species(result(), species = input$map_species,
                            mapbiomas = isTRUE(input$do_mb))
   })
+
+  outputOptions(output, "map", suspendWhenHidden = FALSE)   #ALTERAÇÃO FEITA PARA VER SE RODA O MAPA
 
   output$chart <- renderPlot({
     req(result(), input$chart_species)
