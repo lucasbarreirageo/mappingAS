@@ -1,4 +1,15 @@
-# mappingAS 0.1.0
+# mappingAS 0.1.2
+
+* `map_static()`: novo mapa estático publicável (raster MapBiomas recortado ao
+  EOO, contorno do EOO, células do AOO, pontos, seta de norte, barra de escala
+  e legendas), em projeção de área igual; retorna um `ggplot` para `ggsave()`.
+* `map_species()`: camada do MapBiomas no mapa leaflet (recortada ao EOO) com
+  legenda de classes e alternância no controle de camadas.
+* `mb_raster_local()`: cache em disco da janela recortada (reaproveitada por
+  EOO/AOO/mapa e re-execuções) e restauração das configurações do GDAL.
+* Importação: detecção de separador/decimal e BOM para CSVs em padrão pt-BR.
+* EOO indefinido (NA) para pontos colineares.
+
 
 * Primeira versão.
 * Importação de pontos de ocorrência a partir de `.csv`/`.tsv`/`.txt`, `.xlsx`/`.xls`
@@ -35,3 +46,4 @@
 * Documentação `man/*.Rd`, vinheta/tutorial (`vignette("mappingAS")`) e workflow
   de checagem no GitHub Actions (`R CMD check` em Linux/macOS/Windows).
 * Testes offline com `testthat`.
+
