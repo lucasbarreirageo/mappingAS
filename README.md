@@ -227,6 +227,4 @@ When using this package, please also cite the underlying data and methods:
 ---
 
 ## Licence
-[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.20574863-blue.svg)](https://doi.org/10.5281/zenodo.20574863)
-
 MIT © Antônio Lucas Barreira Rodrigues. See the [`LICENSE`](LICENSE) file.
