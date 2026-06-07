@@ -218,6 +218,8 @@ server <- function(input, output, session) {
                            mapbiomas = isTRUE(input$do_mb))
   })
 
+  outputOptions(output, "map", suspendWhenHidden = FALSE)   #ALTERAÇÃO FEITA PARA VER SE RODA O MAPA
+
   output$chart <- renderPlot({
     req(result(), input$chart_species)
     mappingAS::plot_conversion(result(), species = input$chart_species)
