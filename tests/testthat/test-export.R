@@ -12,7 +12,7 @@ test_that("export_ranges writes EOO and AOO (gpkg and shapefile)", {
   dir.create(td, showWarnings = FALSE, recursive = TRUE)
 
   # --- GeoPackage with both layers ---
-  gpkg <- export_ranges(res, dir = td, format = "gpkg")
+  gpkg <- export_ranges(res, dir = td, format = "gpkg", aoo_as = "union")
   expect_true(file.exists(gpkg))
   lyrs <- sf::st_layers(gpkg)$name
   expect_true(all(c("eoo", "aoo") %in% lyrs))
@@ -36,4 +36,5 @@ test_that("export_ranges writes EOO and AOO (gpkg and shapefile)", {
                              aoo_as = "cells", layer_prefix = "cells")
   ac <- sf::st_read(aoo_cells, layer = "aoo", quiet = TRUE)
   expect_gte(nrow(ac), sum(res$summary$aoo_cells))
+  expect_true("cell_id" %in% names(ac))
 })

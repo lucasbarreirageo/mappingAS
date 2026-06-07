@@ -12,7 +12,7 @@ suppressMessages({
 `%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || identical(a, "")) b else a
 
 ui <- bslib::page_sidebar(
-  title = "mappingAS — EOO/AOO & conversão de habitat (MapBiomas)",
+  title = "mappingAS | Mapping Area of Species",
   theme = bslib::bs_theme(version = 5, primary = "#1f8d49"),
   sidebar = bslib::sidebar(
     width = 360,
@@ -210,6 +210,8 @@ server <- function(input, output, session) {
     req(result(), input$map_species)
     mappingAS::map_species(result(), species = input$map_species)
   })
+
+  outputOptions(output, "map", suspendWhenHidden = FALSE)   
 
   output$chart <- renderPlot({
     req(result(), input$chart_species)

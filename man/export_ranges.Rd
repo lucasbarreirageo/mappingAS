@@ -11,7 +11,7 @@ export_ranges(
   what = c("both", "eoo", "aoo"),
   format = c("shapefile", "gpkg"),
   crs = 4326,
-  aoo_as = c("union", "cells"),
+  aoo_as = c("cells", "union"),
   class_csv = TRUE,
   zip = FALSE,
   quiet = TRUE
@@ -33,8 +33,8 @@ layers).}
 \item{crs}{Output CRS (default \code{4326}, WGS84). Anything accepted by
 \code{\link[sf:st_crs]{sf::st_crs()}} also works (an EPSG code or a proj string).}
 
-\item{aoo_as}{\code{"union"} (default; one dissolved feature per species) or
-\code{"cells"} (one feature per occupied 2-km grid cell).}
+\item{aoo_as}{\code{"cells"} (default; one feature per occupied 2-km grid cell,
+each with a \code{cell_id}) or \code{"union"} (one dissolved feature per species).}
 
 \item{class_csv}{If \code{TRUE} (default), also writes \verb{<prefix>_classes.csv} with
 the full per-class MapBiomas breakdown (every class) for the EOO and AOO of
