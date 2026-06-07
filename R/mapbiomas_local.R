@@ -16,6 +16,17 @@ mb_source_url <- function(year = 2024, collection = 10) {
   )
 }
 
+#' @keywords internal
+#' @noRd
+.mb_set_gdal <- function() {
+  keys <- c("GDAL_DISABLE_READDIR_ON_OPEN", "CPL_VSIL_CURL_USE_HEAD",
+            "GDAL_HTTP_MAX_RETRY", "GDAL_HTTP_RETRY_DELAY", "VSI_CACHE")
+  vals <- c("EMPTY_DIR", "NO", "3", "1", "TRUE")
+  old <- stats::setNames(lapply(keys, terra::getGDALconfig), keys)
+  for (i in seq_along(keys)) terra::setGDALconfig(keys[i], vals[i])
+  old
+}
+
 #' Crop a MapBiomas LULC raster to an area of interest (local backend)
 #'
 #' Reads the MapBiomas national mosaic and crops/masks it to \code{aoi} using
@@ -36,23 +47,28 @@ mb_source_url <- function(year = 2024, collection = 10) {
 #'   used through \code{/vsicurl/}.
 #' @param mask Logical; if \code{TRUE} (default) pixels outside the polygon are
 #'   set to \code{NA}. If \code{FALSE} only a rectangular crop is returned.
+#' @param cache Logical; if \code{TRUE} (default) the rectangular windowed crop
+#'   is cached on disk (keyed by source + bounding box), so reading the same
+#'   area again (e.g. the EOO during assessment and later when mapping, or a
+#'   re-run) does not re-download. Masking is always applied in memory after the
+#'   cached crop is loaded.
+#' @param cache_dir Directory for the windowed-crop cache (default a
+#'   \code{mappingAS_mb_cache} folder under \code{tempdir()}).
 #' @return A \pkg{terra} \code{SpatRaster} of MapBiomas pixel codes restricted to
 #'   the AOI, in the raster's native CRS.
 #' @export
 mb_raster_local <- function(aoi, year = 2024, collection = 10,
-                            src = NULL, mask = TRUE) {
+                            src = NULL, mask = TRUE,
+                            cache = TRUE, cache_dir = NULL) {
   if (!requireNamespace("terra", quietly = TRUE)) {
     stop("Package 'terra' is required.", call. = FALSE)
   }
   aoi <- sf::st_geometry(aoi)
   if (is.na(sf::st_crs(aoi))) sf::st_crs(aoi) <- 4326
 
-  # GDAL options to make remote windowed reads robust and cached
-  terra::setGDALconfig("GDAL_DISABLE_READDIR_ON_OPEN", "EMPTY_DIR")
-  terra::setGDALconfig("CPL_VSIL_CURL_USE_HEAD", "NO")
-  terra::setGDALconfig("GDAL_HTTP_MAX_RETRY", "3")
-  terra::setGDALconfig("GDAL_HTTP_RETRY_DELAY", "1")
-  terra::setGDALconfig("VSI_CACHE", "TRUE")
+  # robust remote reads; restore the user's GDAL settings on exit
+  old <- .mb_set_gdal()
+  on.exit(for (k in names(old)) terra::setGDALconfig(k, old[[k]]), add = TRUE)
 
   if (is.null(src)) src <- mb_source_url(year, collection)
   path <- if (grepl("^https?://", src)) paste0("/vsicurl/", src) else src
@@ -69,10 +85,45 @@ mb_raster_local <- function(aoi, year = 2024, collection = 10,
 
   aoi_r <- sf::st_transform(aoi, terra::crs(r))
   vect <- terra::vect(aoi_r)
-  rc <- terra::crop(r, terra::ext(vect), snap = "out")
+  rc <- .mb_window(r, terra::ext(vect), src, year, collection, cache, cache_dir)
   if (mask) rc <- terra::mask(rc, vect)
   names(rc) <- "mapbiomas_class"
   rc
+}
+
+#' @keywords internal
+#' @noRd
+.mb_window <- function(r, e, src, year, collection, cache, cache_dir) {
+  rc <- terra::crop(r, e, snap = "out")          # lazy windowed read
+  if (!isTRUE(cache)) return(rc)
+
+  if (is.null(cache_dir)) cache_dir <- file.path(tempdir(), "mappingAS_mb_cache")
+  dir.create(cache_dir, showWarnings = FALSE, recursive = TRUE)
+  key <- paste(basename(src), year, collection,
+               paste(round(as.vector(e), 5), collapse = "_"), sep = "__")
+  f <- file.path(cache_dir, paste0(gsub("[^A-Za-z0-9_]+", "-", key), ".tif"))
+  if (file.exists(f)) return(terra::rast(f))
+
+  terra::writeRaster(rc, f, datatype = "INT1U", overwrite = TRUE,
+                     gdal = "COMPRESS=LZW")       # materialise the read once
+  terra::rast(f)
+}
+
+# Downsampled, optionally reprojected raster for *display* (not area calc).
+#' @keywords internal
+#' @noRd
+.mb_raster_display <- function(aoi, year, collection, src, max_pixels = 600,
+                               crs = NULL, cache = TRUE) {
+  r <- mb_raster_local(aoi, year = year, collection = collection, src = src,
+                       mask = TRUE, cache = cache)
+  d <- max(dim(r)[1:2])
+  if (d > max_pixels) {
+    r <- terra::aggregate(r, fact = ceiling(d / max_pixels),
+                          fun = "modal", na.rm = TRUE)
+  }
+  if (!is.null(crs)) r <- terra::project(r, crs, method = "near")
+  names(r) <- "mapbiomas_class"
+  r
 }
 
 #' Tabulate area per MapBiomas class from a cropped raster
