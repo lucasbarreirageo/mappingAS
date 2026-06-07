@@ -3,7 +3,7 @@ Type: Package
 Title: Spatial Metrics and Habitat Conversion for Extinction Risk Assessment
 Version: 1.0.2
 Authors@R: 
-    person("Lucas", "Barreira", email = "barreira_rodrigues@hotmail.com", role = c("aut", "cre"))
+    person("Antônio Lucas Barreira Rodrigues", email = "barreira_rodrigues@hotmail.com", role = c("aut", "cre"))
 Description: Provides a spatial analytical framework for species extinction 
     risk assessment following the IUCN Red List Criterion B guidelines. 
     Computes the Extent of Occurrence (EOO) and Area of Occupancy (AOO) 
@@ -16,14 +16,12 @@ Description: Provides a spatial analytical framework for species extinction
     included to facilitate reproducible workflows in conservation planning.
 License: MIT + file LICENSE
 Encoding: UTF-8
-LazyData: true
 Depends: 
     R (>= 4.1.0)
 Imports:
     sf (>= 1.0.0),
     terra (>= 1.7.0),
     readxl,
-    dplyr,
     rlang,
     grid,
     tools,
