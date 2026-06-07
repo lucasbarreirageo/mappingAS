@@ -1,49 +1,48 @@
-# mappingAS 0.1.2
+# mappingAS 1.0.2
 
-* `map_static()`: novo mapa estático publicável (raster MapBiomas recortado ao
-  EOO, contorno do EOO, células do AOO, pontos, seta de norte, barra de escala
-  e legendas), em projeção de área igual; retorna um `ggplot` para `ggsave()`.
-* `map_species()`: camada do MapBiomas no mapa leaflet (recortada ao EOO) com
-  legenda de classes e alternância no controle de camadas.
-* `mb_raster_local()`: cache em disco da janela recortada (reaproveitada por
-  EOO/AOO/mapa e re-execuções) e restauração das configurações do GDAL.
-* Importação: detecção de separador/decimal e BOM para CSVs em padrão pt-BR.
-* EOO indefinido (NA) para pontos colineares.
+* `map_static()`: new publication-ready static map (MapBiomas raster clipped to
+  the EOO, EOO outline, AOO cells, points, north arrow, scale bar and legends)
+  on an equal-area projection; returns a `ggplot` for `ggplot2::ggsave()`.
+* `map_species()`: MapBiomas layer on the leaflet map (clipped to the EOO), with
+  a class legend and a toggle in the layers control.
+* `mb_raster_local()`: on-disk cache of the windowed crop (reused across the
+  EOO/AOO/map and re-runs) and restoration of the user's GDAL settings.
+* Import: separator/decimal and BOM detection for Brazilian-style CSVs.
+* EOO is undefined (`NA`) for collinear points.
 
+# mappingAS 1.0.0
 
-* Primeira versão.
-* Importação de pontos de ocorrência a partir de `.csv`/`.tsv`/`.txt`, `.xlsx`/`.xls`
-  e arquivos vetoriais (`.shp`, `.gpkg`, `.geojson`, `.zip`), com detecção
-  automática das colunas de espécie, longitude e latitude.
-* Cálculo de EOO (polígono convexo mínimo) e AOO (grade de 2 km) em projeção de
-  áreas iguais (LAEA) centrada nos dados.
-* Quantificação de habitat convertido (antrópico) versus natural dentro do EOO e
-  do AOO usando MapBiomas (Coleção 10), com dois backends: leitura local por
-  janela (`/vsicurl/`, sem conta no Google Earth Engine) e `rgee` (opcional).
-* Categoria provisória do Critério B (apenas por limiares de tamanho de EOO/AOO),
-  sinalizada como triagem.
-* Visualizações: mapa interativo (`leaflet`) e gráfico de conversão.
-* Detalhamento por **cada classe** do MapBiomas (`class_table()`): área e % de
-  todas as classes dentro do EOO e do AOO; também gravado em CSV por
-  `export_ranges()` (`class_csv = TRUE`) e exibido na aba "Classes" do app.
-* **Série temporal** da cobertura (`cover_timeseries()`,
-  `timeseries_for_species()`) e gráfico de área empilhada (% × ano) com as cores
-  oficiais do MapBiomas (`plot_timeseries()`); nova aba "Série temporal" no app.
-  O app mostra o histórico anual completo por padrão e destaca quanto a área foi
-  alterada (antrópica) entre o primeiro e o último ano. A série é
-  "retangularizada" (toda classe em todo ano, 0 onde ausente), corrigindo uma
-  falha do `geom_area()` quando uma classe não ocorria em alguns anos.
-* Gráfico de conversão (`plot_conversion()`) refeito: barras horizontais
-  empilhadas (natural/alterado/água/outros) com rótulos internos e legenda fora
-  da área do gráfico, evitando sobreposição.
-* Cores oficiais da legenda e utilitários `mb_palette()` e `mb_years()`.
-* Exportação do EOO e do AOO como **shapefile** ou **GeoPackage** (`export_ranges()`),
-  com área, % convertido/natural e categoria provisória na tabela de atributos;
-  botão de download correspondente no aplicativo Shiny.
-* Aplicativo Shiny (`run_app()`) para uso interativo, com botões para salvar o
-  mapa (HTML; PNG via `webshot2`) e os gráficos de conversão e da série temporal
-  como imagem (PNG).
-* Documentação `man/*.Rd`, vinheta/tutorial (`vignette("mappingAS")`) e workflow
-  de checagem no GitHub Actions (`R CMD check` em Linux/macOS/Windows).
-* Testes offline com `testthat`.
+* Initial release.
+* Import of occurrence points from `.csv`/`.tsv`/`.txt`, `.xlsx`/`.xls` and
+  vector files (`.shp`, `.gpkg`, `.geojson`, `.zip`), with automatic detection
+  of the species, longitude and latitude columns.
+* EOO (minimum convex polygon) and AOO (2 km grid) computed on a data-centred
+  equal-area (LAEA) projection.
+* Habitat conversion (anthropic) versus natural within the EOO and AOO using
+  MapBiomas (Collection 10), with two backends: a local windowed read
+  (`/vsicurl/`, no Google Earth Engine account) and `rgee` (optional).
+* Provisional Criterion B category (EOO/AOO size thresholds only), flagged as
+  screening.
+* Visualisations: interactive map (`leaflet`) and conversion chart.
+* Per-class breakdown (`class_table()`): area and % of every MapBiomas class
+  within the EOO and AOO; also written to CSV by `export_ranges()`
+  (`class_csv = TRUE`) and shown in the app's "Classes" tab.
+* Land-cover time series (`cover_timeseries()`, `timeseries_for_species()`) and a
+  stacked-area chart (% × year) with the official MapBiomas colours
+  (`plot_timeseries()`); new "Time series" tab in the app. The series is
+  "rectangularised" (every class in every year, 0 where absent), fixing a
+  `ggplot2::geom_area()` failure when a class was missing in some years.
+* Conversion chart (`plot_conversion()`) reworked: horizontal stacked bars
+  (natural/altered/water/other) with inner labels and the legend outside the
+  plot area, so nothing overlaps.
+* Official legend colours and the `mb_palette()` and `mb_years()` helpers.
+* Export of the EOO and AOO as a shapefile or GeoPackage (`export_ranges()`),
+  with area, % converted/natural and provisional category in the attribute
+  table; matching download button in the Shiny app.
+* Shiny application (`run_app()`) for interactive use, with buttons to save the
+  map (HTML; PNG via `webshot2`) and the conversion and time-series charts as
+  images (PNG).
+* `man/*.Rd` documentation, a vignette (`vignette("mappingAS")`) and a GitHub
+  Actions workflow (`R CMD check` on Linux/macOS/Windows).
+* Offline tests with `testthat`.
 
