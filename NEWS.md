@@ -1,3 +1,13 @@
+# mappingAS 1.0.3
+
+* Maintenance release: documentation and packaging only — computed results are
+  unchanged.
+* README rewritten with a clearer description of the package and a corrected
+  quick-start example.
+* Leaner dependencies: removed the unused `dplyr` import. Removed the `LazyData`
+  field (example data ships under `inst/extdata/`, not `data/`). Author and
+  copyright metadata tidied for consistency.
+
 # mappingAS 1.0.2
 
 * `map_static()`: new publication-ready static map (MapBiomas raster clipped to
@@ -45,4 +55,3 @@
 * `man/*.Rd` documentation, a vignette (`vignette("mappingAS")`) and a GitHub
   Actions workflow (`R CMD check` on Linux/macOS/Windows).
 * Offline tests with `testthat`.
-

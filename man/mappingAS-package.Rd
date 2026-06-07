@@ -42,7 +42,7 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Lucas Barreira \email{barreira_rodrigues@hotmail.com}
+\strong{Maintainer}: Antônio Lucas Barreira Rodrigues \email{barreira_rodrigues@hotmail.com}
 
 }
 \keyword{internal}
