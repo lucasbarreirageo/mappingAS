@@ -83,6 +83,31 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
     }
   }
 
+  # ---- Fire raster layer (clipped to the EOO) ----
+  
+  if (isTRUE(fire) && !is.null(hull) && isTRUE(assessment$settings$fire)) {
+    fdf <- tryCatch(
+      .fire_display_df(hull, assessment$settings$fire_collection, src, max_pixels, crs),
+      error = function(e) {
+        warning("Fire layer skipped: ", conditionMessage(e), call. = FALSE)
+        NULL
+      })
+    if (!is.null(fdf) && nrow(fdf$df) > 0) {
+      # Usa geom_raster ou geom_tile dependendo da preferência (tile é mais seguro com NAs)
+      # Nota: ggnewscale::new_scale_fill() seria necessário se mapbiomas=TRUE E fire=TRUE
+      # Para evitar conflito de escalas de preenchimento (fill) no ggplot2 sem dependências extras,
+      # o ideal é instruir o usuário a plotar ou LULC ou Fogo no mapa estático, ou usar `new_scale_fill()`.
+      g <- g +
+        ggplot2::geom_tile(
+          data = fdf$df,
+          ggplot2::aes(x = .data[["x"]], y = .data[["y"]], fill = .data[["class"]])
+        ) +
+        ggplot2::scale_fill_manual(
+          values = fdf$cols, drop = FALSE,
+          name = sprintf("MapBiomas Fogo (Col. %s)", assessment$settings$fire_collection))
+    }
+  }
+
   # ---- vector layers sharing one feature legend (colour aesthetic) ----
   feat <- character(0)
   if (!is.null(hull)) {
@@ -134,6 +159,24 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
   df <- terra::as.data.frame(r, xy = TRUE, na.rm = TRUE)
   names(df)[3] <- "code"
   leg <- mb_legend(collection)
+  df <- df[df$code %in% leg$code, , drop = FALSE]
+  idx <- match(df$code, leg$code)
+  df$class <- droplevels(factor(leg$class_pt[idx], levels = unique(leg$class_pt)))
+  cols <- stats::setNames(leg$hex[match(levels(df$class), leg$class_pt)],
+                          levels(df$class))
+  list(df = df, cols = cols)
+}
+
+#' @keywords internal
+#' @noRd
+.fire_display_df <- function(aoi, collection, src, max_pixels, crs) {
+  # Requer que a função .fire_raster_display() e fire_palette() existam em R/fire.R
+  r <- .fire_raster_display(aoi, collection, src, max_pixels = max_pixels, crs = crs)
+  df <- terra::as.data.frame(r, xy = TRUE, na.rm = TRUE)
+  names(df)[3] <- "code"
+  
+  # Presume-se que fire_palette() retorna um data.frame com colunas 'code', 'class_pt', 'hex'
+  leg <- fire_palette() 
   df <- df[df$code %in% leg$code, , drop = FALSE]
   idx <- match(df$code, leg$code)
   df$class <- droplevels(factor(leg$class_pt[idx], levels = unique(leg$class_pt)))
