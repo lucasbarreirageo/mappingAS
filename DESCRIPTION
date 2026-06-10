@@ -8,12 +8,13 @@ Description: Provides a spatial analytical framework for species extinction
     risk assessment following the IUCN Red List Criterion B guidelines. 
     Computes the Extent of Occurrence (EOO) and Area of Occupancy (AOO) 
     from occurrence data and integrates land-use and land-cover (LULC) 
-    data to quantify habitat loss. The package leverages MapBiomas 
-    collections to calculate the proportion of anthropic conversion 
-    within range metrics. It supports both local high-resolution raster 
-    processing and cloud-based computation via Google Earth Engine (GEE) 
-    for large-scale assessments. An interactive 'shiny' application is 
-    included to facilitate reproducible workflows in conservation planning.
+    data to quantify habitat loss, It also integrates MapBiomas Fire data 
+    to compute cumulative burned areas and fire recurrence timeseries. 
+    The package leverages MapBiomas collections to calculate the proportion 
+    of anthropic conversion within range metrics. It supports both local 
+    high-resolution raster processing and cloud-based computation via 
+    Google Earth Engine (GEE) for large-scale assessments. An interactive 
+    'shiny' application is included to facilitate reproducible workflows in conservation planning.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Depends: 
