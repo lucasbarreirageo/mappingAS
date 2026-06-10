@@ -143,8 +143,12 @@ export_ranges <- function(assessment, dir = ".", layer_prefix = "mappingAS",
   range <- match.arg(range)
   s <- assessment$summary
   r <- s[s$species == species, , drop = FALSE][1, , drop = FALSE]
+  
+  # Verifica dinamicamente se a avaliação incluiu o módulo de fogo
+  has_fire <- "fire_collection" %in% names(r)
+  
   if (identical(range, "eoo")) {
-    data.frame(
+    df <- data.frame(
       species  = species,
       eoo_km2  = r$eoo_km2,
       conv_pct = r$eoo_converted_pct,
@@ -155,8 +159,13 @@ export_ranges <- function(assessment, dir = ".", layer_prefix = "mappingAS",
       mb_coll  = r$mapbiomas_collection,
       stringsAsFactors = FALSE
     )
+    if (has_fire) {
+      df$brnd_pct <- r$eoo_burned_pct
+      df$fire_col <- r$fire_collection
+    }
+    return(df)
   } else {
-    data.frame(
+    df <- data.frame(
       species  = species,
       aoo_km2  = r$aoo_km2,
       n_cells  = r$aoo_cells,
@@ -168,6 +177,11 @@ export_ranges <- function(assessment, dir = ".", layer_prefix = "mappingAS",
       mb_coll  = r$mapbiomas_collection,
       stringsAsFactors = FALSE
     )
+    if (has_fire) {
+      df$brnd_pct <- r$aoo_burned_pct
+      df$fire_col <- r$fire_collection
+    }
+    return(df)
   }
 }
 
