@@ -1,55 +1,47 @@
-#' Interactive map of a species' points, EOO and AOO (with optional MapBiomas layer)
+#' Interactive map of a species' points, EOO and AOO (MapBiomas + fire)
 #'
-#' Builds a \pkg{leaflet} map showing the occurrence points, the EOO hull and
-#' the occupied AOO cells for one species from an assessment. Optionally overlays
-#' the MapBiomas land-cover raster (clipped to the EOO) as a toggleable layer with
-#' the official class legend in the bottom-right corner, so the interactive map is
-#' consistent with \code{\link{map_static}}.
-#'
-#' The MapBiomas overlay uses the cached, downsampled windowed reader, so it
-#' reuses the raster already fetched during \code{\link{assess_species}} (same EOO
-#' window) and stays responsive. If the raster cannot be read (offline, host
-#' blocked, or an older \pkg{leaflet} without \code{SpatRaster} support), the
-#' overlay is skipped with a warning and the rest of the map still renders.
+#' Builds a \pkg{leaflet} map with the occurrence points, EOO hull and occupied
+#' AOO cells. Optionally overlays the MapBiomas land-cover raster and the
+#' MapBiomas Fire accumulated layer (fire recurrence: number of years burned),
+#' both clipped to the EOO, as toggleable layers with legends.
 #'
 #' @param assessment A \code{geoconv_assessment} from \code{\link{assess_species}}.
-#' @param species Species name to plot. If \code{NULL}, the first assessed
-#'   species is used.
-#' @param mapbiomas Logical; overlay the MapBiomas raster clipped to the EOO
-#'   (default \code{TRUE}). Set \code{FALSE} to skip the raster read entirely.
-#' @param src Optional local path / URL to a MapBiomas GeoTIFF (same as in
-#'   \code{\link{assess_species}}); \code{NULL} (default) uses the public URL.
+#' @param species Species name to plot (default: first assessed).
+#' @param mapbiomas Logical; overlay the MapBiomas raster (default \code{TRUE}).
+#' @param fire Logical; overlay the MapBiomas Fire accumulated layer
+#'   (default \code{FALSE}).
+#' @param src Optional MapBiomas LULC GeoTIFF path/URL.
+#' @param fire_src Optional MapBiomas Fire GeoTIFF path/URL.
 #' @param max_pixels Target maximum raster size (longest side, pixels) for the
-#'   overlay (default \code{800}).
+#'   overlays (default \code{800}).
 #' @return A \code{leaflet} widget.
 #' @export
 map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
-                        src = NULL, max_pixels = 800) {
+                        fire = FALSE, src = NULL, fire_src = NULL,
+                        max_pixels = 800) {
   stopifnot(inherits(assessment, "geoconv_assessment"))
-  if (!requireNamespace("leaflet", quietly = TRUE)) {
+  if (!requireNamespace("leaflet", quietly = TRUE))
     stop("Package 'leaflet' is required.", call. = FALSE)
-  }
   d <- assessment$detail
   if (is.null(species)) species <- names(d)[1]
   obj <- d[[species]]
   if (is.null(obj)) stop("Species not found in assessment: ", species, call. = FALSE)
-
+  st <- assessment$settings
+  
   m <- leaflet::leaflet()
   m <- leaflet::addProviderTiles(m, "CartoDB.Positron", group = "Light")
   m <- leaflet::addProviderTiles(m, "Esri.WorldImagery", group = "Satellite")
-
-  # --- optional MapBiomas raster overlay (drawn under the vector layers) ---
+  
+  # --- optional MapBiomas LULC overlay (under everything) ---
   mb_on <- FALSE
   if (isTRUE(mapbiomas) && !is.null(obj$eoo$hull) &&
       requireNamespace("terra", quietly = TRUE)) {
     rr <- tryCatch({
-      st <- assessment$settings
       r <- .mb_raster_display(obj$eoo$hull, st$year, st$collection, src,
                               max_pixels = max_pixels, crs = NULL)
       leg <- mb_legend(st$collection)
       vals <- terra::unique(r)[, 1]; vals <- vals[!is.na(vals)]
-      keep <- leg[leg$code %in% vals, , drop = FALSE]
-      list(r = r, keep = keep, year = st$year)
+      list(r = r, keep = leg[leg$code %in% vals, , drop = FALSE], year = st$year)
     }, error = function(e) {
       warning("MapBiomas layer skipped: ", conditionMessage(e), call. = FALSE)
       NULL
@@ -68,37 +60,61 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
       mb_on <- TRUE
     }
   }
-
-  if (!is.null(obj$eoo$hull)) {
-    m <- leaflet::addPolygons(
-      m, data = sf::st_transform(obj$eoo$hull, 4326),
-      color = "#1f4e79", weight = 2, fillColor = "#1f4e79", fillOpacity = 0.08,
-      group = "EOO (hull)"
-    )
+  
+  # --- optional MapBiomas Fire overlay (over LULC, under vectors) ---
+  fire_on <- FALSE
+  if (isTRUE(fire) && !is.null(obj$eoo$hull) &&
+      requireNamespace("terra", quietly = TRUE)) {
+    fr <- tryCatch(
+      .fire_raster_display(obj$eoo$hull,
+                           fire_collection = st$fire_collection %||% 4,
+                           host_collection = st$fire_host_collection %||% 9,
+                           src = fire_src, max_pixels = max_pixels),
+      error = function(e) {
+        warning("Fire layer skipped: ", conditionMessage(e), call. = FALSE)
+        NULL
+      })
+    fv <- if (!is.null(fr)) {
+      v <- terra::values(fr); v[is.finite(v)]
+    } else numeric(0)
+    if (length(fv) > 0) {
+      dom <- if (length(unique(fv)) > 1) range(fv) else c(0, max(fv))
+      pal <- leaflet::colorNumeric(fire_palette(), domain = dom,
+                                   na.color = "transparent")
+      m <- leaflet::addRasterImage(m, fr, colors = pal, opacity = 0.8,
+                                   method = "ngb", project = TRUE,
+                                   group = "Fogo (recorrencia)")
+      m <- leaflet::addLegend(m, position = "bottomleft", pal = pal,
+                              values = fv, opacity = 0.8,
+                              title = "Fogo (anos)",
+                              group = "Fogo (recorrencia)")
+      fire_on <- TRUE
+    }
   }
-  if (!is.null(obj$aoo$cells)) {
-    m <- leaflet::addPolygons(
-      m, data = sf::st_transform(obj$aoo$cells, 4326),
-      color = "#9c0027", weight = 1, fillColor = "#d4271e", fillOpacity = 0.25,
-      group = "AOO (2 km cells)"
-    )
-  }
+  
+  if (!is.null(obj$eoo$hull))
+    m <- leaflet::addPolygons(m, data = sf::st_transform(obj$eoo$hull, 4326),
+                              color = "#1f4e79", weight = 2,
+                              fillColor = "#1f4e79", fillOpacity = 0.08,
+                              group = "EOO (hull)")
+  if (!is.null(obj$aoo$cells))
+    m <- leaflet::addPolygons(m, data = sf::st_transform(obj$aoo$cells, 4326),
+                              color = "#9c0027", weight = 1,
+                              fillColor = "#d4271e", fillOpacity = 0.25,
+                              group = "AOO (2 km cells)")
   pts <- sf::st_transform(sf::st_geometry(obj$points), 4326)
   co <- sf::st_coordinates(pts)
-  m <- leaflet::addCircleMarkers(
-    m, lng = co[, 1], lat = co[, 2], radius = 4, color = "#111111",
-    fillColor = "#f1c40f", fillOpacity = 0.9, weight = 1,
-    group = "Occurrences"
-  )
-
+  m <- leaflet::addCircleMarkers(m, lng = co[, 1], lat = co[, 2], radius = 4,
+                                 color = "#111111", fillColor = "#f1c40f",
+                                 fillOpacity = 0.9, weight = 1,
+                                 group = "Occurrences")
+  
   overlay <- c("Occurrences", "EOO (hull)", "AOO (2 km cells)")
-  if (mb_on) overlay <- c("MapBiomas", overlay)
+  if (fire_on) overlay <- c("Fogo (recorrencia)", overlay)
+  if (mb_on)   overlay <- c("MapBiomas", overlay)
   m <- leaflet::addLayersControl(
-    m,
-    baseGroups = c("Light", "Satellite"),
-    overlayGroups = overlay,
-    options = leaflet::layersControlOptions(collapsed = FALSE)
-  )
+    m, baseGroups = c("Light", "Satellite"), overlayGroups = overlay,
+    options = leaflet::layersControlOptions(collapsed = FALSE))
   m <- leaflet::addControl(m, html = sprintf("<b>%s</b>", species),
                            position = "topright")
   m

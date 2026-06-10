@@ -1,3 +1,17 @@
+# mappingAS 1.2.0
+
+* Nova integração com o **MapBiomas Fogo** (Coleção 4): `assess_species(fire = TRUE)`
+  calcula o percentual de área queimada (acumulado 1985–2024) dentro da EOO e da AOO
+  (`eoo_burned_pct`, `aoo_burned_pct`).
+* `fire_timeseries()` / `fire_timeseries_for_species()` geram a série anual de área
+  queimada (% × ano), com `plot_fire_timeseries()` para o gráfico.
+* `map_species(fire = TRUE)` sobrepõe a camada de fogo ao mapa.
+* App Shiny: opção "Calcular fogo", camada de fogo no mapa, colunas de fogo na aba
+  Resultados e nova aba "Fogo" (resumo + série temporal).
+* Funções utilitárias: `mb_fire_url()`, `fire_raster_local()`, `fire_areas()`,
+  `summarise_fire()`, `fire_palette()`.
+
+
 # mappingAS 1.0.3
 
 * Maintenance release: documentation and packaging only — computed results are

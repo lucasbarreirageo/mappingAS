@@ -1,73 +1,73 @@
-#' Assess one or many species: EOO, AOO and MapBiomas habitat conversion
+#' Assess one or many species: EOO, AOO, MapBiomas conversion and fire
 #'
 #' End-to-end pipeline. For each species it computes the EOO (minimum convex
 #' polygon) and AOO (2 km grid), then quantifies the percentage of converted
 #' (anthropic) and remaining natural habitat from the most recent MapBiomas
-#' collection inside both the EOO and the AOO. Returns a tidy per-species
-#' summary plus the spatial objects needed for mapping.
+#' collection inside both the EOO and the AOO. When \code{fire = TRUE} it also
+#' adds the percentage of the EOO/AOO that has burned and the mean fire
+#' recurrence, from the MapBiomas Fire accumulated layer.
 #'
-#' @param occ An \code{sf} of POINT geometries from
-#'   \code{\link{read_occurrences}}. If it has a \code{species} column with more
-#'   than one value, every species is assessed in turn.
-#' @param year Integer MapBiomas year (default \code{2024}, the latest in
-#'   Collection 10).
+#' @param occ An \code{sf} of POINT geometries from \code{\link{read_occurrences}}.
+#' @param year Integer MapBiomas year (default \code{2024}).
 #' @param collection Integer MapBiomas collection number (default \code{10}).
-#' @param backend Habitat backend: \code{"local"} (default; \pkg{terra} +
-#'   \code{/vsicurl/} or a local GeoTIFF) or \code{"gee"} (Google Earth Engine
-#'   via \pkg{rgee}).
+#' @param backend Habitat backend: \code{"local"} (default) or \code{"gee"}.
 #' @param cell_km AOO grid cell size in km (default \code{2}).
-#' @param mapbiomas Logical; if \code{FALSE}, only EOO/AOO are computed and the
-#'   conversion columns are \code{NA} (fast, fully offline).
-#' @param src Optional local path / URL to a MapBiomas GeoTIFF for the local
-#'   backend.
+#' @param mapbiomas Logical; if \code{FALSE}, only EOO/AOO are computed.
+#' @param fire Logical; if \code{TRUE}, also compute burned-area metrics from
+#'   MapBiomas Fire (accumulated layer, read locally). Default \code{FALSE}.
+#' @param fire_collection,fire_host_collection Fire collection number (default
+#'   \code{4}) and the initiative folder hosting it (default \code{9}).
+#' @param src Optional MapBiomas LULC GeoTIFF for the local backend.
+#' @param fire_src Optional MapBiomas Fire GeoTIFF (overrides the public URL).
 #' @param water_in_denominator Passed to \code{\link{summarise_conversion}}.
-#' @param min_records Minimum records required to attempt an assessment
-#'   (default \code{1}). Species below this are skipped with a note.
+#' @param min_records Minimum records required to attempt an assessment.
 #' @param verbose Logical; print progress (default \code{TRUE}).
 #' @return An object of class \code{geoconv_assessment}: a list with
-#'   \code{summary} (a \code{data.frame}, one row per species) and \code{detail}
-#'   (a named list per species with \code{points}, \code{eoo}, \code{aoo},
-#'   \code{eoo_conversion}, \code{aoo_conversion}).
+#'   \code{summary} (one row per species) and \code{detail} (per-species
+#'   \code{points}, \code{eoo}, \code{aoo}, \code{eoo_conversion},
+#'   \code{aoo_conversion}, and — when \code{fire = TRUE} — \code{eoo_fire},
+#'   \code{aoo_fire}).
 #' @examples
 #' \dontrun{
 #' f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
 #' occ <- read_occurrences(f)
-#' res <- assess_species(occ, year = 2024)          # local windowed read
+#' res <- assess_species(occ, year = 2024, fire = TRUE)
 #' res$summary
-#' map_species(res, species = res$summary$species[1])
 #' }
 #' @export
 assess_species <- function(occ, year = 2024, collection = 10,
                            backend = c("local", "gee"),
-                           cell_km = 2, mapbiomas = TRUE, src = NULL,
+                           cell_km = 2, mapbiomas = TRUE,
+                           fire = FALSE, fire_collection = 4,
+                           fire_host_collection = 9,
+                           src = NULL, fire_src = NULL,
                            water_in_denominator = FALSE,
                            min_records = 1, verbose = TRUE) {
   .assert_points(occ, "occ")
   backend <- match.arg(backend)
   if (is.null(occ$species)) occ$species <- "sp1"
   sp_list <- unique(occ$species)
-
+  
   rows <- vector("list", length(sp_list))
   detail <- vector("list", length(sp_list))
   names(detail) <- sp_list
-
+  
   for (i in seq_along(sp_list)) {
     sp <- sp_list[i]
     pts <- occ[occ$species == sp, , drop = FALSE]
     if (verbose) message(sprintf("[%d/%d] %s (%d records)",
                                  i, length(sp_list), sp, nrow(pts)))
-
+    
     if (nrow(pts) < min_records) {
       if (verbose) message("  skipped: fewer than min_records.")
       next
     }
-
+    
     eoo <- calc_eoo(pts)
     aoo <- calc_aoo(pts, cell_km = cell_km)
     cats <- iucn_category_B(eoo$area_km2, aoo$area_km2)
-
-    eoo_conv <- NULL
-    aoo_conv <- NULL
+    
+    eoo_conv <- aoo_conv <- NULL
     if (mapbiomas) {
       eoo_conv <- .conversion_for(eoo$hull, year, collection, backend, src,
                                   water_in_denominator, verbose, "EOO")
@@ -75,8 +75,17 @@ assess_species <- function(occ, year = 2024, collection = 10,
                                   backend, src, water_in_denominator, verbose,
                                   "AOO")
     }
-
-    rows[[i]] <- data.frame(
+    
+    eoo_fire <- aoo_fire <- NULL
+    if (fire) {
+      eoo_fire <- .fire_for(eoo$hull, eoo$area_km2, fire_collection,
+                            fire_host_collection, fire_src, verbose, "EOO")
+      aoo_fire <- .fire_for(sf::st_union(aoo$cells), aoo$area_km2,
+                            fire_collection, fire_host_collection, fire_src,
+                            verbose, "AOO")
+    }
+    
+    row <- data.frame(
       species = sp,
       n_records = eoo$n_records,
       n_unique = eoo$n_unique,
@@ -94,16 +103,25 @@ assess_species <- function(occ, year = 2024, collection = 10,
       mapbiomas_collection = collection,
       stringsAsFactors = FALSE
     )
+    if (fire) {
+      row$eoo_burned_pct  <- .pp(eoo_fire$burned_pct)
+      row$aoo_burned_pct  <- .pp(aoo_fire$burned_pct)
+      row$fire_collection <- fire_collection
+    }
+    rows[[i]] <- row
     detail[[sp]] <- list(points = pts, eoo = eoo, aoo = aoo,
-                         eoo_conversion = eoo_conv, aoo_conversion = aoo_conv)
+                         eoo_conversion = eoo_conv, aoo_conversion = aoo_conv,
+                         eoo_fire = eoo_fire, aoo_fire = aoo_fire)
   }
-
+  
   summary_df <- do.call(rbind, rows)
   if (is.null(summary_df)) summary_df <- data.frame()
   structure(list(summary = summary_df, detail = detail,
                  settings = list(year = year, collection = collection,
                                  backend = backend, cell_km = cell_km,
-                                 mapbiomas = mapbiomas,
+                                 mapbiomas = mapbiomas, fire = fire,
+                                 fire_collection = fire_collection,
+                                 fire_host_collection = fire_host_collection,
                                  water_in_denominator = water_in_denominator)),
             class = "geoconv_assessment")
 }

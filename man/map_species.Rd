@@ -2,45 +2,41 @@
 % Please edit documentation in R/plotting.R
 \name{map_species}
 \alias{map_species}
-\title{Interactive map of a species' points, EOO and AOO (with optional MapBiomas layer)}
+\title{Interactive map of a species' points, EOO and AOO (MapBiomas + fire)}
 \usage{
 map_species(
   assessment,
   species = NULL,
   mapbiomas = TRUE,
+  fire = FALSE,
   src = NULL,
+  fire_src = NULL,
   max_pixels = 800
 )
 }
 \arguments{
 \item{assessment}{A \code{geoconv_assessment} from \code{\link{assess_species}}.}
 
-\item{species}{Species name to plot. If \code{NULL}, the first assessed
-species is used.}
+\item{species}{Species name to plot (default: first assessed).}
 
-\item{mapbiomas}{Logical; overlay the MapBiomas raster clipped to the EOO
-(default \code{TRUE}). Set \code{FALSE} to skip the raster read entirely.}
+\item{mapbiomas}{Logical; overlay the MapBiomas raster (default \code{TRUE}).}
 
-\item{src}{Optional local path / URL to a MapBiomas GeoTIFF (same as in
-\code{\link{assess_species}}); \code{NULL} (default) uses the public URL.}
+\item{fire}{Logical; overlay the MapBiomas Fire accumulated layer
+(default \code{FALSE}).}
+
+\item{src}{Optional MapBiomas LULC GeoTIFF path/URL.}
+
+\item{fire_src}{Optional MapBiomas Fire GeoTIFF path/URL.}
 
 \item{max_pixels}{Target maximum raster size (longest side, pixels) for the
-overlay (default \code{800}).}
+overlays (default \code{800}).}
 }
 \value{
 A \code{leaflet} widget.
 }
 \description{
-Builds a \pkg{leaflet} map showing the occurrence points, the EOO hull and
-the occupied AOO cells for one species from an assessment. Optionally overlays
-the MapBiomas land-cover raster (clipped to the EOO) as a toggleable layer with
-the official class legend in the bottom-right corner, so the interactive map is
-consistent with \code{\link{map_static}}.
-}
-\details{
-The MapBiomas overlay uses the cached, downsampled windowed reader, so it
-reuses the raster already fetched during \code{\link{assess_species}} (same EOO
-window) and stays responsive. If the raster cannot be read (offline, host
-blocked, or an older \pkg{leaflet} without \code{SpatRaster} support), the
-overlay is skipped with a warning and the rest of the map still renders.
+Builds a \pkg{leaflet} map with the occurrence points, EOO hull and occupied
+AOO cells. Optionally overlays the MapBiomas land-cover raster and the
+MapBiomas Fire accumulated layer (fire recurrence: number of years burned),
+both clipped to the EOO, as toggleable layers with legends.
 }
