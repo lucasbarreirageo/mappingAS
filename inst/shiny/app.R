@@ -42,6 +42,7 @@ ui <- bslib::page_sidebar(
                  selected = "local"),
     checkboxInput("water_denom", "Incluir água como natural no denominador", FALSE),
     checkboxInput("do_mb", "Calcular conversão MapBiomas", TRUE),
+    checkboxInput("do_fire", "Calcular fogo (área queimada MapBiomas)", FALSE),
     actionButton("run", "Avaliar", class = "btn-primary w-100"),
     hr(),
     downloadButton("dl_csv", "Baixar resultados (CSV)", class = "w-100"),
@@ -106,6 +107,29 @@ ui <- bslib::page_sidebar(
       plotOutput("ts_plot", height = 480),
       DT::DTOutput("ts_tbl")
     ),
+    
+    bslib::nav_panel(
+      "Fogo",
+      selectInput("fire_species", "Especie", choices = NULL),
+      uiOutput("fire_summary"),
+      fluidRow(
+        column(4, radioButtons("fire_ts_range", "Area",
+                               c("EOO" = "eoo", "AOO" = "aoo"),
+                               selected = "eoo", inline = TRUE)),
+        column(4, numericInput("fire_ts_step", "Passo (anos)", value = 1,
+                               min = 1, max = 10, step = 1))
+      ),
+      div(
+        class = "d-flex gap-2 mb-2",
+        actionButton("fire_ts_run", "Calcular serie de fogo", class = "btn-primary"),
+        downloadButton("dl_fire_ts", "Baixar serie (CSV)"),
+        downloadButton("dl_fire_ts_png", "Salvar imagem (PNG)")
+      ),
+      helpText("Área queimada por ano (MapBiomas Fogo, 1985-2024). Passo de 1 ano lê todos os anos e pode demorar; aumente o passo para acelerar."),
+      plotOutput("fire_ts_plot", height = 420),
+      DT::DTOutput("fire_tbl")
+    ),
+    
     bslib::nav_panel(
       "Métodos",
       htmltools::HTML(
@@ -178,6 +202,7 @@ server <- function(input, output, session) {
           backend = input$backend,
           cell_km = input$cell_km,
           mapbiomas = isTRUE(input$do_mb),
+          fire = isTRUE(input$do_fire),
           water_in_denominator = isTRUE(input$water_denom),
           verbose = FALSE
         ),
@@ -199,6 +224,7 @@ server <- function(input, output, session) {
     updateSelectInput(session, "chart_species", choices = sp, selected = sp[1])
     updateSelectInput(session, "class_species", choices = sp, selected = sp[1])
     updateSelectInput(session, "ts_species", choices = sp, selected = sp[1])
+    updateSelectInput(session, "fire_species", choices = sp, selected = sp[1])
   })
 
   output$tbl <- DT::renderDT({
@@ -210,7 +236,8 @@ server <- function(input, output, session) {
   output$map <- leaflet::renderLeaflet({
     req(result(), input$map_species)
     mappingAS::map_species(result(), species = input$map_species,
-                           mapbiomas = isTRUE(input$do_mb))
+                           mapbiomas = isTRUE(input$do_mb),
+                           fire = isTRUE(input$do_fire))
   })
 
   outputOptions(output, "map", suspendWhenHidden = FALSE)   
@@ -339,6 +366,89 @@ server <- function(input, output, session) {
     content = function(file) {
       ts <- ts_data(); req(ts)
       utils::write.csv(ts, file, row.names = FALSE, fileEncoding = "UTF-8")
+    }
+  )
+  
+  # ---- Fire: per-species burned-area summary + recurrence table ----
+  output$fire_summary <- renderUI({
+    req(result(), input$fire_species)
+    obj <- result()$detail[[input$fire_species]]
+    validate(need(!is.null(obj$eoo_fire) || !is.null(obj$aoo_fire),
+                  "Ative 'Calcular fogo (area queimada)' no painel e reavalie."))
+    fmt <- function(f, lab) {
+      if (is.null(f)) return(sprintf("<li>%s: sem dados</li>", lab))
+      sprintf("<li><b>%s:</b> %.1f%% da area ja queimou ao menos uma vez (1985-2024).</li>",
+              lab, f$burned_pct %||% NA_real_)
+    }
+    htmltools::HTML(sprintf(
+      "<div style='padding:10px 14px;background:#fff3e0;border-radius:6px;margin-bottom:10px'>
+        <b>Fogo acumulado — %s</b><ul style='margin-bottom:0'>%s%s</ul></div>",
+      input$fire_species, fmt(obj$eoo_fire, "EOO"), fmt(obj$aoo_fire, "AOO")))
+  })
+  
+  output$fire_tbl <- DT::renderDT({
+    req(result(), input$fire_species)
+    obj <- result()$detail[[input$fire_species]]
+    mk <- function(f, rng) {
+      if (is.null(f)) return(NULL)
+      data.frame(range = rng,
+                 area_total_km2    = round(f$total_km2, 2),
+                 area_queimada_km2 = round(f$burned_km2, 2),
+                 pct_queimada      = round(f$burned_pct, 2))
+    }
+    df <- rbind(mk(obj$eoo_fire, "EOO"), mk(obj$aoo_fire, "AOO"))
+    validate(need(!is.null(df) && nrow(df) > 0, "Sem dados de fogo (ou fogo nao calculado)."))
+    DT::datatable(df, rownames = FALSE,
+                  options = list(scrollX = TRUE, pageLength = 10),
+                  caption = "Area queimada por recorte (EOO e AOO)")
+  })
+  
+  # ---- Fire: burned-area time series (% x year) ----
+  fire_ts_data <- eventReactive(input$fire_ts_run, {
+    req(result(), input$fire_species)
+    yy <- mappingAS::mb_years(as.integer(input$collection))
+    step <- max(1L, as.integer(input$fire_ts_step))
+    yrs <- sort(unique(c(seq(min(yy), max(yy), by = step), max(yy))))
+    withProgress(message = "Calculando serie de fogo...", value = 0, {
+      ts <- tryCatch(
+        mappingAS::fire_timeseries_for_species(
+          result(), species = input$fire_species, range = input$fire_ts_range,
+          years = yrs, verbose = FALSE),
+        error = function(e) {
+          showNotification(paste("Erro na serie de fogo:", conditionMessage(e)),
+                           type = "error", duration = NULL)
+          NULL
+        })
+      incProgress(1)
+      ts
+    })
+  })
+  
+  output$fire_ts_plot <- renderPlot({
+    ts <- fire_ts_data(); req(ts)
+    mappingAS::plot_fire_timeseries(ts)
+  })
+  
+  output$dl_fire_ts <- downloadHandler(
+    filename = function() paste0("mappingAS_fogo_", input$fire_species, "_", Sys.Date(), ".csv"),
+    content = function(file) {
+      ts <- fire_ts_data(); req(ts)
+      utils::write.csv(ts, file, row.names = FALSE, fileEncoding = "UTF-8")
+    }
+  )
+  
+  output$dl_fire_ts_png <- downloadHandler(
+    filename = function() paste0("mappingAS_fogo_", input$fire_species, "_", Sys.Date(), ".png"),
+    content = function(file) {
+      ts <- fire_ts_data(); req(ts)
+      p <- mappingAS::plot_fire_timeseries(ts)
+      if (inherits(p, "ggplot") && requireNamespace("ggplot2", quietly = TRUE)) {
+        ggplot2::ggsave(file, plot = p, width = 10, height = 6, dpi = 130)
+      } else {
+        grDevices::png(file, width = 1200, height = 720, res = 120)
+        on.exit(grDevices::dev.off(), add = TRUE)
+        mappingAS::plot_fire_timeseries(ts)
+      }
     }
   )
 

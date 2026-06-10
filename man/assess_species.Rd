@@ -2,7 +2,7 @@
 % Please edit documentation in R/assess.R
 \name{assess_species}
 \alias{assess_species}
-\title{Assess one or many species: EOO, AOO and MapBiomas habitat conversion}
+\title{Assess one or many species: EOO, AOO, MapBiomas conversion and fire}
 \usage{
 assess_species(
   occ,
@@ -11,60 +11,65 @@ assess_species(
   backend = c("local", "gee"),
   cell_km = 2,
   mapbiomas = TRUE,
+  fire = FALSE,
+  fire_collection = 4,
+  fire_host_collection = 9,
   src = NULL,
+  fire_src = NULL,
   water_in_denominator = FALSE,
   min_records = 1,
   verbose = TRUE
 )
 }
 \arguments{
-\item{occ}{An \code{sf} of POINT geometries from
-\code{\link{read_occurrences}}. If it has a \code{species} column with more
-than one value, every species is assessed in turn.}
+\item{occ}{An \code{sf} of POINT geometries from \code{\link{read_occurrences}}.}
 
-\item{year}{Integer MapBiomas year (default \code{2024}, the latest in
-Collection 10).}
+\item{year}{Integer MapBiomas year (default \code{2024}).}
 
 \item{collection}{Integer MapBiomas collection number (default \code{10}).}
 
-\item{backend}{Habitat backend: \code{"local"} (default; \pkg{terra} +
-\code{/vsicurl/} or a local GeoTIFF) or \code{"gee"} (Google Earth Engine
-via \pkg{rgee}).}
+\item{backend}{Habitat backend: \code{"local"} (default) or \code{"gee"}.}
 
 \item{cell_km}{AOO grid cell size in km (default \code{2}).}
 
-\item{mapbiomas}{Logical; if \code{FALSE}, only EOO/AOO are computed and the
-conversion columns are \code{NA} (fast, fully offline).}
+\item{mapbiomas}{Logical; if \code{FALSE}, only EOO/AOO are computed.}
 
-\item{src}{Optional local path / URL to a MapBiomas GeoTIFF for the local
-backend.}
+\item{fire}{Logical; if \code{TRUE}, also compute burned-area metrics from
+MapBiomas Fire (accumulated layer, read locally). Default \code{FALSE}.}
+
+\item{fire_collection, fire_host_collection}{Fire collection number (default
+\code{4}) and the initiative folder hosting it (default \code{9}).}
+
+\item{src}{Optional MapBiomas LULC GeoTIFF for the local backend.}
+
+\item{fire_src}{Optional MapBiomas Fire GeoTIFF (overrides the public URL).}
 
 \item{water_in_denominator}{Passed to \code{\link{summarise_conversion}}.}
 
-\item{min_records}{Minimum records required to attempt an assessment
-(default \code{1}). Species below this are skipped with a note.}
+\item{min_records}{Minimum records required to attempt an assessment.}
 
 \item{verbose}{Logical; print progress (default \code{TRUE}).}
 }
 \value{
 An object of class \code{geoconv_assessment}: a list with
-\code{summary} (a \code{data.frame}, one row per species) and \code{detail}
-(a named list per species with \code{points}, \code{eoo}, \code{aoo},
-\code{eoo_conversion}, \code{aoo_conversion}).
+\code{summary} (one row per species) and \code{detail} (per-species
+\code{points}, \code{eoo}, \code{aoo}, \code{eoo_conversion},
+\code{aoo_conversion}, and — when \code{fire = TRUE} — \code{eoo_fire},
+\code{aoo_fire}).
 }
 \description{
 End-to-end pipeline. For each species it computes the EOO (minimum convex
 polygon) and AOO (2 km grid), then quantifies the percentage of converted
 (anthropic) and remaining natural habitat from the most recent MapBiomas
-collection inside both the EOO and the AOO. Returns a tidy per-species
-summary plus the spatial objects needed for mapping.
+collection inside both the EOO and the AOO. When \code{fire = TRUE} it also
+adds the percentage of the EOO/AOO that has burned and the mean fire
+recurrence, from the MapBiomas Fire accumulated layer.
 }
 \examples{
 \dontrun{
 f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
 occ <- read_occurrences(f)
-res <- assess_species(occ, year = 2024)          # local windowed read
+res <- assess_species(occ, year = 2024, fire = TRUE)
 res$summary
-map_species(res, species = res$summary$species[1])
 }
 }
