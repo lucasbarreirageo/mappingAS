@@ -8,6 +8,7 @@ map_static(
   assessment,
   species = NULL,
   mapbiomas = TRUE,
+  fire = FALSE,
   src = NULL,
   max_pixels = 600,
   crs = NULL,
@@ -23,6 +24,10 @@ map_static(
 
 \item{mapbiomas}{Logical; draw the MapBiomas raster layer (default \code{TRUE}).
 Set \code{FALSE} for a quick points/EOO/AOO map with no raster read.}
+
+\item{fire}{Logical; draw the MapBiomas Fire \emph{frequency} layer (number
+of years burned, 1985-2024) instead of the land-cover raster. Requires the
+assessment to have been run with \code{fire = TRUE} (default \code{FALSE}).}
 
 \item{src}{Optional local path / URL to a MapBiomas GeoTIFF (same as in
 \code{\link{assess_species}}); \code{NULL} (default) uses the public URL.}

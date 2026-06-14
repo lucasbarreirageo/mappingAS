@@ -7,7 +7,7 @@
 fire_raster_local(
   aoi,
   year = 2024,
-  product = c("accumulated", "annual"),
+  product = c("accumulated", "annual", "frequency"),
   fire_collection = 4,
   host_collection = 9,
   src = NULL,

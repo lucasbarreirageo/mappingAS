@@ -8,8 +8,9 @@
 
 #' Build a MapBiomas Fire (Fogo) GeoTIFF URL
 #'
-#' \code{"accumulated"} is the fire-frequency layer (pixel = number of years
-#' burned over \code{period}); \code{"annual"} is the per-year burned area.
+#' \code{"frequency"} is the fire-frequency layer (pixel = number of years
+#' burned over \code{period}, 1-40); \code{"accumulated"} is binary (burned at
+#' least once); \code{"annual"} is the per-year burned area.
 #'
 #' @param year Integer year (ignored when \code{product = "accumulated"}).
 #' @param product \code{"accumulated"} (default) or \code{"annual"}.
@@ -22,7 +23,8 @@
 #' mb_fire_url(product = "accumulated")
 #' mb_fire_url(2024, "annual")
 #' @export
-mb_fire_url <- function(year = 2024, product = c("accumulated", "annual"),
+mb_fire_url <- function(year = 2024,
+                        product = c("accumulated", "annual", "frequency"),
                         fire_collection = 4, host_collection = 9,
                         period = c(1985, 2024)) {
   product <- match.arg(product)
@@ -30,13 +32,14 @@ mb_fire_url <- function(year = 2024, product = c("accumulated", "annual"),
                          "initiatives/brasil/collection_%d/fire-col%d"),
                   as.integer(host_collection), as.integer(fire_collection))
   fc <- as.integer(fire_collection)
-  if (product == "annual")
-    sprintf("%s/annual_burned/mapbiomas_fire_col%d_br_annual_burned_%d.tif",
-            base, fc, as.integer(year))
-  else
-    sprintf(paste0("%s/accumulated_burned_v1/",
-                   "mapbiomas_fire_col%d_br_accumulated_burned_%d_%d.tif"),
-            base, fc, as.integer(period[1]), as.integer(period[2]))
+  p1 <- as.integer(period[1]); p2 <- as.integer(period[2])
+  switch(product,
+    annual      = sprintf("%s/annual_burned/mapbiomas_fire_col%d_br_annual_burned_%d.tif",
+                          base, fc, as.integer(year)),
+    frequency   = sprintf("%s/fire_frequency_v1/mapbiomas_fire_col%d_br_fire_frequency_%d_%d.tif",
+                          base, fc, p1, p2),
+    accumulated = sprintf("%s/accumulated_burned_v1/mapbiomas_fire_col%d_br_accumulated_burned_%d_%d.tif",
+                          base, fc, p1, p2))
 }
 
 #' Crop a MapBiomas Fire raster to an area of interest (local backend)
@@ -51,7 +54,7 @@ mb_fire_url <- function(year = 2024, product = c("accumulated", "annual"),
 #' @return A \pkg{terra} \code{SpatRaster} of fire values clipped to the AOI.
 #' @export
 fire_raster_local <- function(aoi, year = 2024,
-                              product = c("accumulated", "annual"),
+                              product = c("accumulated", "annual", "frequency"),
                               fire_collection = 4, host_collection = 9,
                               src = NULL, mask = TRUE, cache = TRUE,
                               cache_dir = NULL) {
@@ -135,11 +138,11 @@ summarise_fire <- function(fire_areas, range_km2 = NULL) {
 ## Downsampled accumulated-fire raster for display (burned pixels only).
 .fire_raster_display <- function(aoi, fire_collection = 4, host_collection = 9,
                                  src = NULL, max_pixels = 800, crs = NULL,
-                                 cache = TRUE) {
-  r <- fire_raster_local(aoi, product = "accumulated", src = src,
+                                 cache = TRUE, product = "frequency") {
+  r <- fire_raster_local(aoi, product = product, src = src,
                          fire_collection = fire_collection,
                          host_collection = host_collection, cache = cache)
-  r[r <= 0] <- NA                       # show only burned pixels
+  r[r <= 0] <- NA                       # drop unburned (freq/accum coded 0)
   d <- max(dim(r)[1:2])
   if (d > max_pixels)
     r <- terra::aggregate(r, fact = ceiling(d / max_pixels),
@@ -227,6 +230,17 @@ fire_timeseries_for_species <- function(assessment, species = NULL,
 fire_palette <- function(n = 6) {
   grDevices::colorRampPalette(
     c("#ffffb2", "#fecc5c", "#fd8d3c", "#f03b20", "#bd0026"))(n)
+}
+
+#' @keywords internal
+#' @noRd
+## Discrete fire-frequency classes (number of years burned, 1985-2024).
+.fire_freq_bins <- function() {
+  data.frame(lower = c(1, 2, 4, 7, 11, 21),
+             upper = c(1, 3, 6, 10, 20, 40),
+             label = c("1", "2-3", "4-6", "7-10", "11-20", "21-40"),
+             hex   = fire_palette(6),
+             stringsAsFactors = FALSE)
 }
 
 #' Bar/line chart of burned area (%) over time

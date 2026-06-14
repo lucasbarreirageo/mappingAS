@@ -78,16 +78,16 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
       v <- terra::values(fr); v[is.finite(v)]
     } else numeric(0)
     if (length(fv) > 0) {
-      dom <- if (length(unique(fv)) > 1) range(fv) else c(0, max(fv))
-      pal <- leaflet::colorNumeric(fire_palette(), domain = dom,
-                                   na.color = "transparent")
+      brks <- c(1, 2, 4, 7, 11, 21, 41)          # fire-frequency classes (years)
+      pal  <- leaflet::colorBin(fire_palette(length(brks) - 1), domain = c(1, 40),
+                                bins = brks, right = FALSE, na.color = "transparent")
       m <- leaflet::addRasterImage(m, fr, colors = pal, opacity = 0.8,
                                    method = "ngb", project = TRUE,
-                                   group = "Fogo (recorrencia)")
+                                   group = "Frequencia de fogo")
       m <- leaflet::addLegend(m, position = "bottomleft", pal = pal,
-                              values = fv, opacity = 0.8,
-                              title = "Fogo (anos)",
-                              group = "Fogo (recorrencia)")
+                              values = c(1, 40), opacity = 0.8,
+                              title = "Frequencia de fogo<br>(anos, 1985-2024)",
+                              group = "Frequencia de fogo")
       fire_on <- TRUE
     }
   }
@@ -110,7 +110,7 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
                                  group = "Occurrences")
   
   overlay <- c("Occurrences", "EOO (hull)", "AOO (2 km cells)")
-  if (fire_on) overlay <- c("Fogo (recorrencia)", overlay)
+  if (fire_on) overlay <- c("Frequencia de fogo", overlay)
   if (mb_on)   overlay <- c("MapBiomas", overlay)
   m <- leaflet::addLayersControl(
     m, baseGroups = c("Light", "Satellite"), overlayGroups = overlay,
@@ -189,4 +189,3 @@ plot_conversion <- function(assessment, species = NULL) {
     bty = "n", cex = 0.9, xpd = NA)
   invisible(M)
 }
-
