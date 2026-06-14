@@ -18,6 +18,9 @@
 #' @param species Species name (default: first assessed).
 #' @param mapbiomas Logical; draw the MapBiomas raster layer (default \code{TRUE}).
 #'   Set \code{FALSE} for a quick points/EOO/AOO map with no raster read.
+#' @param fire Logical; draw the MapBiomas Fire \emph{frequency} layer (number
+#'   of years burned, 1985-2024) instead of the land-cover raster. Requires the
+#'   assessment to have been run with \code{fire = TRUE} (default \code{FALSE}).
 #' @param src Optional local path / URL to a MapBiomas GeoTIFF (same as in
 #'   \code{\link{assess_species}}); \code{NULL} (default) uses the public URL.
 #' @param max_pixels Target maximum raster size (longest side, in pixels) for the
@@ -37,7 +40,7 @@
 #' }
 #' @export
 map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
-                       src = NULL, max_pixels = 600, crs = NULL,
+                       fire = FALSE, src = NULL, max_pixels = 600, crs = NULL,
                        scalebar = TRUE, north = TRUE, title = NULL) {
   stopifnot(inherits(assessment, "geoconv_assessment"))
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
@@ -63,8 +66,11 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
 
   g <- ggplot2::ggplot()
 
+  # one fill scale only: fire frequency takes the place of the LULC raster
+  draw_fire <- isTRUE(fire) && isTRUE(assessment$settings$fire) && !is.null(hull)
+
   # ---- MapBiomas raster layer (clipped to the EOO) ----
-  if (isTRUE(mapbiomas) && !is.null(hull)) {
+  if (isTRUE(mapbiomas) && !draw_fire && !is.null(hull)) {
     rdf <- tryCatch(
       .mb_display_df(hull, st$year, st$collection, src, max_pixels, crs),
       error = function(e) {
@@ -85,7 +91,7 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
 
   # ---- Fire raster layer (clipped to the EOO) ----
   
-  if (isTRUE(fire) && !is.null(hull) && isTRUE(assessment$settings$fire)) {
+  if (draw_fire) {
     fdf <- tryCatch(
       .fire_display_df(hull, assessment$settings$fire_collection, src, max_pixels, crs),
       error = function(e) {
@@ -104,7 +110,7 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
         ) +
         ggplot2::scale_fill_manual(
           values = fdf$cols, drop = FALSE,
-          name = sprintf("MapBiomas Fogo (Col. %s)", assessment$settings$fire_collection))
+          name = "Frequencia de fogo\n(anos, 1985-2024)")
     }
   }
 
@@ -170,18 +176,17 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
 #' @keywords internal
 #' @noRd
 .fire_display_df <- function(aoi, collection, src, max_pixels, crs) {
-  # Requer que a função .fire_raster_display() e fire_palette() existam em R/fire.R
-  r <- .fire_raster_display(aoi, collection, src, max_pixels = max_pixels, crs = crs)
+  r <- .fire_raster_display(aoi, fire_collection = collection, src = src,
+                            max_pixels = max_pixels, crs = crs,
+                            product = "frequency")
   df <- terra::as.data.frame(r, xy = TRUE, na.rm = TRUE)
-  names(df)[3] <- "code"
-  
-  # Presume-se que fire_palette() retorna um data.frame com colunas 'code', 'class_pt', 'hex'
-  leg <- fire_palette() 
-  df <- df[df$code %in% leg$code, , drop = FALSE]
-  idx <- match(df$code, leg$code)
-  df$class <- droplevels(factor(leg$class_pt[idx], levels = unique(leg$class_pt)))
-  cols <- stats::setNames(leg$hex[match(levels(df$class), leg$class_pt)],
-                          levels(df$class))
+  names(df)[3] <- "freq"
+  b   <- .fire_freq_bins()
+  bin <- findInterval(df$freq, b$lower)          # 0 = unburned, 1..6 = classes
+  keep <- bin >= 1
+  df <- df[keep, , drop = FALSE]; bin <- bin[keep]
+  df$class <- droplevels(factor(b$label[bin], levels = b$label))
+  cols <- stats::setNames(b$hex[match(levels(df$class), b$label)], levels(df$class))
   list(df = df, cols = cols)
 }
 

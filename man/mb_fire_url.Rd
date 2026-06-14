@@ -6,7 +6,7 @@
 \usage{
 mb_fire_url(
   year = 2024,
-  product = c("accumulated", "annual"),
+  product = c("accumulated", "annual", "frequency"),
   fire_collection = 4,
   host_collection = 9,
   period = c(1985, 2024)
@@ -28,8 +28,9 @@ mb_fire_url(
 A length-1 character URL.
 }
 \description{
-\code{"accumulated"} is the fire-frequency layer (pixel = number of years
-burned over \code{period}); \code{"annual"} is the per-year burned area.
+\code{"frequency"} is the fire-frequency layer (pixel = number of years
+burned over \code{period}, 1-40); \code{"accumulated"} is binary (burned at
+least once); \code{"annual"} is the per-year burned area.
 }
 \examples{
 mb_fire_url(product = "accumulated")

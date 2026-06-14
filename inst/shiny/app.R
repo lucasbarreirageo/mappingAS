@@ -490,7 +490,8 @@ output$dl_map_static <- downloadHandler(
       }
       withProgress(message = "Gerando mapa publicável...", value = 0, {
         m <- mappingAS::map_static(result(), species = input$map_species,
-                                   mapbiomas = isTRUE(input$do_mb))
+                                   mapbiomas = isTRUE(input$do_mb),
+                                   fire = isTRUE(input$do_fire))
         ggplot2::ggsave(file, plot = m, width = 9, height = 8, dpi = 300)
         incProgress(1)
       })
