@@ -26,8 +26,9 @@ map_static(
 Set \code{FALSE} for a quick points/EOO/AOO map with no raster read.}
 
 \item{fire}{Logical; draw the MapBiomas Fire \emph{frequency} layer (number
-of years burned, 1985-2024) instead of the land-cover raster. Requires the
-assessment to have been run with \code{fire = TRUE} (default \code{FALSE}).}
+of years burned, 1985-2024). With \code{mapbiomas = TRUE} it is overlaid on
+the land-cover raster when \pkg{ggnewscale} is installed; otherwise only the
+land-cover layer is drawn (default \code{FALSE}).}
 
 \item{src}{Optional local path / URL to a MapBiomas GeoTIFF (same as in
 \code{\link{assess_species}}); \code{NULL} (default) uses the public URL.}

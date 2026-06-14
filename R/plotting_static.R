@@ -19,8 +19,9 @@
 #' @param mapbiomas Logical; draw the MapBiomas raster layer (default \code{TRUE}).
 #'   Set \code{FALSE} for a quick points/EOO/AOO map with no raster read.
 #' @param fire Logical; draw the MapBiomas Fire \emph{frequency} layer (number
-#'   of years burned, 1985-2024) instead of the land-cover raster. Requires the
-#'   assessment to have been run with \code{fire = TRUE} (default \code{FALSE}).
+#'   of years burned, 1985-2024). With \code{mapbiomas = TRUE} it is overlaid on
+#'   the land-cover raster when \pkg{ggnewscale} is installed; otherwise only the
+#'   land-cover layer is drawn (default \code{FALSE}).
 #' @param src Optional local path / URL to a MapBiomas GeoTIFF (same as in
 #'   \code{\link{assess_species}}); \code{NULL} (default) uses the public URL.
 #' @param max_pixels Target maximum raster size (longest side, in pixels) for the
@@ -66,11 +67,20 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
 
   g <- ggplot2::ggplot()
 
-  # one fill scale only: fire frequency takes the place of the LULC raster
-  draw_fire <- isTRUE(fire) && isTRUE(assessment$settings$fire) && !is.null(hull)
+  # ggplot2 has a single fill scale: to show LULC *and* fire together we need
+  # ggnewscale. Without it, the land-cover layer (the main map) is kept and a
+  # warning is emitted, so the publication map never drops MapBiomas silently.
+  draw_lulc <- isTRUE(mapbiomas) && !is.null(hull)
+  draw_fire <- isTRUE(fire) && !is.null(hull)
+  if (draw_lulc && draw_fire && !requireNamespace("ggnewscale", quietly = TRUE)) {
+    warning("Both MapBiomas and fire layers requested but 'ggnewscale' is not ",
+            "installed: drawing MapBiomas only. Install 'ggnewscale' to overlay ",
+            "both.", call. = FALSE)
+    draw_fire <- FALSE
+  }
 
-  # ---- MapBiomas raster layer (clipped to the EOO) ----
-  if (isTRUE(mapbiomas) && !draw_fire && !is.null(hull)) {
+  # ---- MapBiomas land-cover raster (clipped to the EOO) ----
+  if (draw_lulc) {
     rdf <- tryCatch(
       .mb_display_df(hull, st$year, st$collection, src, max_pixels, crs),
       error = function(e) {
@@ -81,33 +91,29 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
       g <- g +
         ggplot2::geom_tile(
           data = rdf$df,
-          ggplot2::aes(x = .data[["x"]], y = .data[["y"]], fill = .data[["class"]])
-        ) +
+          ggplot2::aes(x = .data[["x"]], y = .data[["y"]], fill = .data[["class"]])) +
         ggplot2::scale_fill_manual(
           values = rdf$cols, drop = FALSE,
           name = sprintf("MapBiomas %s (no EOO)", st$year))
+    } else {
+      draw_lulc <- FALSE          # nothing drawn -> fire keeps the first scale
     }
   }
 
-  # ---- Fire raster layer (clipped to the EOO) ----
-  
+  # ---- MapBiomas Fire frequency raster (clipped to the EOO) ----
   if (draw_fire) {
     fdf <- tryCatch(
-      .fire_display_df(hull, assessment$settings$fire_collection, src, max_pixels, crs),
+      .fire_display_df(hull, st$fire_collection %||% 4, src, max_pixels, crs),
       error = function(e) {
         warning("Fire layer skipped: ", conditionMessage(e), call. = FALSE)
         NULL
       })
     if (!is.null(fdf) && nrow(fdf$df) > 0) {
-      # Usa geom_raster ou geom_tile dependendo da preferência (tile é mais seguro com NAs)
-      # Nota: ggnewscale::new_scale_fill() seria necessário se mapbiomas=TRUE E fire=TRUE
-      # Para evitar conflito de escalas de preenchimento (fill) no ggplot2 sem dependências extras,
-      # o ideal é instruir o usuário a plotar ou LULC ou Fogo no mapa estático, ou usar `new_scale_fill()`.
+      if (draw_lulc) g <- g + ggnewscale::new_scale_fill()  # second fill scale
       g <- g +
         ggplot2::geom_tile(
           data = fdf$df,
-          ggplot2::aes(x = .data[["x"]], y = .data[["y"]], fill = .data[["class"]])
-        ) +
+          ggplot2::aes(x = .data[["x"]], y = .data[["y"]], fill = .data[["class"]])) +
         ggplot2::scale_fill_manual(
           values = fdf$cols, drop = FALSE,
           name = "Frequencia de fogo\n(anos, 1985-2024)")
@@ -154,7 +160,7 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
       legend.key.size = grid::unit(11, "pt"),
       legend.margin = ggplot2::margin(4, 6, 4, 6),
       panel.grid = ggplot2::element_line(colour = "grey90", linewidth = 0.3)
-    )     
+    )
 }
 
 #' @keywords internal
