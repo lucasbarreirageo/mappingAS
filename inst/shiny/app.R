@@ -17,7 +17,7 @@ ui <- bslib::page_sidebar(
   sidebar = bslib::sidebar(
     width = 360,
     fileInput(
-      "file", "Ocorrências (CSV, XLSX, GeoPackage, GeoJSON ou shapefile .zip)",
+      "file", "Envie os dados de ocorrência (CSV, XLSX, GeoPackage, GeoJSON ou shapefile)",
       accept = c(".csv", ".tsv", ".txt", ".xlsx", ".xls",
                  ".gpkg", ".geojson", ".json", ".zip")
     ),
@@ -63,9 +63,9 @@ ui <- bslib::page_sidebar(
       "Mapa",
       selectInput("map_species", "Espécie", choices = NULL),
       radioButtons("static_layer", "Camada do mapa publicável (PNG)",
-                   choices = c("Uso do solo (MapBiomas)"  = "lulc",
+                   choices = c("Uso do solo"  = "lulc",
                                "Frequência de fogo"        = "fire",
-                               "Ambas (requer ggnewscale)" = "both"),
+                               "Ambas" = "both"),
                    selected = "lulc", inline = TRUE),
       div(
         class = "d-flex gap-2 mb-2",
