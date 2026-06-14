@@ -62,6 +62,11 @@ ui <- bslib::page_sidebar(
     bslib::nav_panel(
       "Mapa",
       selectInput("map_species", "Espécie", choices = NULL),
+      radioButtons("static_layer", "Camada do mapa publicável (PNG)",
+                   choices = c("Uso do solo (MapBiomas)"  = "lulc",
+                               "Frequência de fogo"        = "fire",
+                               "Ambas (requer ggnewscale)" = "both"),
+                   selected = "lulc", inline = TRUE),
       div(
         class = "d-flex gap-2 mb-2",
         downloadButton("dl_map_html", "Baixar mapa (HTML)"),
@@ -107,7 +112,7 @@ ui <- bslib::page_sidebar(
       plotOutput("ts_plot", height = 480),
       DT::DTOutput("ts_tbl")
     ),
-    
+
     bslib::nav_panel(
       "Fogo",
       selectInput("fire_species", "Especie", choices = NULL),
@@ -129,7 +134,7 @@ ui <- bslib::page_sidebar(
       plotOutput("fire_ts_plot", height = 420),
       DT::DTOutput("fire_tbl")
     ),
-    
+
     bslib::nav_panel(
       "Métodos",
       htmltools::HTML(
@@ -240,7 +245,7 @@ server <- function(input, output, session) {
                            fire = isTRUE(input$do_fire))
   })
 
-  outputOptions(output, "map", suspendWhenHidden = FALSE)   
+  outputOptions(output, "map", suspendWhenHidden = FALSE)
 
   output$chart <- renderPlot({
     req(result(), input$chart_species)
@@ -368,7 +373,7 @@ server <- function(input, output, session) {
       utils::write.csv(ts, file, row.names = FALSE, fileEncoding = "UTF-8")
     }
   )
-  
+
   # ---- Fire: per-species burned-area summary + recurrence table ----
   output$fire_summary <- renderUI({
     req(result(), input$fire_species)
@@ -385,7 +390,7 @@ server <- function(input, output, session) {
         <b>Fogo acumulado — %s</b><ul style='margin-bottom:0'>%s%s</ul></div>",
       input$fire_species, fmt(obj$eoo_fire, "EOO"), fmt(obj$aoo_fire, "AOO")))
   })
-  
+
   output$fire_tbl <- DT::renderDT({
     req(result(), input$fire_species)
     obj <- result()$detail[[input$fire_species]]
@@ -402,7 +407,7 @@ server <- function(input, output, session) {
                   options = list(scrollX = TRUE, pageLength = 10),
                   caption = "Area queimada por recorte (EOO e AOO)")
   })
-  
+
   # ---- Fire: burned-area time series (% x year) ----
   fire_ts_data <- eventReactive(input$fire_ts_run, {
     req(result(), input$fire_species)
@@ -423,12 +428,12 @@ server <- function(input, output, session) {
       ts
     })
   })
-  
+
   output$fire_ts_plot <- renderPlot({
     ts <- fire_ts_data(); req(ts)
     mappingAS::plot_fire_timeseries(ts)
   })
-  
+
   output$dl_fire_ts <- downloadHandler(
     filename = function() paste0("mappingAS_fogo_", input$fire_species, "_", Sys.Date(), ".csv"),
     content = function(file) {
@@ -436,7 +441,7 @@ server <- function(input, output, session) {
       utils::write.csv(ts, file, row.names = FALSE, fileEncoding = "UTF-8")
     }
   )
-  
+
   output$dl_fire_ts_png <- downloadHandler(
     filename = function() paste0("mappingAS_fogo_", input$fire_species, "_", Sys.Date(), ".png"),
     content = function(file) {
@@ -479,7 +484,8 @@ server <- function(input, output, session) {
       webshot2::webshot(tmp, file = file, vwidth = 1100, vheight = 800, delay = 1)
     }
   )
-output$dl_map_static <- downloadHandler(
+
+  output$dl_map_static <- downloadHandler(
     filename = function() paste0("mappingAS_mapa_", input$map_species, "_", Sys.Date(), ".png"),
     content = function(file) {
       req(result(), input$map_species)
@@ -488,15 +494,23 @@ output$dl_map_static <- downloadHandler(
                          type = "error", duration = NULL)
         req(FALSE)
       }
+      lyr <- input$static_layer %||% "lulc"
+      if (lyr == "both" && !requireNamespace("ggnewscale", quietly = TRUE)) {
+        showNotification(
+          "Para sobrepor uso do solo e fogo, instale 'ggnewscale'. Exportando só o uso do solo.",
+          type = "warning", duration = 8)
+      }
       withProgress(message = "Gerando mapa publicável...", value = 0, {
-        m <- mappingAS::map_static(result(), species = input$map_species,
-                                   mapbiomas = isTRUE(input$do_mb),
-                                   fire = isTRUE(input$do_fire))
+        m <- mappingAS::map_static(
+          result(), species = input$map_species,
+          mapbiomas = lyr %in% c("lulc", "both"),
+          fire      = lyr %in% c("fire", "both"))
         ggplot2::ggsave(file, plot = m, width = 9, height = 8, dpi = 300)
         incProgress(1)
       })
     }
   )
+
   output$dl_chart_png <- downloadHandler(
     filename = function() paste0("mappingAS_conversao_", input$chart_species, "_", Sys.Date(), ".png"),
     content = function(file) {
