@@ -11,7 +11,7 @@
 #' \dontrun{ run_app() }
 #' @export
 run_app <- function(launch.browser = TRUE, ...) {
-  for (p in c("shiny", "bslib", "leaflet", "DT")) {
+  for (p in c("shiny", "bslib", "leaflet", "DT", "htmltools", "htmlwidgets")) {
     if (!requireNamespace(p, quietly = TRUE)) {
       stop("Package '", p, "' is required to run the app.", call. = FALSE)
     }

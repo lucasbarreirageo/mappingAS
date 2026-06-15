@@ -23,5 +23,10 @@
 #' \code{backend = "gee"} uses \pkg{rgee} server-side reductions for very large
 #' ranges.
 #'
+#' @importFrom rlang .data
+#' @importFrom DT datatable
+#' @importFrom bslib page_sidebar
+#' @importFrom htmltools HTML
+#' @importFrom htmlwidgets saveWidget
 #' @keywords internal
 "_PACKAGE"
