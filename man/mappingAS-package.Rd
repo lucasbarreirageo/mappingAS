@@ -44,5 +44,10 @@ Useful links:
 \author{
 \strong{Maintainer}: Antônio Lucas Barreira Rodrigues \email{barreira_rodrigues@hotmail.com}
 
+Authors:
+\itemize{
+  \item Antônio Lucas Barreira Rodrigues \email{barreira_rodrigues@hotmail.com}
+}
+
 }
 \keyword{internal}
