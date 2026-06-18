@@ -22,6 +22,8 @@ Depends:
 Imports:
     sf (>= 1.0.0),
     terra (>= 1.7.0),
+    units,
+    lwgeom,
     readxl,
     rlang,
     grid,

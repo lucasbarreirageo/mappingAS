@@ -28,5 +28,6 @@
 #' @importFrom bslib page_sidebar
 #' @importFrom htmltools HTML
 #' @importFrom htmlwidgets saveWidget
+#' @importFrom lwgeom st_geod_area
 #' @keywords internal
 "_PACKAGE"

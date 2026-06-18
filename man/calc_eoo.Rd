@@ -4,27 +4,41 @@
 \alias{calc_eoo}
 \title{Extent of Occurrence (EOO) via minimum convex polygon}
 \usage{
-calc_eoo(points)
+calc_eoo(points, segmentize_km = 20)
 }
 \arguments{
 \item{points}{An \code{sf} of POINT geometries (one species). Use
 \code{\link{read_occurrences}} to produce it.}
+
+\item{segmentize_km}{Numeric edge length, in kilometres, used to densify the
+hull edges along great circles (default \code{20}, matching ConR).}
 }
 \value{
 A list with \code{area_km2} (numeric), \code{n_records} (integer),
 \code{n_unique} (distinct coordinates), \code{hull} (the hull as an
-\code{sfc} in WGS84, or \code{NULL}) and \code{crs_laea} (the equal-area
-proj string used).
+\code{sfc} in WGS84, or \code{NULL} when the EOO is undefined) and
+\code{crs_laea} (a data-centred equal-area proj string, kept for mapping).
 }
 \description{
 Computes the EOO as the area of the convex hull (minimum convex polygon)
-enclosing all occurrence points, following IUCN Red List guidelines and
-GeoCat. The hull is built and measured on a data-centred equal-area
-projection (see \code{\link{laea_crs}}) to avoid areal distortion. A polygon
-requires at least three non-collinear points; with fewer than three points,
-or with perfectly collinear points (where the hull degenerates to a line),
-the EOO is returned as \code{NA} (as in GeoCat, where EOO is undefined / 0
-for such cases).
+enclosing all occurrence points, following the IUCN Red List guidelines and
+the approach used by the \pkg{ConR} package. The hull is built in
+longitude/latitude, its edges are densified with \code{st_segmentize()} so
+that they follow great circles, and the area is measured directly on the
+WGS84 ellipsoid (a "spheroid" measurement).
+}
+\details{
+Degenerate cases are handled so the function never errors:
+\itemize{
+\item With fewer than three unique points a polygon cannot be built and the
+EOO is \code{NA}.
+\item When the unique points are perfectly collinear (they would form a
+line of area zero) a small amount of noise is added to the coordinates
+(\code{jitter}), exactly as in ConR, so that a valid polygon can still be
+produced.
+\item If, for any other reason, a valid polygon still cannot be built, the
+EOO is returned as \code{NA} rather than throwing an error.
+}
 }
 \examples{
 f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
