@@ -1,73 +1,125 @@
-#' Extent of Occurrence (EOO) via minimum convex polygon
+#' Extent of Occurrence (EOO) via minimum convex polygon 
 #'
 #' Computes the EOO as the area of the convex hull (minimum convex polygon)
-#' enclosing all occurrence points, following IUCN Red List guidelines and
-#' GeoCat. The hull is built and measured on a data-centred equal-area
-#' projection (see \code{\link{laea_crs}}) to avoid areal distortion. A polygon
-#' requires at least three non-collinear points; with fewer than three points,
-#' or with perfectly collinear points (where the hull degenerates to a line),
-#' the EOO is returned as \code{NA} (as in GeoCat, where EOO is undefined / 0
-#' for such cases).
+#' enclosing all occurrence points, following the IUCN Red List guidelines and
+#' the approach used by the \pkg{ConR} package. The hull is built in
+#' longitude/latitude, its edges are densified with \code{st_segmentize()} so
+#' that they follow great circles, and the area is measured directly on the
+#' WGS84 ellipsoid (a "spheroid" measurement).
+#'
+#' Degenerate cases are handled so the function never errors:
+#' \itemize{
+#'   \item With fewer than three unique points a polygon cannot be built and the
+#'     EOO is \code{NA}.
+#'   \item When the unique points are perfectly collinear (they would form a
+#'     line of area zero) a small amount of noise is added to the coordinates
+#'     (\code{jitter}), exactly as in ConR, so that a valid polygon can still be
+#'     produced.
+#'   \item If, for any other reason, a valid polygon still cannot be built, the
+#'     EOO is returned as \code{NA} rather than throwing an error.
+#' }
 #'
 #' @param points An \code{sf} of POINT geometries (one species). Use
 #'   \code{\link{read_occurrences}} to produce it.
+#' @param segmentize_km Numeric edge length, in kilometres, used to densify the
+#'   hull edges along great circles (default \code{20}, matching ConR).
 #' @return A list with \code{area_km2} (numeric), \code{n_records} (integer),
 #'   \code{n_unique} (distinct coordinates), \code{hull} (the hull as an
-#'   \code{sfc} in WGS84, or \code{NULL}) and \code{crs_laea} (the equal-area
-#'   proj string used).
+#'   \code{sfc} in WGS84, or \code{NULL} when the EOO is undefined) and
+#'   \code{crs_laea} (a data-centred equal-area proj string, kept for mapping).
 #' @examples
 #' f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
 #' occ <- read_occurrences(f)
 #' sp1 <- occ[occ$species == occ$species[1], ]
 #' calc_eoo(sp1)$area_km2
 #' @export
-calc_eoo <- function(points) {
+calc_eoo <- function(points, segmentize_km = 20) {
   .assert_points(points, "points")
   pts <- sf::st_geometry(sf::st_transform(points, 4326))
   co <- unique(round(sf::st_coordinates(pts)[, c("X", "Y"), drop = FALSE], 8))
   n_rec <- length(pts)
   n_uni <- nrow(co)
 
+  # A data-centred equal-area CRS is kept in the output for downstream mapping
+  # (the EOO area itself is measured on the ellipsoid, ConR-style).
+  crs_laea <- tryCatch(laea_crs(pts), error = function(e) NA_character_)
+
   out <- list(area_km2 = NA_real_, n_records = n_rec, n_unique = n_uni,
-              hull = NULL, crs_laea = NA_character_)
+              hull = NULL, crs_laea = crs_laea)
   if (n_uni < 3) {
     message("EOO undefined for < 3 unique locations (returning NA).")
     return(out)
   }
 
-  crs_laea <- laea_crs(pts)
-  pts_p <- sf::st_transform(pts, crs_laea)
-  hull_p <- sf::st_convex_hull(sf::st_union(pts_p))
+  # Break a perfectly straight line by jittering, as ConR does, so that a
+  # polygon (rather than a degenerate line of area 0) can be built.
+  if (.is_collinear(co)) {
+    message("EOO: collinear points; adding noise (jitter) before hull.")
+    guard <- 0L
+    repeat {
+      co[, 1] <- jitter(co[, 1], factor = 0.1)
+      co[, 2] <- jitter(co[, 2], factor = 0.1)
+      guard <- guard + 1L
+      if (!.is_collinear(co) || guard > 100L) break
+    }
+  }
 
-  # >= 3 unique but collinear points yield a LINESTRING/POINT, not a polygon:
-  # the EOO is undefined (avoids a spurious area of 0 and a non-polygon hull).
-  if (!(as.character(sf::st_geometry_type(hull_p)) %in% c("POLYGON", "MULTIPOLYGON"))) {
-    message("EOO undefined: collinear points (no polygon); returning NA.")
+  hull <- tryCatch(
+    .convex_hull_spheroid(co, segmentize_km),
+    error = function(e) NULL
+  )
+
+  # Final safety net: if no valid polygon could be built, return NA (no error).
+  if (is.null(hull) ||
+      !any(as.character(sf::st_geometry_type(hull)) %in%
+           c("POLYGON", "MULTIPOLYGON"))) {
+    message("EOO undefined: could not build a valid polygon; returning NA.")
     return(out)
   }
 
-  area <- as.numeric(sf::st_area(hull_p)) / 1e6  # m^2 -> km^2
-  out$area_km2 <- area
-  out$hull <- sf::st_transform(hull_p, 4326)
-  out$crs_laea <- crs_laea
+  out$area_km2 <- as.numeric(sf::st_area(hull)) / 1e6  # m^2 -> km^2
+  out$hull <- hull
   out
 }
 
-#' Area of Occupancy (AOO) via occupied grid cells
+#' @keywords internal
+#' @noRd
+.convex_hull_spheroid <- function(co, segmentize_km) {
+  idx <- grDevices::chull(co[, 1], co[, 2])
+  idx <- c(idx, idx[1])
+  ring <- co[idx, , drop = FALSE]
+
+  poly <- sf::st_sfc(sf::st_polygon(list(ring)), crs = 4326)
+  # Densify edges along great circles, then measure on the ellipsoid (ConR).
+  poly <- sf::st_segmentize(poly, units::set_units(segmentize_km, "km"))
+  sf::st_make_valid(poly)
+}
+
+#' @keywords internal
+#' @noRd
+.is_collinear <- function(co) {
+  if (nrow(co) < 3) return(TRUE)
+  r <- suppressWarnings(stats::cor(co[, 1], co[, 2]))
+  is.na(r) || round(abs(r), 6) == 1
+}
+
+#' Area of Occupancy (AOO) via occupied grid cells 
 #'
 #' Computes the AOO as the number of occupied grid cells multiplied by the cell
-#' area, following IUCN Red List guidelines (reference scale: 2 x 2 km cells =
-#' 4 km^2 each). Points are snapped to a regular grid defined on a data-centred
-#' equal-area projection.
+#' area, following the IUCN Red List guidelines (reference scale: 2 x 2 km cells
+#' = 4 km^2 each) and the approach used by the \pkg{ConR} package. Points are
+#' snapped to a regular grid defined on a data-centred equal-area projection.
 #'
-#' Note: AOO depends slightly on grid placement; the IUCN reference scale is the
-#' 2 km grid. To explore sensitivity you can change \code{cell_km} or shift the
-#' grid via \code{origin}.
+#' Because the occupied-cell count depends on where the grid is placed, this
+#' function tests several randomly translated grids and returns the
+#' \emph{smallest} count, as ConR does. The returned \code{cells} correspond to
+#' the grid placement that produced the reported value.
 #'
 #' @param points An \code{sf} of POINT geometries (one species).
 #' @param cell_km Grid cell side length in kilometres (default \code{2}).
-#' @param origin Optional length-2 numeric \code{c(x0, y0)} grid origin in the
-#'   equal-area projection metres (default \code{c(0, 0)}).
+#' @param n_rep Integer; number of randomly translated grids to test (default
+#'   \code{30}, matching the typical ConR setting). The minimum occupied-cell
+#'   count over the replicates is returned.
 #' @return A list with \code{area_km2}, \code{n_cells}, \code{cell_km},
 #'   \code{cells} (occupied cells as an \code{sfc} polygon set in WGS84) and
 #'   \code{crs_laea}.
@@ -77,7 +129,7 @@ calc_eoo <- function(points) {
 #' sp1 <- occ[occ$species == occ$species[1], ]
 #' calc_aoo(sp1)$area_km2
 #' @export
-calc_aoo <- function(points, cell_km = 2, origin = c(0, 0)) {
+calc_aoo <- function(points, cell_km = 2, n_rep = 30) {
   .assert_points(points, "points")
   pts <- sf::st_geometry(sf::st_transform(points, 4326))
   crs_laea <- laea_crs(pts)
@@ -85,16 +137,17 @@ calc_aoo <- function(points, cell_km = 2, origin = c(0, 0)) {
 
   size <- cell_km * 1000
   co <- sf::st_coordinates(pts_p)[, c("X", "Y"), drop = FALSE]
-  ix <- floor((co[, "X"] - origin[1]) / size)
-  iy <- floor((co[, "Y"] - origin[2]) / size)
-  cells <- unique(data.frame(ix = ix, iy = iy))
+
+  best <- .aoo_min_grid(co, size, max(1L, as.integer(n_rep)))
+
+  cells <- unique(data.frame(ix = best$ix, iy = best$iy))
   n_cells <- nrow(cells)
 
   # build occupied-cell polygons (for mapping / habitat extraction)
   polys <- vector("list", n_cells)
   for (i in seq_len(n_cells)) {
-    x0 <- origin[1] + cells$ix[i] * size
-    y0 <- origin[2] + cells$iy[i] * size
+    x0 <- best$ox + cells$ix[i] * size
+    y0 <- best$oy + cells$iy[i] * size
     polys[[i]] <- sf::st_polygon(list(rbind(
       c(x0, y0), c(x0 + size, y0), c(x0 + size, y0 + size),
       c(x0, y0 + size), c(x0, y0)
@@ -109,5 +162,31 @@ calc_aoo <- function(points, cell_km = 2, origin = c(0, 0)) {
     cells = sf::st_transform(cells_p, 4326),
     crs_laea = crs_laea
   )
+}
+
+#' @keywords internal
+#' @noRd
+.aoo_min_grid <- function(co, size, n_rep) {
+  best_n <- Inf
+  best <- NULL
+  for (h in seq_len(n_rep)) {
+    # First replicate uses the origin grid; the rest are random translations.
+    if (h == 1L) {
+      ox <- 0
+      oy <- 0
+    } else {
+      ox <- stats::runif(1) * size
+      oy <- stats::runif(1) * size
+    }
+    ix <- floor((co[, "X"] - ox) / size)
+    iy <- floor((co[, "Y"] - oy) / size)
+    n  <- nrow(unique(cbind(ix, iy)))
+    if (n < best_n) {
+      best_n <- n
+      best <- list(ix = ix, iy = iy, ox = ox, oy = oy)
+      if (best_n == 1L) break  # cannot do better than a single cell
+    }
+  }
+  best
 }
 

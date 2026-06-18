@@ -4,15 +4,16 @@
 \alias{calc_aoo}
 \title{Area of Occupancy (AOO) via occupied grid cells}
 \usage{
-calc_aoo(points, cell_km = 2, origin = c(0, 0))
+calc_aoo(points, cell_km = 2, n_rep = 30)
 }
 \arguments{
 \item{points}{An \code{sf} of POINT geometries (one species).}
 
 \item{cell_km}{Grid cell side length in kilometres (default \code{2}).}
 
-\item{origin}{Optional length-2 numeric \code{c(x0, y0)} grid origin in the
-equal-area projection metres (default \code{c(0, 0)}).}
+\item{n_rep}{Integer; number of randomly translated grids to test (default
+\code{30}, matching the typical ConR setting). The minimum occupied-cell
+count over the replicates is returned.}
 }
 \value{
 A list with \code{area_km2}, \code{n_cells}, \code{cell_km},
@@ -21,14 +22,15 @@ A list with \code{area_km2}, \code{n_cells}, \code{cell_km},
 }
 \description{
 Computes the AOO as the number of occupied grid cells multiplied by the cell
-area, following IUCN Red List guidelines (reference scale: 2 x 2 km cells =
-4 km^2 each). Points are snapped to a regular grid defined on a data-centred
-equal-area projection.
+area, following the IUCN Red List guidelines (reference scale: 2 x 2 km cells
+= 4 km^2 each) and the approach used by the \pkg{ConR} package. Points are
+snapped to a regular grid defined on a data-centred equal-area projection.
 }
 \details{
-Note: AOO depends slightly on grid placement; the IUCN reference scale is the
-2 km grid. To explore sensitivity you can change \code{cell_km} or shift the
-grid via \code{origin}.
+Because the occupied-cell count depends on where the grid is placed, this
+function tests several randomly translated grids and returns the
+\emph{smallest} count, as ConR does. The returned \code{cells} correspond to
+the grid placement that produced the reported value.
 }
 \examples{
 f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")

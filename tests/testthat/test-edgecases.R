@@ -1,6 +1,9 @@
-test_that("EOO is NA when >= 3 unique points are collinear", {
-  # Points sharing one longitude fall on the LAEA central meridian, so their
-  # projected coordinates are exactly collinear and the convex hull is a line.
+test_that("EOO handles >= 3 collinear points by jittering (ConR), not NA", {
+  skip_if_not_installed("units")
+  skip_if_not_installed("lwgeom")
+  # Points sharing one longitude are perfectly collinear. The ConR method adds
+  # a small jitter so that a valid polygon can still be built and the EOO is a
+  # finite positive area (rather than NA).
   occ <- sf::st_as_sf(
     data.frame(species = "sp",
                lon = c(-43.0, -43.0, -43.0),
@@ -9,8 +12,9 @@ test_that("EOO is NA when >= 3 unique points are collinear", {
   )
   e <- suppressMessages(calc_eoo(occ))
   expect_equal(e$n_unique, 3L)
-  expect_true(is.na(e$area_km2))
-  expect_null(e$hull)
+  expect_true(is.finite(e$area_km2))
+  expect_gt(e$area_km2, 0)
+  expect_s3_class(e$hull, "sfc")
 })
 
 test_that("read_occurrences parses Brazilian-style CSV (; separator, , decimals)", {
