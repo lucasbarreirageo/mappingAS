@@ -5,7 +5,7 @@ on:
     branches: [main, master]
   pull_request:
 
-name: test-coverage.yaml
+name: test-coverage
 
 permissions: read-all
 
@@ -36,15 +36,14 @@ jobs:
           covr::to_cobertura(cov)
         shell: Rscript {0}
 
-      - uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6
+      - name: Upload test results to Codecov
+        uses: codecov/codecov-action@v4
         with:
-          # Fail if error if not on PR, or if on PR and token is given
-          fail_ci_if_error: ${{ github.event_name != 'pull_request' || secrets.CODECOV_TOKEN }}
-          files: ./cobertura.xml
-          plugins: noop
+          fail_ci_if_error: ${{ github.event_name != 'pull_request' || secrets.CODECOV_TOKEN != '' }}
+          file: ./cobertura.xml
+          plugin: noop
           disable_search: true
           token: ${{ secrets.CODECOV_TOKEN }}
-          skip_validation: true
 
       - name: Show testthat output
         if: always()
@@ -55,7 +54,7 @@ jobs:
 
       - name: Upload test results
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-test-failures
           path: ${{ runner.temp }}/package
