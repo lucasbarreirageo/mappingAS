@@ -1,0 +1,8 @@
+url: https://seusuario.github.io/mappingAS
+template:
+  bootstrap: 5
+  bootswatch: flatly
+navbar:
+  structure:
+    left:  [intro, reference, articles, news]
+    right: [github]
