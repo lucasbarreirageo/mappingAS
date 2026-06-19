@@ -13,153 +13,161 @@ suppressMessages({
 
 ui <- bslib::page_sidebar(
   title = "mappingAS | Mapping Area of Species",
-  theme = bslib::bs_theme(version = 5, primary = "#1f8d49"),
+  fillable = TRUE, # Allows the map to stretch and fill the entire screen
+  theme = bslib::bs_theme(version = 5, bootswatch = "flatly", primary = "#1f8d49"),
   sidebar = bslib::sidebar(
     width = 360,
     fileInput(
-      "file", "Envie os dados de ocorrência (CSV, XLSX, GeoPackage, GeoJSON ou shapefile)",
+      "file", "Upload occurrence data (CSV, XLSX, GeoPackage, GeoJSON or shapefile)",
       accept = c(".csv", ".tsv", ".txt", ".xlsx", ".xls",
                  ".gpkg", ".geojson", ".json", ".zip")
     ),
-    helpText("Dica: para shapefile, envie um .zip com .shp/.shx/.dbf/.prj."),
+    helpText("Tip: for shapefiles, upload a .zip containing .shp/.shx/.dbf/.prj."),
     bslib::accordion(
       open = FALSE,
       bslib::accordion_panel(
-        "Mapear colunas (opcional)",
-        textInput("species_col", "Coluna de espécie", ""),
-        textInput("lon_col", "Coluna de longitude", ""),
-        textInput("lat_col", "Coluna de latitude", ""),
-        helpText("Deixe em branco para detecção automática.")
+        "Map columns (optional)",
+        textInput("species_col", "Species column", ""),
+        textInput("lon_col", "Longitude column", ""),
+        textInput("lat_col", "Latitude column", ""),
+        helpText("Leave blank for automatic detection.")
       )
     ),
     hr(),
-    selectInput("year", "Ano MapBiomas", choices = 2024:1985, selected = 2024),
-    selectInput("collection", "Coleção", choices = c(10, 9), selected = 10),
-    numericInput("cell_km", "Célula AOO (km)", value = 2, min = 0.5, step = 0.5),
-    radioButtons("backend", "Fonte do MapBiomas",
-                 choices = c("Local (sem conta GEE)" = "local",
+    selectInput("year", "MapBiomas Year", choices = 2024:1985, selected = 2024),
+    selectInput("collection", "Collection", choices = c(10, 9), selected = 10),
+    numericInput("cell_km", "AOO Cell (km)", value = 2, min = 0.5, step = 0.5),
+    radioButtons("backend", "MapBiomas Source",
+                 choices = c("Local (no GEE account)" = "local",
                              "Google Earth Engine" = "gee"),
                  selected = "local"),
-    checkboxInput("water_denom", "Incluir água como natural no denominador", FALSE),
-    checkboxInput("do_mb", "Calcular conversão MapBiomas", TRUE),
-    checkboxInput("do_fire", "Calcular fogo (área queimada MapBiomas)", FALSE),
-    actionButton("run", "Avaliar", class = "btn-primary w-100"),
+    checkboxInput("water_denom", "Include water as natural in denominator", FALSE),
+    checkboxInput("do_mb", "Calculate MapBiomas conversion", TRUE),
+    checkboxInput("do_fire", "Calculate fire (MapBiomas burned area)", FALSE),
+    actionButton("run", "Assess", class = "btn-primary w-100", icon = icon("calculator")),
     hr(),
-    downloadButton("dl_csv", "Baixar resultados (CSV)", class = "w-100"),
+    downloadButton("dl_csv", "Download results (CSV)", class = "w-100"),
     hr(),
-    radioButtons("export_fmt", "Mapas EOO/AOO",
+    radioButtons("export_fmt", "EOO/AOO Maps",
                  choices = c("Shapefile (.zip)" = "shapefile",
                              "GeoPackage (.gpkg)" = "gpkg"),
                  selected = "shapefile", inline = TRUE),
-    downloadButton("dl_ranges", "Baixar EOO/AOO (espacial)", class = "w-100")
+    downloadButton("dl_ranges", "Download EOO/AOO (spatial)", class = "w-100")
   ),
   tags$head(tags$link(rel = "stylesheet", href = "styles.css")),
   bslib::navset_card_tab(
+    # TAB 1: MAIN MAP 
     bslib::nav_panel(
-      "Resultados",
+      "Map", icon = icon("globe"),
+      bslib::layout_columns(
+        col_widths = c(9, 3), # 75% for Map, 25% for Controls
+        bslib::card(
+          full_screen = TRUE,
+          leaflet::leafletOutput("map", height = "100%") # Stretched map
+        ),
+        bslib::card(
+          selectInput("map_species", "Species", choices = NULL),
+          radioButtons("static_layer", "Publishable map layer (PNG)",
+                       choices = c("Land use"  = "lulc",
+                                   "Fire"      = "fire",
+                                   "Both"      = "both"),
+                       selected = "lulc"),
+          hr(),
+          downloadButton("dl_map_html", "Download map (HTML)", class = "mb-2"),
+          downloadButton("dl_map_png", "Download map (PNG)", class = "mb-2"),
+          downloadButton("dl_map_static", "Publishable map (PNG)", class = "mb-2")
+        )
+      )
+    ),
+    bslib::nav_panel(
+      "Results", icon = icon("table"),
       DT::DTOutput("tbl")
     ),
     bslib::nav_panel(
-      "Mapa",
-      selectInput("map_species", "Espécie", choices = NULL),
-      radioButtons("static_layer", "Camada do mapa publicável (PNG)",
-                   choices = c("Uso do solo"  = "lulc",
-                               "Frequência de fogo"        = "fire",
-                               "Ambas" = "both"),
-                   selected = "lulc", inline = TRUE),
-      div(
-        class = "d-flex gap-2 mb-2",
-        downloadButton("dl_map_html", "Baixar mapa (HTML)"),
-        downloadButton("dl_map_png", "Baixar mapa (PNG)"),
-        downloadButton("dl_map_static", "Mapa publicável (PNG)")
-      ),
-      leaflet::leafletOutput("map", height = 560)
-    ),
-    bslib::nav_panel(
-      "Conversão",
-      selectInput("chart_species", "Espécie", choices = NULL),
-      downloadButton("dl_chart_png", "Salvar imagem (PNG)", class = "mb-2"),
+      "Conversion", icon = icon("chart-pie"),
+      selectInput("chart_species", "Species", choices = NULL),
+      downloadButton("dl_chart_png", "Save image (PNG)", class = "mb-2"),
       plotOutput("chart", height = 460)
     ),
     bslib::nav_panel(
-      "Classes",
-      selectInput("class_species", "Especie", choices = NULL),
-      helpText("Area e % de cada classe do MapBiomas dentro do EOO e do AOO."),
-      downloadButton("dl_classes", "Baixar classes (CSV)", class = "mb-3"),
+      "Classes", icon = icon("list"),
+      selectInput("class_species", "Species", choices = NULL),
+      helpText("Area and % of each MapBiomas class within EOO and AOO."),
+      downloadButton("dl_classes", "Download classes (CSV)", class = "mb-3"),
       DT::DTOutput("class_tbl")
     ),
     bslib::nav_panel(
-      "Serie temporal",
+      "Time Series", icon = icon("chart-line"),
       fluidRow(
-        column(3, selectInput("ts_species", "Especie", choices = NULL)),
+        column(3, selectInput("ts_species", "Species", choices = NULL)),
         column(3, radioButtons("ts_range", "Area",
                                c("EOO" = "eoo", "AOO" = "aoo"),
                                selected = "eoo", inline = TRUE)),
-        column(3, radioButtons("ts_by", "Detalhe",
-                               c("Classe" = "class", "Grupo" = "group"),
+        column(3, radioButtons("ts_by", "Detail",
+                               c("Class" = "class", "Group" = "group"),
                                selected = "class", inline = TRUE)),
-        column(3, numericInput("ts_step", "Passo (anos)", value = 1,
+        column(3, numericInput("ts_step", "Step (years)", value = 1,
                                min = 1, max = 10, step = 1))
       ),
       div(
         class = "d-flex gap-2 mb-2",
-        actionButton("ts_run", "Calcular serie", class = "btn-primary"),
-        downloadButton("dl_ts", "Baixar serie (CSV)"),
-        downloadButton("dl_ts_png", "Salvar imagem (PNG)")
+        actionButton("ts_run", "Calculate series", class = "btn-primary"),
+        downloadButton("dl_ts", "Download series (CSV)"),
+        downloadButton("dl_ts_png", "Save image (PNG)")
       ),
-      helpText("Histórico completo do MapBiomas (anual por padrão). Passo de 1 ano lê todos os anos e pode demorar; aumente o passo para acelerar."),
+      helpText("Complete MapBiomas history (annual by default). A 1-year step reads all years and may be slow; increase the step to speed up."),
       uiOutput("ts_summary"),
       plotOutput("ts_plot", height = 480),
       DT::DTOutput("ts_tbl")
     ),
 
     bslib::nav_panel(
-      "Fogo",
-      selectInput("fire_species", "Especie", choices = NULL),
+      "Fire", icon = icon("fire"),
+      selectInput("fire_species", "Species", choices = NULL),
       uiOutput("fire_summary"),
       fluidRow(
         column(4, radioButtons("fire_ts_range", "Area",
                                c("EOO" = "eoo", "AOO" = "aoo"),
                                selected = "eoo", inline = TRUE)),
-        column(4, numericInput("fire_ts_step", "Passo (anos)", value = 1,
+        column(4, numericInput("fire_ts_step", "Step (years)", value = 1,
                                min = 1, max = 10, step = 1))
       ),
       div(
         class = "d-flex gap-2 mb-2",
-        actionButton("fire_ts_run", "Calcular serie de fogo", class = "btn-primary"),
-        downloadButton("dl_fire_ts", "Baixar serie (CSV)"),
-        downloadButton("dl_fire_ts_png", "Salvar imagem (PNG)")
+        actionButton("fire_ts_run", "Calculate fire series", class = "btn-primary"),
+        downloadButton("dl_fire_ts", "Download series (CSV)"),
+        downloadButton("dl_fire_ts_png", "Save image (PNG)")
       ),
-      helpText("Área queimada por ano (MapBiomas Fogo, 1985-2024). Passo de 1 ano lê todos os anos e pode demorar; aumente o passo para acelerar."),
+      helpText("Burned area per year (MapBiomas Fire, 1985-2024). A 1-year step reads all years and may be slow; increase the step to speed up."),
       plotOutput("fire_ts_plot", height = 420),
       DT::DTOutput("fire_tbl")
     ),
 
     bslib::nav_panel(
-      "Métodos",
+      "Methods", icon = icon("info-circle"),
       htmltools::HTML(
         "<div style='max-width:760px'>
-        <h4>O que esta ferramenta calcula</h4>
+        <h4>What this tool calculates</h4>
         <ul>
-          <li><b>EOO</b> (Extensão de Ocorrência): area do poligono convexo minimo
-              que envolve todos os pontos, medida em projecao de area igual.</li>
-          <li><b>AOO</b> (Area de Ocupacao): numero de celulas de 2x2 km ocupadas
-              x 4 km<sup>2</sup> (escala de referencia da IUCN).</li>
-          <li><b>% convertida</b> = antropico / (antropico + natural) dentro do
-              EOO e do AOO, a partir das classes do MapBiomas. <b>% natural</b>
-              (atual) e o complemento. Agua e nao-observado ficam fora do
-              denominador por padrao.</li>
+          <li><b>EOO</b> (Extent of Occurrence): area of the minimum convex polygon
+              encompassing all points, measured in an equal-area projection.</li>
+          <li><b>AOO</b> (Area of Occupancy): number of occupied 2x2 km cells
+              x 4 km<sup>2</sup> (IUCN reference scale).</li>
+          <li><b>% converted</b> = anthropic / (anthropic + natural) within the
+              EOO and AOO, based on MapBiomas classes. <b>% natural</b>
+              (current) is the complement. Water and unobserved areas are excluded
+              from the denominator by default.</li>
         </ul>
-        <h4>Categorias provisorias</h4>
-        <p>As colunas de categoria refletem apenas os limiares de <i>tamanho</i>
-        do Criterio B (B1 para EOO, B2 para AOO), como no GeoCat. Uma avaliacao
-        final exige tambem os subcriterios (fragmentacao/locais, declinio
-        continuo, flutuacao extrema) e nao deve ser inferida apenas do tamanho.</p>
-        <h4>Fonte</h4>
-        <p>MapBiomas Brasil, Colecao 10 (1985-2024). Backend local le uma janela
-        do GeoTIFF nacional via <code>/vsicurl/</code>; o backend GEE calcula a
-        area por classe no servidor (requer <code>rgee::ee_Initialize()</code>).</p>
-        <p><i>Ranges muito grandes:</i> prefira o backend GEE.</p>
+        <h4>Provisional categories</h4>
+        <p>The category columns reflect only the <i>size</i> thresholds
+        of Criterion B (B1 for EOO, B2 for AOO), similar to GeoCAT. A final assessment
+        also requires the subcriteria (fragmentation/locations, continuing decline,
+        extreme fluctuations) and should not be inferred solely from size.</p>
+        <h4>Source</h4>
+        <p>MapBiomas Brazil, Collection 10 (1985-2024). The local backend reads a window
+        from the national GeoTIFF via <code>/vsicurl/</code>; the GEE backend calculates
+        the area by class on the server (requires <code>rgee::ee_Initialize()</code>).</p>
+        <p><i>Very large ranges:</i> prefer the GEE backend.</p>
         </div>"
       )
     )
@@ -170,7 +178,6 @@ server <- function(input, output, session) {
 
   occ <- reactive({
     req(input$file)
-    # preserve original extension so the reader can detect file type
     orig <- input$file$name
     ext <- tools::file_ext(orig)
     dest <- file.path(tempdir(), paste0("upload_", as.integer(Sys.time()), ".", ext))
@@ -185,19 +192,19 @@ server <- function(input, output, session) {
 
   result <- eventReactive(input$run, {
     o <- tryCatch(occ(), error = function(e) {
-      showNotification(paste("Erro ao ler arquivo:", conditionMessage(e)),
+      showNotification(paste("Error reading file:", conditionMessage(e)),
                        type = "error", duration = NULL)
       NULL
     })
     req(o)
 
     if (input$backend == "gee" && !requireNamespace("rgee", quietly = TRUE)) {
-      showNotification("rgee nao instalado; use o backend Local.",
+      showNotification("rgee is not installed; please use the Local backend.",
                        type = "error", duration = NULL)
       return(NULL)
     }
 
-    withProgress(message = "Avaliando especies...", value = 0, {
+    withProgress(message = "Assessing species...", value = 0, {
       sp <- unique(o$species); n <- length(sp)
       res <- tryCatch(
         mappingAS::assess_species(
@@ -212,7 +219,7 @@ server <- function(input, output, session) {
           verbose = FALSE
         ),
         error = function(e) {
-          showNotification(paste("Erro na avaliacao:", conditionMessage(e)),
+          showNotification(paste("Error in assessment:", conditionMessage(e)),
                            type = "error", duration = NULL)
           NULL
         }
@@ -236,8 +243,9 @@ server <- function(input, output, session) {
     req(result())
     DT::datatable(result()$summary, rownames = FALSE,
                   options = list(scrollX = TRUE, pageLength = 25),
-                  caption = "EOO, AOO e conversao por especie")
+                  caption = "EOO, AOO and conversion by species")
   })
+  
   output$map <- leaflet::renderLeaflet({
     req(result(), input$map_species)
     mappingAS::map_species(result(), species = input$map_species,
@@ -253,7 +261,7 @@ server <- function(input, output, session) {
   })
 
   output$dl_csv <- downloadHandler(
-    filename = function() paste0("mappingAS_resultados_", Sys.Date(), ".csv"),
+    filename = function() paste0("mappingAS_results_", Sys.Date(), ".csv"),
     content = function(file) {
       req(result())
       utils::write.csv(result()$summary, file, row.names = FALSE, fileEncoding = "UTF-8")
@@ -276,7 +284,7 @@ server <- function(input, output, session) {
           zip = identical(input$export_fmt, "shapefile")
         ),
         error = function(e) {
-          showNotification(paste("Erro ao exportar:", conditionMessage(e)),
+          showNotification(paste("Error exporting:", conditionMessage(e)),
                            type = "error", duration = NULL)
           NULL
         }
@@ -286,17 +294,16 @@ server <- function(input, output, session) {
     }
   )
 
-  # ---- Classes (per-class MapBiomas breakdown) ----
   output$class_tbl <- DT::renderDT({
     req(result(), input$class_species)
     df <- tryCatch(
       mappingAS::class_table(result(), species = input$class_species, range = "both"),
       error = function(e) data.frame())
     validate(need(nrow(df) > 0,
-                  "Sem dados por classe. Ative 'Calcular conversao MapBiomas' e reavalie."))
+                  "No class data available. Enable 'Calculate MapBiomas conversion' and reassess."))
     DT::datatable(df, rownames = FALSE,
                   options = list(scrollX = TRUE, pageLength = 25),
-                  caption = "Area e % por classe MapBiomas (EOO e AOO)")
+                  caption = "Area and % by MapBiomas class (EOO and AOO)")
   })
 
   output$dl_classes <- downloadHandler(
@@ -309,20 +316,19 @@ server <- function(input, output, session) {
     }
   )
 
-  # ---- Time series (cover % over years) ----
   ts_data <- eventReactive(input$ts_run, {
     req(result(), input$ts_species)
     coll <- as.integer(input$collection)
     yy <- mappingAS::mb_years(coll)
     step <- max(1L, as.integer(input$ts_step))
     yrs <- sort(unique(c(seq(min(yy), max(yy), by = step), max(yy))))
-    withProgress(message = "Calculando serie temporal...", value = 0, {
+    withProgress(message = "Calculating time series...", value = 0, {
       ts <- tryCatch(
         mappingAS::timeseries_for_species(
           result(), species = input$ts_species, range = input$ts_range,
           years = yrs, by = input$ts_by, verbose = FALSE),
         error = function(e) {
-          showNotification(paste("Erro na serie temporal:", conditionMessage(e)),
+          showNotification(paste("Error in time series:", conditionMessage(e)),
                            type = "error", duration = NULL)
           NULL
         })
@@ -342,7 +348,7 @@ server <- function(input, output, session) {
     sub <- ts[ts$group == "anthropic", , drop = FALSE]
     if (!nrow(sub)) {
       return(htmltools::HTML(
-        "<div style='padding:8px 12px;background:#f6f6f6;border-radius:6px;margin-bottom:8px'>Sem classes antrópicas neste recorte.</div>"))
+        "<div style='padding:8px 12px;background:#f6f6f6;border-radius:6px;margin-bottom:8px'>No anthropic classes in this extent.</div>"))
     }
     ya <- stats::aggregate(pct ~ year, data = sub, FUN = sum)
     ya <- ya[order(ya$year), ]
@@ -350,9 +356,9 @@ server <- function(input, output, session) {
     delta <- last$pct - first$pct
     htmltools::HTML(sprintf(
       "<div style='padding:10px 14px;background:#f6f6f6;border-radius:6px;margin-bottom:10px'>
-        <b>Área alterada (antrópica) — %s %s:</b>
-        %.1f%% em %d &rarr; %.1f%% em %d
-        (<span style='color:%s'><b>%+.1f pontos percentuais</b></span> no período).
+        <b>Altered area (anthropic) — %s %s:</b>
+        %.1f%% in %d &rarr; %.1f%% in %d
+        (<span style='color:%s'><b>%+.1f percentage points</b></span> in the period).
        </div>",
       attr(ts, "species") %||% "", attr(ts, "range") %||% "",
       first$pct, first$year, last$pct, last$year,
@@ -363,31 +369,30 @@ server <- function(input, output, session) {
     ts <- ts_data(); req(ts)
     DT::datatable(ts, rownames = FALSE,
                   options = list(scrollX = TRUE, pageLength = 15),
-                  caption = "Composicao (%) por ano")
+                  caption = "Composition (%) by year")
   })
 
   output$dl_ts <- downloadHandler(
-    filename = function() paste0("mappingAS_serie_", input$ts_species, "_", Sys.Date(), ".csv"),
+    filename = function() paste0("mappingAS_series_", input$ts_species, "_", Sys.Date(), ".csv"),
     content = function(file) {
       ts <- ts_data(); req(ts)
       utils::write.csv(ts, file, row.names = FALSE, fileEncoding = "UTF-8")
     }
   )
 
-  # ---- Fire: per-species burned-area summary + recurrence table ----
   output$fire_summary <- renderUI({
     req(result(), input$fire_species)
     obj <- result()$detail[[input$fire_species]]
     validate(need(!is.null(obj$eoo_fire) || !is.null(obj$aoo_fire),
-                  "Ative 'Calcular fogo (area queimada)' no painel e reavalie."))
+                  "Enable 'Calculate fire (MapBiomas burned area)' in the side panel and reassess."))
     fmt <- function(f, lab) {
-      if (is.null(f)) return(sprintf("<li>%s: sem dados</li>", lab))
-      sprintf("<li><b>%s:</b> %.1f%% da area ja queimou ao menos uma vez (1985-2024).</li>",
+      if (is.null(f)) return(sprintf("<li>%s: no data</li>", lab))
+      sprintf("<li><b>%s:</b> %.1f%% of the area has burned at least once (1985-2024).</li>",
               lab, f$burned_pct %||% NA_real_)
     }
     htmltools::HTML(sprintf(
       "<div style='padding:10px 14px;background:#fff3e0;border-radius:6px;margin-bottom:10px'>
-        <b>Fogo acumulado — %s</b><ul style='margin-bottom:0'>%s%s</ul></div>",
+        <b>Accumulated Fire — %s</b><ul style='margin-bottom:0'>%s%s</ul></div>",
       input$fire_species, fmt(obj$eoo_fire, "EOO"), fmt(obj$aoo_fire, "AOO")))
   })
 
@@ -397,30 +402,29 @@ server <- function(input, output, session) {
     mk <- function(f, rng) {
       if (is.null(f)) return(NULL)
       data.frame(range = rng,
-                 area_total_km2    = round(f$total_km2, 2),
-                 area_queimada_km2 = round(f$burned_km2, 2),
-                 pct_queimada      = round(f$burned_pct, 2))
+                 total_area_km2    = round(f$total_km2, 2),
+                 burned_area_km2   = round(f$burned_km2, 2),
+                 pct_burned        = round(f$burned_pct, 2))
     }
     df <- rbind(mk(obj$eoo_fire, "EOO"), mk(obj$aoo_fire, "AOO"))
-    validate(need(!is.null(df) && nrow(df) > 0, "Sem dados de fogo (ou fogo nao calculado)."))
+    validate(need(!is.null(df) && nrow(df) > 0, "No fire data (or fire was not calculated)."))
     DT::datatable(df, rownames = FALSE,
                   options = list(scrollX = TRUE, pageLength = 10),
-                  caption = "Area queimada por recorte (EOO e AOO)")
+                  caption = "Burned area by extent (EOO and AOO)")
   })
 
-  # ---- Fire: burned-area time series (% x year) ----
   fire_ts_data <- eventReactive(input$fire_ts_run, {
     req(result(), input$fire_species)
     yy <- mappingAS::mb_years(as.integer(input$collection))
     step <- max(1L, as.integer(input$fire_ts_step))
     yrs <- sort(unique(c(seq(min(yy), max(yy), by = step), max(yy))))
-    withProgress(message = "Calculando serie de fogo...", value = 0, {
+    withProgress(message = "Calculating fire series...", value = 0, {
       ts <- tryCatch(
         mappingAS::fire_timeseries_for_species(
           result(), species = input$fire_species, range = input$fire_ts_range,
           years = yrs, verbose = FALSE),
         error = function(e) {
-          showNotification(paste("Erro na serie de fogo:", conditionMessage(e)),
+          showNotification(paste("Error in fire series:", conditionMessage(e)),
                            type = "error", duration = NULL)
           NULL
         })
@@ -435,7 +439,7 @@ server <- function(input, output, session) {
   })
 
   output$dl_fire_ts <- downloadHandler(
-    filename = function() paste0("mappingAS_fogo_", input$fire_species, "_", Sys.Date(), ".csv"),
+    filename = function() paste0("mappingAS_fire_", input$fire_species, "_", Sys.Date(), ".csv"),
     content = function(file) {
       ts <- fire_ts_data(); req(ts)
       utils::write.csv(ts, file, row.names = FALSE, fileEncoding = "UTF-8")
@@ -443,7 +447,7 @@ server <- function(input, output, session) {
   )
 
   output$dl_fire_ts_png <- downloadHandler(
-    filename = function() paste0("mappingAS_fogo_", input$fire_species, "_", Sys.Date(), ".png"),
+    filename = function() paste0("mappingAS_fire_", input$fire_species, "_", Sys.Date(), ".png"),
     content = function(file) {
       ts <- fire_ts_data(); req(ts)
       p <- mappingAS::plot_fire_timeseries(ts)
@@ -457,9 +461,8 @@ server <- function(input, output, session) {
     }
   )
 
-  # ---- Save-image handlers ----
   output$dl_map_html <- downloadHandler(
-    filename = function() paste0("mappingAS_mapa_", input$map_species, "_", Sys.Date(), ".html"),
+    filename = function() paste0("mappingAS_map_", input$map_species, "_", Sys.Date(), ".html"),
     content = function(file) {
       req(result(), input$map_species)
       m <- mappingAS::map_species(result(), species = input$map_species)
@@ -468,13 +471,13 @@ server <- function(input, output, session) {
   )
 
   output$dl_map_png <- downloadHandler(
-    filename = function() paste0("mappingAS_mapa_", input$map_species, "_", Sys.Date(), ".png"),
+    filename = function() paste0("mappingAS_map_", input$map_species, "_", Sys.Date(), ".png"),
     content = function(file) {
       req(result(), input$map_species)
       if (!requireNamespace("webshot2", quietly = TRUE)) {
         showNotification(
-          paste("Para salvar o mapa como PNG, instale o pacote 'webshot2'",
-                "(requer Chrome/Chromium). Enquanto isso, use o botao 'Baixar mapa (HTML)'."),
+          paste("To save the map as a PNG, install the 'webshot2' package",
+                "(requires Chrome/Chromium). Meanwhile, use the 'Download map (HTML)' button."),
           type = "warning", duration = NULL)
         req(FALSE)
       }
@@ -486,21 +489,21 @@ server <- function(input, output, session) {
   )
 
   output$dl_map_static <- downloadHandler(
-    filename = function() paste0("mappingAS_mapa_", input$map_species, "_", Sys.Date(), ".png"),
+    filename = function() paste0("mappingAS_map_", input$map_species, "_", Sys.Date(), ".png"),
     content = function(file) {
       req(result(), input$map_species)
       if (!requireNamespace("ggplot2", quietly = TRUE)) {
-        showNotification("Pacote 'ggplot2' necessário para o mapa publicável.",
+        showNotification("The 'ggplot2' package is required for the publishable map.",
                          type = "error", duration = NULL)
         req(FALSE)
       }
       lyr <- input$static_layer %||% "lulc"
       if (lyr == "both" && !requireNamespace("ggnewscale", quietly = TRUE)) {
         showNotification(
-          "Para sobrepor uso do solo e fogo, instale 'ggnewscale'. Exportando só o uso do solo.",
+          "To overlay land use and fire, install 'ggnewscale'. Exporting only land use.",
           type = "warning", duration = 8)
       }
-      withProgress(message = "Gerando mapa publicável...", value = 0, {
+      withProgress(message = "Generating publishable map...", value = 0, {
         m <- mappingAS::map_static(
           result(), species = input$map_species,
           mapbiomas = lyr %in% c("lulc", "both"),
@@ -512,7 +515,7 @@ server <- function(input, output, session) {
   )
 
   output$dl_chart_png <- downloadHandler(
-    filename = function() paste0("mappingAS_conversao_", input$chart_species, "_", Sys.Date(), ".png"),
+    filename = function() paste0("mappingAS_conversion_", input$chart_species, "_", Sys.Date(), ".png"),
     content = function(file) {
       req(result(), input$chart_species)
       grDevices::png(file, width = 1100, height = 750, res = 130)
@@ -522,7 +525,7 @@ server <- function(input, output, session) {
   )
 
   output$dl_ts_png <- downloadHandler(
-    filename = function() paste0("mappingAS_serie_", input$ts_species, "_", Sys.Date(), ".png"),
+    filename = function() paste0("mappingAS_series_", input$ts_species, "_", Sys.Date(), ".png"),
     content = function(file) {
       ts <- ts_data(); req(ts)
       p <- mappingAS::plot_timeseries(ts)

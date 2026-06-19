@@ -22,6 +22,9 @@ Depends:
 Imports:
     sf (>= 1.0.0),
     terra (>= 1.7.0),
+    shiny,
+    bslib,
+    leaflet,
     units,
     lwgeom,
     readxl,

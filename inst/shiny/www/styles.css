@@ -150,3 +150,23 @@ table.dataTable td,table.dataTable th{ border-color:var(--line)!important; }
 
 /* ---------- texto auxiliar ---------- */
 .help-block,.form-text,.shiny-input-container .help-block{ color:var(--muted); }
+
+/* Sombras sutis para os cartões (cards) */
+.bslib-card {
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+  border-radius: 12px !important;
+}
+
+/* Deixar o mapa preencher bem o espaço */
+#map {
+  border-radius: 0 0 12px 12px;
+}
+
+/* Customizar botão principal */
+.btn-primary {
+  background-color: #2E7D32 !important;
+  border-color: #1B5E20 !important;
+  border-radius: 6px;
+  width: 100%;
+}
