@@ -233,7 +233,7 @@ export_ranges <- function(assessment, dir = ".", layer_prefix = "mappingAS",
       cl <- d[[s]]$aoo$cells
       if (is.null(cl) || length(cl) == 0) next
       k <- k + 1L
-      geoms[[k]] <- sf::st_union(cl)         # one (multi)polygon per species
+      geoms[[k]] <- .st_union_quiet(cl)         # one (multi)polygon per species
       rows[[k]]  <- .attr_row(assessment, s, "aoo")
     }
     if (k == 0L) { warning("No AOO geometries to export.", call. = FALSE); return(NULL) }

@@ -71,18 +71,17 @@ assess_species <- function(occ, year = 2024, collection = 10,
     if (mapbiomas) {
       eoo_conv <- .conversion_for(eoo$hull, year, collection, backend, src,
                                   water_in_denominator, verbose, "EOO")
-      aoo_conv <- .conversion_for(sf::st_union(aoo$cells), year, collection,
-                                  backend, src, water_in_denominator, verbose,
-                                  "AOO")
+      aoo_conv <- .conversion_for(.st_union_quiet(aoo$cells), year, collection,
+                            backend, src, water_in_denominator, verbose, "AOO")
     }
     
     eoo_fire <- aoo_fire <- NULL
     if (fire) {
       eoo_fire <- .fire_for(eoo$hull, eoo$area_km2, fire_collection,
                             fire_host_collection, fire_src, verbose, "EOO")
-      aoo_fire <- .fire_for(sf::st_union(aoo$cells), aoo$area_km2,
-                            fire_collection, fire_host_collection, fire_src,
-                            verbose, "AOO")
+      aoo_fire <- .fire_for(.st_union_quiet(aoo$cells), aoo$area_km2,
+                      fire_collection, fire_host_collection, fire_src,
+                      verbose, "AOO")
     }
     
     row <- data.frame(

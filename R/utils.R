@@ -66,6 +66,13 @@ laea_crs <- function(geom) {
   invisible(TRUE)
 }
 
+#' Union geometries silencing the planar-assumption warning
+#' @keywords internal
+#' @noRd
+.st_union_quiet <- function(x) {
+  suppressWarnings(suppressMessages(sf::st_union(x)))
+}
+
 #' Provisional IUCN Red List Criterion B category from range size
 #'
 #' Returns the category implied by the EOO (B1) and AOO (B2) \emph{size}

@@ -489,28 +489,37 @@ server <- function(input, output, session) {
   )
 
   output$dl_map_static <- downloadHandler(
-    filename = function() paste0("mappingAS_map_", input$map_species, "_", Sys.Date(), ".png"),
+    filename = function() paste0("mappingAS_mapa_", input$map_species, "_", Sys.Date(), ".png"),
     content = function(file) {
       req(result(), input$map_species)
       if (!requireNamespace("ggplot2", quietly = TRUE)) {
-        showNotification("The 'ggplot2' package is required for the publishable map.",
+        showNotification("Pacote 'ggplot2' necessário para o mapa publicável.",
                          type = "error", duration = NULL)
         req(FALSE)
       }
       lyr <- input$static_layer %||% "lulc"
       if (lyr == "both" && !requireNamespace("ggnewscale", quietly = TRUE)) {
         showNotification(
-          "To overlay land use and fire, install 'ggnewscale'. Exporting only land use.",
+          "Para sobrepor uso do solo e fogo, instale 'ggnewscale'. Exportando só o uso do solo.",
           type = "warning", duration = 8)
       }
-      withProgress(message = "Generating publishable map...", value = 0, {
-        m <- mappingAS::map_static(
-          result(), species = input$map_species,
-          mapbiomas = lyr %in% c("lulc", "both"),
-          fire      = lyr %in% c("fire", "both"))
-        ggplot2::ggsave(file, plot = m, width = 9, height = 8, dpi = 300)
+      m <- withProgress(message = "Gerando mapa publicável...", value = 0, {
+        out <- tryCatch(
+          mappingAS::map_static(
+            result(), species = input$map_species,
+            mapbiomas = lyr %in% c("lulc", "both"),
+            fire      = lyr %in% c("fire", "both")),
+          error = function(e) {
+            showNotification(paste("Erro ao gerar o mapa publicável:",
+                                   conditionMessage(e)),
+                             type = "error", duration = NULL)
+            NULL
+          })
         incProgress(1)
+        out
       })
+      req(inherits(m, "ggplot"))
+      ggplot2::ggsave(file, plot = m, width = 9, height = 8, dpi = 300)
     }
   )
 
