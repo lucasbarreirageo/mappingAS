@@ -1,31 +1,33 @@
 # The raster-tabulation paths (mb_class_areas_raster, fire_areas,
-# summarise_conversion <SpatRaster>, mb_raster_local <local src>) are the
-# largest untested surface. They need a raster but NOT the network: we build a
-# tiny synthetic MapBiomas/fire GeoTIFF on the fly with terra (a hard
-# dependency), write it to tempdir(), and read it back through the package's
-# own local backend. This keeps CI fully offline and deterministic.
+# summarise_conversion <SpatRaster>, mb_raster_local <local src>) need a raster
+# but NOT the network. A tiny synthetic MapBiomas-style GeoTIFF ships in
+# inst/extdata/ (mini_mapbiomas.tif, ~0.5 KB). It is NOT real MapBiomas data:
+# just a 20x20 grid of integer class codes (3/15/33/27) with the same structure
+# the local backend expects, so these tests stay offline and deterministic.
+#
+# A fire raster has no shipped fixture (fire codes are just integers too), so it
+# is built on the fly with terra. Both paths fall back to terra generation if
+# the shipped file is missing, so the suite never hard-depends on the fixture.
 
 skip_if_not_installed("terra")
 
-# --- helpers ----------------------------------------------------------------
+# --- fixtures ---------------------------------------------------------------
 
-# A small lon/lat raster covering a patch near Rio, filled with a handful of
-# MapBiomas codes so every conservation group is represented.
-make_lulc_tif <- function() {
+# Shipped LULC fixture; regenerate with terra only if it is not installed.
+lulc_tif <- function() {
+  f <- system.file("extdata", "mini_mapbiomas.tif", package = "mappingAS")
+  if (nzchar(f) && file.exists(f)) return(f)
   r <- terra::rast(nrows = 20, ncols = 20,
                    xmin = -43.5, xmax = -43.0, ymin = -22.5, ymax = -22.0,
                    crs = "EPSG:4326")
   set.seed(7)
-  # codes: 3 natural forest, 15 anthropic pasture, 33 water, 27 not-observed
-  vals <- sample(c(3, 15, 33, 27), terra::ncell(r), replace = TRUE,
-                 prob = c(0.5, 0.3, 0.15, 0.05))
-  terra::values(r) <- vals
-  f <- tempfile(fileext = ".tif")
-  terra::writeRaster(r, f, datatype = "INT1U", overwrite = TRUE)
-  f
+  terra::values(r) <- sample(c(3, 15, 33, 27), terra::ncell(r), replace = TRUE,
+                             prob = c(0.5, 0.3, 0.15, 0.05))
+  g <- tempfile(fileext = ".tif")
+  terra::writeRaster(r, g, datatype = "INT1U", overwrite = TRUE); g
 }
 
-# A small fire-frequency raster: 0 = unburned, 1..4 = years burned.
+# Fire fixture is always generated (small integer raster, no shipped file).
 make_fire_tif <- function() {
   r <- terra::rast(nrows = 20, ncols = 20,
                    xmin = -43.5, xmax = -43.0, ymin = -22.5, ymax = -22.0,
@@ -47,8 +49,7 @@ aoi_poly <- function() {
 # --- mb_class_areas_raster --------------------------------------------------
 
 test_that("mb_class_areas_raster tabulates positive area per code", {
-  f <- make_lulc_tif()
-  r <- terra::rast(f)
+  r <- terra::rast(lulc_tif())
   ca <- mb_class_areas_raster(r)
   expect_s3_class(ca, "data.frame")
   expect_named(ca, c("code", "area_km2"))
@@ -60,8 +61,7 @@ test_that("mb_class_areas_raster tabulates positive area per code", {
 # --- summarise_conversion on a SpatRaster -----------------------------------
 
 test_that("summarise_conversion accepts a SpatRaster directly", {
-  f <- make_lulc_tif()
-  r <- terra::rast(f)
+  r <- terra::rast(lulc_tif())
   s <- summarise_conversion(r)
   expect_true(is.list(s))
   expect_true(s$natural_km2 > 0)
@@ -73,8 +73,7 @@ test_that("summarise_conversion accepts a SpatRaster directly", {
 # --- mb_raster_local with a local src (no network) --------------------------
 
 test_that("mb_raster_local crops a local GeoTIFF to the AOI", {
-  f <- make_lulc_tif()
-  rc <- mb_raster_local(aoi_poly(), src = f, cache = FALSE)
+  rc <- mb_raster_local(aoi_poly(), src = lulc_tif(), cache = FALSE)
   expect_s4_class(rc, "SpatRaster")
   expect_identical(names(rc), "mapbiomas_class")
   # cropped extent must sit inside the source extent
@@ -84,12 +83,12 @@ test_that("mb_raster_local crops a local GeoTIFF to the AOI", {
 })
 
 test_that("mb_raster_local caches the windowed crop and re-reads it", {
-  f <- make_lulc_tif()
+  src <- lulc_tif()
   cache_dir <- file.path(tempdir(), paste0("mbcache_", as.integer(Sys.time())))
-  r1 <- mb_raster_local(aoi_poly(), src = f, cache = TRUE, cache_dir = cache_dir)
+  r1 <- mb_raster_local(aoi_poly(), src = src, cache = TRUE, cache_dir = cache_dir)
   expect_true(length(list.files(cache_dir, pattern = "\\.tif$")) >= 1)
   # second call must hit the cache and return an equivalent raster
-  r2 <- mb_raster_local(aoi_poly(), src = f, cache = TRUE, cache_dir = cache_dir)
+  r2 <- mb_raster_local(aoi_poly(), src = src, cache = TRUE, cache_dir = cache_dir)
   expect_equal(dim(r1), dim(r2))
 })
 
@@ -121,9 +120,9 @@ test_that("fire_raster_local reads a local fire GeoTIFF", {
 # --- cover_timeseries end-to-end on the local backend -----------------------
 
 test_that("cover_timeseries runs over a local src for two years", {
-  f <- make_lulc_tif()
+  src <- lulc_tif()
   ts <- cover_timeseries(aoi_poly(), years = c(2023, 2024),
-                         backend = "local", src = f, verbose = FALSE)
+                         backend = "local", src = src, verbose = FALSE)
   expect_s3_class(ts, "data.frame")
   expect_true(all(c("year", "label", "hex", "pct") %in% names(ts)))
   expect_setequal(unique(ts$year), c(2023, 2024))
@@ -133,9 +132,9 @@ test_that("cover_timeseries runs over a local src for two years", {
 })
 
 test_that("cover_timeseries by = 'group' aggregates into conservation groups", {
-  f <- make_lulc_tif()
+  src <- lulc_tif()
   ts <- cover_timeseries(aoi_poly(), years = 2024, backend = "local",
-                         src = f, by = "group", verbose = FALSE)
+                         src = src, by = "group", verbose = FALSE)
   expect_true("group" %in% names(ts))
   expect_true(all(ts$group %in%
                   c("natural", "anthropic", "water", "other", "not_observed")))
