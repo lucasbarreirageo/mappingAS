@@ -209,7 +209,7 @@ fire_timeseries_for_species <- function(assessment, species = NULL,
   if (is.null(species)) species <- names(d)[1]
   obj <- d[[species]]
   if (is.null(obj)) stop("Species not found: ", species, call. = FALSE)
-  geom    <- if (range == "eoo") obj$eoo$hull else sf::st_union(obj$aoo$cells)
+  geom <- if (range == "eoo") obj$eoo$hull else .st_union_quiet(obj$aoo$cells)
   rng_km2 <- if (range == "eoo") obj$eoo$area_km2 else obj$aoo$area_km2
   if (is.null(geom) || length(sf::st_geometry(geom)) == 0)
     stop(sprintf("No %s geometry for '%s'.", toupper(range), species), call. = FALSE)

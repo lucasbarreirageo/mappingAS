@@ -156,7 +156,7 @@ timeseries_for_species <- function(assessment, species = NULL,
   obj <- d[[species]]
   if (is.null(obj)) stop("Species not found in assessment: ", species, call. = FALSE)
 
-  geom <- if (range == "eoo") obj$eoo$hull else sf::st_union(obj$aoo$cells)
+  geom <- if (range == "eoo") obj$eoo$hull else .st_union_quiet(obj$aoo$cells)
   if (is.null(geom) || length(sf::st_geometry(geom)) == 0)
     stop(sprintf("No %s geometry for '%s'.", toupper(range), species), call. = FALSE)
 
