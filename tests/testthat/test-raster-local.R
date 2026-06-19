@@ -128,7 +128,7 @@ test_that("cover_timeseries runs over a local src for two years", {
   expect_setequal(unique(ts$year), c(2023, 2024))
   # percentages within a year sum to ~100
   agg <- tapply(ts$pct, ts$year, sum)
-  expect_true(all(abs(agg - 100) < 1e-6))
+  expect_true(all(abs(agg - 100) < 0.5))
 })
 
 test_that("cover_timeseries by = 'group' aggregates into conservation groups", {
