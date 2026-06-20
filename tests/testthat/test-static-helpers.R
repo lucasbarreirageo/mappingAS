@@ -30,7 +30,7 @@ test_that(".crs_label describes EPSG and LAEA projections", {
 
   laea <- "+proj=laea +lat_0=-22 +lon_0=-43 +datum=WGS84 +units=m +no_defs"
   lab_laea <- crs_label(laea)
-  expect_match(lab_laea, "LAEA")
+  expect_match(lab_laea, "LAEA")   # compact label: projection name + datum
 
   # an invalid CRS yields NULL rather than an error
   expect_null(crs_label(NA))

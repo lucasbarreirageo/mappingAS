@@ -1,3 +1,22 @@
+# mappingAS 1.3.1
+
+* Shiny app: language selector (English/Português) for the MapBiomas land-cover
+  and fire-frequency legends, on both the interactive (`map_species()`) and
+  publishable (`map_static()`) maps.
+* Shiny app: IUCN-style badges (EOO/B1 and AOO/B2) with the official Red List
+  colours shown beside the map, reflecting each species' provisional category.
+* `map_species()`: new `clip` argument to view the MapBiomas land-cover and fire
+  rasters clipped to the AOO as well as the EOO; selectable in the Map tab.
+* Publishable map: the geographic-reference label now shows the actual CRS
+  (projection + datum) instead of fixed wording.
+* Fixed the "Publishable map (PNG)" download in the app (the handler now reports
+  errors and validates the plot before saving).
+* Silenced the `st_union` planar-assumption warnings when dissolving AOO cells.
+* Reworked the app's Methods tab with key references and the MapBiomas Land
+  Cover and MapBiomas Fire data sources.
+
+
+
 # mappingAS 1.2.0
 
 * Added the fire risk assessment module using MapBiomas Fire (Collection 4) data.

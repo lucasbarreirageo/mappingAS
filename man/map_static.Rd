@@ -14,7 +14,8 @@ map_static(
   crs = NULL,
   scalebar = TRUE,
   north = TRUE,
-  title = NULL
+  title = NULL,
+  lang = c("pt", "en")
 )
 }
 \arguments{
@@ -42,6 +43,10 @@ species' equal-area projection from the EOO/AOO.}
 \item{scalebar, north}{Logical; add a scale bar / north arrow (default \code{TRUE}).}
 
 \item{title}{Optional plot title (default: the species name).}
+
+\item{lang}{Legend language: \code{"pt"} (default) or \code{"en"}. Controls
+the language of the MapBiomas class labels, the fire-frequency legend and
+the feature labels (EOO/AOO/occurrences).}
 }
 \value{
 A \code{ggplot} object.

@@ -30,6 +30,9 @@
 #'   species' equal-area projection from the EOO/AOO.
 #' @param scalebar,north Logical; add a scale bar / north arrow (default \code{TRUE}).
 #' @param title Optional plot title (default: the species name).
+#' @param lang Legend language: \code{"pt"} (default) or \code{"en"}. Controls
+#'   the language of the MapBiomas class labels, the fire-frequency legend and
+#'   the feature labels (EOO/AOO/occurrences).
 #' @return A \code{ggplot} object.
 #' @examples
 #' \dontrun{
@@ -42,7 +45,9 @@
 #' @export
 map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
                        fire = FALSE, src = NULL, max_pixels = 600, crs = NULL,
-                       scalebar = TRUE, north = TRUE, title = NULL) {
+                       scalebar = TRUE, north = TRUE, title = NULL,
+                       lang = c("pt", "en")) {
+  lang <- match.arg(lang)
   stopifnot(inherits(assessment, "geoconv_assessment"))
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("Package 'ggplot2' is required for map_static().", call. = FALSE)
@@ -82,7 +87,7 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
   # ---- MapBiomas land-cover raster (clipped to the EOO) ----
   if (draw_lulc) {
     rdf <- tryCatch(
-      .mb_display_df(hull, st$year, st$collection, src, max_pixels, crs),
+      .mb_display_df(hull, st$year, st$collection, src, max_pixels, crs, lang),
       error = function(e) {
         warning("MapBiomas layer skipped: ", conditionMessage(e), call. = FALSE)
         NULL
@@ -94,9 +99,10 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
           ggplot2::aes(x = .data[["x"]], y = .data[["y"]], fill = .data[["class"]])) +
         ggplot2::scale_fill_manual(
           values = rdf$cols, drop = FALSE,
-          name = sprintf("MapBiomas %s (no EOO)", st$year))
+          name = sprintf(if (lang == "en") "MapBiomas %s (in EOO)"
+                         else "MapBiomas %s (no EOO)", st$year))
     } else {
-      draw_lulc <- FALSE          # nothing drawn -> fire keeps the first scale
+      draw_lulc <- FALSE
     }
   }
 
@@ -116,27 +122,31 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
           ggplot2::aes(x = .data[["x"]], y = .data[["y"]], fill = .data[["class"]])) +
         ggplot2::scale_fill_manual(
           values = fdf$cols, drop = FALSE,
-          name = "Frequencia de fogo\n(anos, 1985-2024)")
+          name = if (lang == "en") "Fire frequency\n(years, 1985-2024)"
+                 else "Frequencia de fogo\n(anos, 1985-2024)")
     }
   }
 
-  # ---- vector layers sharing one feature legend (colour aesthetic) ----
+ # ---- vector layers sharing one feature legend (colour aesthetic) ----
+  lab_eoo  <- "EOO (MCP)"
+  lab_aoo  <- if (lang == "en") "AOO (2 km)" else "AOO (2 km)"
+  lab_pts  <- if (lang == "en") "Occurrences" else "Ocorrencias"
   feat <- character(0)
   if (!is.null(hull)) {
-    g <- g + ggplot2::geom_sf(data = hull, ggplot2::aes(colour = "EOO (MCP)"),
+    g <- g + ggplot2::geom_sf(data = hull, ggplot2::aes(colour = lab_eoo),
                               fill = NA, linewidth = 0.7)
-    feat["EOO (MCP)"] <- "#1f4e79"
+    feat[lab_eoo] <- "#1f4e79"
   }
   if (!is.null(cells)) {
-    g <- g + ggplot2::geom_sf(data = cells, ggplot2::aes(colour = "AOO (2 km)"),
+    g <- g + ggplot2::geom_sf(data = cells, ggplot2::aes(colour = lab_aoo),
                               fill = "#d4271e", alpha = 0.25, linewidth = 0.25)
-    feat["AOO (2 km)"] <- "#9c0027"
+    feat[lab_aoo] <- "#9c0027"
   }
-  g <- g + ggplot2::geom_sf(data = pts, ggplot2::aes(colour = "Ocorrencias"),
+  g <- g + ggplot2::geom_sf(data = pts, ggplot2::aes(colour = lab_pts),
                             shape = 21, fill = "#f1c40f", size = 2, stroke = 0.4)
-  feat["Ocorrencias"] <- "#111111"
-  lw_all <- c("EOO (MCP)" = 0.7, "AOO (2 km)" = 0.25, "Ocorrencias" = 0)
-  sh_all <- c("EOO (MCP)" = NA,  "AOO (2 km)" = NA,   "Ocorrencias" = 21)
+  feat[lab_pts] <- "#111111"
+  lw_all <- stats::setNames(c(0.7, 0.25, 0), c(lab_eoo, lab_aoo, lab_pts))
+  sh_all <- stats::setNames(c(NA, NA, 21),   c(lab_eoo, lab_aoo, lab_pts))
   g <- g + ggplot2::scale_colour_manual(
     values = feat, name = NULL,
     guide = ggplot2::guide_legend(order = 1, override.aes = list(
@@ -165,16 +175,18 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
 
 #' @keywords internal
 #' @noRd
-.mb_display_df <- function(aoi, year, collection, src, max_pixels, crs) {
+.mb_display_df <- function(aoi, year, collection, src, max_pixels, crs,
+                           lang = "pt") {
   r <- .mb_raster_display(aoi, year, collection, src, max_pixels = max_pixels,
                           crs = crs)
   df <- terra::as.data.frame(r, xy = TRUE, na.rm = TRUE)
   names(df)[3] <- "code"
   leg <- mb_legend(collection)
+  lcol <- if (lang == "en") "class_en" else "class_pt"
   df <- df[df$code %in% leg$code, , drop = FALSE]
   idx <- match(df$code, leg$code)
-  df$class <- droplevels(factor(leg$class_pt[idx], levels = unique(leg$class_pt)))
-  cols <- stats::setNames(leg$hex[match(levels(df$class), leg$class_pt)],
+  df$class <- droplevels(factor(leg[[lcol]][idx], levels = unique(leg[[lcol]])))
+  cols <- stats::setNames(leg$hex[match(levels(df$class), leg[[lcol]])],
                           levels(df$class))
   list(df = df, cols = cols)
 }
@@ -228,7 +240,12 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
   has_ref <- !is.null(ref) && nzchar(ref)
 
   xmax <- x0 + len + 0.02 * w
-  if (has_ref) xmax <- max(xmax, x0 + 0.0075 * nchar(ref) * w)  # fit the ref text
+  if (has_ref) {
+    # ~0.011*w per character is a safe monospace-ish estimate; clamp so the box
+    # never runs past the right edge of the map frame.
+    want <- x0 + 0.011 * nchar(ref) * w
+    xmax <- min(max(xmax, want), unname(bb["xmax"]))
+  }
   ymin <- y0 - (if (has_ref) 0.06 else 0.02) * h
 
   out <- list(
@@ -278,10 +295,15 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
       return(sprintf("%s (EPSG:%d)", nm, cr$epsg))
     return(sprintf("EPSG:%d", cr$epsg))
   }
-  p <- cr$proj4string; if (is.null(p) || is.na(p)) p <- ""
-  dat <- if (grepl("\\+datum=", p)) sub(".*\\+datum=([A-Za-z0-9]+).*", "\\1", p)
-         else if (grepl("\\+ellps=", p)) sub(".*\\+ellps=([A-Za-z0-9]+).*", "\\1", p)
-         else "WGS84"
-  if (grepl("\\+proj=laea", p)) sprintf("Datum %s - Proj. LAEA (areas iguais)", dat)
-  else sprintf("Datum %s", dat)
+  # No EPSG (e.g. a data-centred LAEA): build a short, readable label from the
+  # projection name + datum, not the full proj string (which overflows the bar).
+  p <- cr$proj4string
+  if (is.null(p) || is.na(p) || !nzchar(p)) return("Custom CRS")
+  proj <- if (grepl("\\+proj=([A-Za-z]+)", p))
+            toupper(sub(".*\\+proj=([A-Za-z]+).*", "\\1", p)) else NA_character_
+  dat  <- if (grepl("\\+datum=", p)) sub(".*\\+datum=([A-Za-z0-9]+).*", "\\1", p)
+          else if (grepl("\\+ellps=", p)) sub(".*\\+ellps=([A-Za-z0-9]+).*", "\\1", p)
+          else NA_character_
+  parts <- c(if (!is.na(proj)) proj, if (!is.na(dat)) paste0("datum ", dat))
+  if (!length(parts)) "Custom CRS" else paste(parts, collapse = " - ")
 }

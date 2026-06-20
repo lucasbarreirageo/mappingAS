@@ -6,3 +6,5 @@
 ^\.vscode$
 ^LICENSE\.md$
 ^codecov\.yml$
+^_pkgdown\.yml$
+^release_notes\.md$

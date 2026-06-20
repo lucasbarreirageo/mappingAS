@@ -14,11 +14,23 @@
 #' @param fire_src Optional MapBiomas Fire GeoTIFF path/URL.
 #' @param max_pixels Target maximum raster size (longest side, pixels) for the
 #'   overlays (default \code{800}).
+#' @param lang Legend language: \code{"pt"} (default) or \code{"en"}. Controls
+#'   the language of the MapBiomas class labels and the fire-frequency legend.
+#' @param clip Geometry the rasters are clipped to: \code{"eoo"} (default, the
+#'   EOO hull) or \code{"aoo"} (the union of occupied AOO cells).
 #' @return A \code{leaflet} widget.
 #' @export
 map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
                         fire = FALSE, src = NULL, fire_src = NULL,
-                        max_pixels = 800) {
+                        max_pixels = 800, lang = c("pt", "en"),
+                        clip = c("eoo", "aoo")) {
+  lang <- match.arg(lang)
+  clip <- match.arg(clip)
+  lulc_col   <- if (lang == "en") "class_en" else "class_pt"
+  lbl_mb     <- if (lang == "en") "MapBiomas %s" else "MapBiomas %s"
+  lbl_fire   <- if (lang == "en") "Fire frequency<br>(years, 1985-2024)"
+                else "Frequencia de fogo<br>(anos, 1985-2024)"
+  grp_fire   <- if (lang == "en") "Fire frequency" else "Frequencia de fogo"
   stopifnot(inherits(assessment, "geoconv_assessment"))
   if (!requireNamespace("leaflet", quietly = TRUE))
     stop("Package 'leaflet' is required.", call. = FALSE)
@@ -27,17 +39,21 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
   obj <- d[[species]]
   if (is.null(obj)) stop("Species not found in assessment: ", species, call. = FALSE)
   st <- assessment$settings
-  
+
+  # Geometry the rasters are clipped to: the EOO hull or the union of AOO cells.
+  clip_geom <- if (clip == "aoo" && !is.null(obj$aoo$cells))
+                 .st_union_quiet(obj$aoo$cells) else obj$eoo$hull
+
   m <- leaflet::leaflet()
   m <- leaflet::addProviderTiles(m, "CartoDB.Positron", group = "Light")
   m <- leaflet::addProviderTiles(m, "Esri.WorldImagery", group = "Satellite")
   
   # --- optional MapBiomas LULC overlay (under everything) ---
   mb_on <- FALSE
-  if (isTRUE(mapbiomas) && !is.null(obj$eoo$hull) &&
+  if (isTRUE(mapbiomas) && !is.null(clip_geom) &&
       requireNamespace("terra", quietly = TRUE)) {
     rr <- tryCatch({
-      r <- .mb_raster_display(obj$eoo$hull, st$year, st$collection, src,
+      r <- .mb_raster_display(clip_geom, st$year, st$collection, src,
                               max_pixels = max_pixels, crs = NULL)
       leg <- mb_legend(st$collection)
       vals <- terra::unique(r)[, 1]; vals <- vals[!is.na(vals)]
@@ -53,9 +69,9 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
                                    method = "ngb", project = TRUE,
                                    group = "MapBiomas")
       m <- leaflet::addLegend(m, position = "bottomright",
-                              colors = rr$keep$hex, labels = rr$keep$class_pt,
+                              colors = rr$keep$hex, labels = rr$keep[[lulc_col]],
                               opacity = 0.75,
-                              title = sprintf("MapBiomas %s", rr$year),
+                              title = sprintf(lbl_mb, rr$year),
                               group = "MapBiomas")
       mb_on <- TRUE
     }
@@ -63,10 +79,10 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
   
   # --- optional MapBiomas Fire overlay (over LULC, under vectors) ---
   fire_on <- FALSE
-  if (isTRUE(fire) && !is.null(obj$eoo$hull) &&
+  if (isTRUE(fire) && !is.null(clip_geom) &&
       requireNamespace("terra", quietly = TRUE)) {
     fr <- tryCatch(
-      .fire_raster_display(obj$eoo$hull,
+      .fire_raster_display(clip_geom,
                            fire_collection = st$fire_collection %||% 4,
                            host_collection = st$fire_host_collection %||% 9,
                            src = fire_src, max_pixels = max_pixels),
@@ -83,11 +99,11 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
                                 bins = brks, right = FALSE, na.color = "transparent")
       m <- leaflet::addRasterImage(m, fr, colors = pal, opacity = 0.8,
                                    method = "ngb", project = TRUE,
-                                   group = "Frequencia de fogo")
+                                   group = grp_fire)
       m <- leaflet::addLegend(m, position = "bottomleft", pal = pal,
                               values = c(1, 40), opacity = 0.8,
-                              title = "Frequencia de fogo<br>(anos, 1985-2024)",
-                              group = "Frequencia de fogo")
+                              title = lbl_fire,
+                              group = grp_fire)
       fire_on <- TRUE
     }
   }
@@ -110,7 +126,7 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
                                  group = "Occurrences")
   
   overlay <- c("Occurrences", "EOO (hull)", "AOO (2 km cells)")
-  if (fire_on) overlay <- c("Frequencia de fogo", overlay)
+   if (fire_on) overlay <- c(grp_fire, overlay)
   if (mb_on)   overlay <- c("MapBiomas", overlay)
   m <- leaflet::addLayersControl(
     m, baseGroups = c("Light", "Satellite"), overlayGroups = overlay,

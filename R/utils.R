@@ -73,6 +73,25 @@ laea_crs <- function(geom) {
   suppressWarnings(suppressMessages(sf::st_union(x)))
 }
 
+#' Map a provisional Criterion B category string to its IUCN colour + code
+#' @keywords internal
+#' @noRd
+.iucn_badge <- function(cat) {
+  # cat is like "CR (B1 size)", "EN (B2 size)", "VU ...", "not VU/EN/CR ..." or NA
+  code <- if (is.null(cat) || is.na(cat)) "NA"
+          else if (grepl("^CR", cat)) "CR"
+          else if (grepl("^EN", cat)) "EN"
+          else if (grepl("^VU", cat)) "VU"
+          else if (grepl("^NT", cat)) "NT"
+          else "LC"   # "not VU/EN/CR by size" -> least concern (screening)
+  pal <- c(CR = "#d81e05", EN = "#fc7f3f", VU = "#f9e814",
+           NT = "#cce226", LC = "#60c659", `NA` = "#bdbdbd")
+  fg  <- c(CR = "#ffffff", EN = "#ffffff", VU = "#000000",
+           NT = "#000000", LC = "#ffffff", `NA` = "#000000")
+  list(code = code, bg = unname(pal[code]), fg = unname(fg[code]))
+}
+
+
 #' Provisional IUCN Red List Criterion B category from range size
 #'
 #' Returns the category implied by the EOO (B1) and AOO (B2) \emph{size}
