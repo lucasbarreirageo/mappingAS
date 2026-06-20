@@ -15,8 +15,10 @@ ui <- bslib::page_sidebar(
   title = "mappingAS | Mapping Area of Species",
   fillable = TRUE, # Allows the map to stretch and fill the entire screen
   theme = bslib::bs_theme(version = 5, bootswatch = "flatly", primary = "#1f8d49"),
+  header = bslib::input_dark_mode(id = "dark_mode", mode = "light"),
   sidebar = bslib::sidebar(
     width = 360,
+    bslib::input_dark_mode(id = "dark_mode", mode = "light"),
     fileInput(
       "file", "Upload occurrence data (CSV, XLSX, GeoPackage, GeoJSON or shapefile)",
       accept = c(".csv", ".tsv", ".txt", ".xlsx", ".xls",
@@ -44,6 +46,9 @@ ui <- bslib::page_sidebar(
     checkboxInput("water_denom", "Include water as natural in denominator", FALSE),
     checkboxInput("do_mb", "Calculate MapBiomas conversion", TRUE),
     checkboxInput("do_fire", "Calculate fire (MapBiomas burned area)", FALSE),
+    radioButtons("lang", "Legend language / Idioma da legenda",
+                 choices = c("English" = "en", "Português" = "pt"),
+                 selected = "en", inline = TRUE),
     actionButton("run", "Assess", class = "btn-primary w-100", icon = icon("calculator")),
     hr(),
     downloadButton("dl_csv", "Download results (CSV)", class = "w-100"),
@@ -67,6 +72,11 @@ ui <- bslib::page_sidebar(
         ),
         bslib::card(
           selectInput("map_species", "Species", choices = NULL),
+          uiOutput("iucn_panel"),
+          radioButtons("map_clip", "Raster clipped to",
+                       choices = c("EOO" = "eoo", "AOO" = "aoo"),
+                       selected = "eoo", inline = TRUE),
+          hr(),
           radioButtons("static_layer", "Publishable map layer (PNG)",
                        choices = c("Land use"  = "lulc",
                                    "Fire"      = "fire",
@@ -146,28 +156,83 @@ ui <- bslib::page_sidebar(
     bslib::nav_panel(
       "Methods", icon = icon("info-circle"),
       htmltools::HTML(
-        "<div style='max-width:760px'>
+        "<div style='max-width:820px'>
+
         <h4>What this tool calculates</h4>
         <ul>
-          <li><b>EOO</b> (Extent of Occurrence): area of the minimum convex polygon
-              encompassing all points, measured in an equal-area projection.</li>
-          <li><b>AOO</b> (Area of Occupancy): number of occupied 2x2 km cells
-              x 4 km<sup>2</sup> (IUCN reference scale).</li>
+          <li><b>EOO</b> (Extent of Occurrence): area of the minimum convex
+              polygon enclosing all occurrence points. The hull is built in
+              geographic coordinates, its edges densified along great circles,
+              and the area measured on the WGS84 ellipsoid, following the IUCN
+              guidelines and the approach of the <i>ConR</i> package.</li>
+          <li><b>AOO</b> (Area of Occupancy): number of occupied 2&times;2 km
+              cells &times; 4 km<sup>2</sup> (IUCN reference scale). The occupied-cell
+              count is the minimum over several randomly translated grids.</li>
           <li><b>% converted</b> = anthropic / (anthropic + natural) within the
-              EOO and AOO, based on MapBiomas classes. <b>% natural</b>
-              (current) is the complement. Water and unobserved areas are excluded
-              from the denominator by default.</li>
+              EOO and AOO, from MapBiomas land cover. <b>% natural</b> (current)
+              is the complement. Water and unobserved areas are excluded from the
+              denominator by default.</li>
+          <li><b>Burned area &amp; fire frequency</b>: percentage of the EOO/AOO
+              that has burned at least once, and the number of years burned per
+              pixel, from MapBiomas Fire (accumulated and frequency layers).</li>
         </ul>
+
         <h4>Provisional categories</h4>
-        <p>The category columns reflect only the <i>size</i> thresholds
-        of Criterion B (B1 for EOO, B2 for AOO), similar to GeoCAT. A final assessment
-        also requires the subcriteria (fragmentation/locations, continuing decline,
-        extreme fluctuations) and should not be inferred solely from size.</p>
-        <h4>Source</h4>
-        <p>MapBiomas Brazil, Collection 10 (1985-2024). The local backend reads a window
-        from the national GeoTIFF via <code>/vsicurl/</code>; the GEE backend calculates
-        the area by class on the server (requires <code>rgee::ee_Initialize()</code>).</p>
-        <p><i>Very large ranges:</i> prefer the GEE backend.</p>
+        <p>The category badges reflect only the <i>size</i> thresholds of
+        Criterion B (B1 for EOO, B2 for AOO): CR/EN/VU for EOO &lt;
+        100 / 5,000 / 20,000 km<sup>2</sup> and AOO &lt; 10 / 500 / 2,000
+        km<sup>2</sup>. A full assessment additionally requires the subcriteria
+        (severe fragmentation or few locations, continuing decline, and extreme
+        fluctuation) and should never be inferred from size alone. Use these
+        results for <b>screening</b> only.</p>
+
+        <h4>Data sources</h4>
+        <ul>
+          <li><b>MapBiomas Brazil — Land Use and Land Cover</b> (Collection 10,
+              1985&ndash;2024). The local backend streams a window of the national
+              GeoTIFF via <code>/vsicurl/</code>; the GEE backend computes per-class
+              areas server-side.</li>
+          <li><b>MapBiomas Fire (Fogo)</b> (Collection 4): annual burned area,
+              accumulated burned area and fire-frequency layers
+              (1985&ndash;2024).</li>
+        </ul>
+
+        <h4>Key references</h4>
+        <p style='font-size:.92rem;line-height:1.5'>
+          IUCN Standards and Petitions Committee (2024).
+          <i>Guidelines for Using the IUCN Red List Categories and Criteria</i>,
+          Version 16. <a href='https://www.iucnredlist.org/documents/RedListGuidelines.pdf'
+          target='_blank' rel='noopener'>iucnredlist.org</a>.
+          <br><br>
+          IUCN Red List — Criteria Summary Sheet.
+          <a href='https://www.iucnredlist.org/resources/summary-sheet'
+          target='_blank' rel='noopener'>iucnredlist.org/resources/summary-sheet</a>.
+          <br><br>
+          Dauby, G. <i>et al.</i> (2017). ConR: An R package to assist large-scale
+          multispecies preliminary conservation assessments using distribution data.
+          <i>Ecology and Evolution</i>, 7(24), 11292&ndash;11303.
+          <a href='https://doi.org/10.1002/ece3.3704' target='_blank' rel='noopener'>doi:10.1002/ece3.3704</a>.
+          <br><br>
+          Souza, C. M. <i>et al.</i> (2020). Reconstructing Three Decades of Land
+          Use and Land Cover Changes in Brazilian Biomes with Landsat Archive and
+          Earth Engine. <i>Remote Sensing</i>, 12(17), 2735.
+          <a href='https://doi.org/10.3390/rs12172735' target='_blank' rel='noopener'>doi:10.3390/rs12172735</a>.
+          <br><br>
+          Alencar, A. <i>et al.</i> (2022). Long-Term Landsat-Based Monthly Burned
+          Area Dataset for the Brazilian Biomes Using Deep Learning.
+          <i>Remote Sensing</i>, 14(11), 2510.
+          <a href='https://doi.org/10.3390/rs14112510' target='_blank' rel='noopener'>doi:10.3390/rs14112510</a>.
+          <br><br>
+          Project MapBiomas — Collection 10 of the Annual Land Use and Land Cover
+          Maps of Brazil, and MapBiomas Fire Collection 4.
+          <a href='https://brasil.mapbiomas.org' target='_blank' rel='noopener'>brasil.mapbiomas.org</a>.
+        </p>
+
+        <h4>How to cite</h4>
+        <p style='font-size:.92rem'>When using results from this application,
+        please cite the MapBiomas Land Cover and MapBiomas Fire collections, the
+        IUCN Red List guidelines.</p>
+
         </div>"
       )
     )
@@ -250,7 +315,61 @@ server <- function(input, output, session) {
     req(result(), input$map_species)
     mappingAS::map_species(result(), species = input$map_species,
                            mapbiomas = isTRUE(input$do_mb),
-                           fire = isTRUE(input$do_fire))
+                           fire = isTRUE(input$do_fire),
+                           lang = input$lang %||% "en",
+                           clip = input$map_clip %||% "eoo")
+  })
+
+  # IUCN badges (EOO/B1 and AOO/B2) + headline metrics, beside the map.
+  output$iucn_panel <- renderUI({
+    req(result(), input$map_species)
+    s <- result()$summary
+    r <- s[s$species == input$map_species, , drop = FALSE]
+    validate(need(nrow(r) > 0, ""))
+    r <- r[1, , drop = FALSE]
+
+    badge <- function(cat) {
+      b <- mappingAS:::.iucn_badge(cat)
+      sprintf(
+        "<div style='display:inline-flex;align-items:center;justify-content:center;
+          width:46px;height:46px;border-radius:50%%;background:%s;color:%s;
+          font-weight:700;font-size:1rem;border:2px solid rgba(0,0,0,.15)'>%s</div>",
+        b$bg, b$fg, b$code)
+    }
+    fmt_km <- function(x) if (is.na(x)) "&mdash;" else
+      formatC(x, format = "f", big.mark = ",", digits = 2)
+
+    en <- (input$lang %||% "en") == "en"
+    t_eoo <- if (en) "Extent of Occurrence" else "Extensão de Ocorrência"
+    t_aoo <- if (en) "Area of Occupancy"   else "Área de Ocupação"
+    t_note <- if (en)
+      "Provisional category — Criterion B size thresholds only (screening)."
+    else
+      "Categoria provisória — apenas limiares de tamanho do Critério B (triagem)."
+
+    htmltools::HTML(sprintf(
+      "<div style='border:1px solid #e4ddce;border-radius:.6rem;padding:12px 14px;
+        background:#fffdf8;margin-bottom:6px'>
+        <div style='display:flex;align-items:center;gap:12px;margin-bottom:10px'>
+          %s
+          <div style='line-height:1.15'>
+            <div style='color:#7a857b;font-size:.8rem'>%s (EOO / B1)</div>
+            <div style='font-family:monospace;font-weight:600;font-size:1.05rem'>%s km<sup>2</sup></div>
+          </div>
+        </div>
+        <div style='display:flex;align-items:center;gap:12px'>
+          %s
+          <div style='line-height:1.15'>
+            <div style='color:#7a857b;font-size:.8rem'>%s (AOO / B2)</div>
+            <div style='font-family:monospace;font-weight:600;font-size:1.05rem'>%s km<sup>2</sup>
+              <span style='color:#7a857b;font-weight:400;font-size:.85rem'>(%s cells)</span></div>
+          </div>
+        </div>
+        <div style='color:#7a857b;font-size:.72rem;margin-top:10px'>%s</div>
+       </div>",
+      badge(r$eoo_cat_B1), t_eoo, fmt_km(r$eoo_km2),
+      badge(r$aoo_cat_B2), t_aoo, fmt_km(r$aoo_km2), r$aoo_cells,
+      t_note))
   })
 
   outputOptions(output, "map", suspendWhenHidden = FALSE)
@@ -465,7 +584,8 @@ server <- function(input, output, session) {
     filename = function() paste0("mappingAS_map_", input$map_species, "_", Sys.Date(), ".html"),
     content = function(file) {
       req(result(), input$map_species)
-      m <- mappingAS::map_species(result(), species = input$map_species)
+      m <- mappingAS::map_species(result(), species = input$map_species,
+                                  lang = input$lang %||% "en")
       htmlwidgets::saveWidget(m, file, selfcontained = TRUE)
     }
   )
@@ -481,7 +601,8 @@ server <- function(input, output, session) {
           type = "warning", duration = NULL)
         req(FALSE)
       }
-      m <- mappingAS::map_species(result(), species = input$map_species)
+      m <- mappingAS::map_species(result(), species = input$map_species,
+                                  lang = input$lang %||% "en")
       tmp <- tempfile(fileext = ".html")
       htmlwidgets::saveWidget(m, tmp, selfcontained = TRUE)
       webshot2::webshot(tmp, file = file, vwidth = 1100, vheight = 800, delay = 1)
@@ -508,7 +629,8 @@ server <- function(input, output, session) {
           mappingAS::map_static(
             result(), species = input$map_species,
             mapbiomas = lyr %in% c("lulc", "both"),
-            fire      = lyr %in% c("fire", "both")),
+            fire      = lyr %in% c("fire", "both"),
+            lang      = input$lang %||% "en"),
           error = function(e) {
             showNotification(paste("Erro ao gerar o mapa publicável:",
                                    conditionMessage(e)),

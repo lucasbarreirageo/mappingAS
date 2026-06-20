@@ -11,7 +11,9 @@ map_species(
   fire = FALSE,
   src = NULL,
   fire_src = NULL,
-  max_pixels = 800
+  max_pixels = 800,
+  lang = c("pt", "en"),
+  clip = c("eoo", "aoo")
 )
 }
 \arguments{
@@ -30,6 +32,12 @@ map_species(
 
 \item{max_pixels}{Target maximum raster size (longest side, pixels) for the
 overlays (default \code{800}).}
+
+\item{lang}{Legend language: \code{"pt"} (default) or \code{"en"}. Controls
+the language of the MapBiomas class labels and the fire-frequency legend.}
+
+\item{clip}{Geometry the rasters are clipped to: \code{"eoo"} (default, the
+EOO hull) or \code{"aoo"} (the union of occupied AOO cells).}
 }
 \value{
 A \code{leaflet} widget.
