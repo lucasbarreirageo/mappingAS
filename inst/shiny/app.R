@@ -89,8 +89,6 @@ ui <- bslib::page_sidebar(
     ),
     bslib::nav_panel(
       "Results", icon = icon("table"),
-      div(class = "mb-3",
-          downloadButton("dl_csv", "Download results (CSV)")),
       DT::DTOutput("tbl")
     ),
     bslib::nav_panel(
@@ -534,7 +532,7 @@ server <- function(input, output, session) {
 
   fire_ts_data <- eventReactive(input$fire_ts_run, {
     req(result(), input$fire_species)
-    yy <- mappingAS::mb_years(10L))
+    yy <- mappingAS::mb_years(10L)
     step <- max(1L, as.integer(input$fire_ts_step))
     yrs <- sort(unique(c(seq(min(yy), max(yy), by = step), max(yy))))
     withProgress(message = "Calculating fire series...", value = 0, {
