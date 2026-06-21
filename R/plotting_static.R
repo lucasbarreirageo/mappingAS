@@ -33,6 +33,9 @@
 #' @param lang Legend language: \code{"pt"} (default) or \code{"en"}. Controls
 #'   the language of the MapBiomas class labels, the fire-frequency legend and
 #'   the feature labels (EOO/AOO/occurrences).
+#' @param clip Geometry the rasters are clipped to: \code{"eoo"} (default, the
+#'   EOO hull) or \code{"aoo"} (the union of occupied AOO cells). Matches the
+#'   \code{clip} argument of \code{\link{map_species}}.
 #' @return A \code{ggplot} object.
 #' @examples
 #' \dontrun{
@@ -46,8 +49,9 @@
 map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
                        fire = FALSE, src = NULL, max_pixels = 600, crs = NULL,
                        scalebar = TRUE, north = TRUE, title = NULL,
-                       lang = c("pt", "en")) {
+                       lang = c("pt", "en"), clip = c("eoo", "aoo")) {
   lang <- match.arg(lang)
+  clip <- match.arg(clip)
   stopifnot(inherits(assessment, "geoconv_assessment"))
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("Package 'ggplot2' is required for map_static().", call. = FALSE)
@@ -70,13 +74,16 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
   pts   <- sf::st_transform(sf::st_geometry(obj$points), crs)
   st    <- assessment$settings
 
+  clip_geom <- if (clip == "aoo" && !is.null(cells))
+                 .st_union_quiet(cells) else hull
+
   g <- ggplot2::ggplot()
 
   # ggplot2 has a single fill scale: to show LULC *and* fire together we need
   # ggnewscale. Without it, the land-cover layer (the main map) is kept and a
   # warning is emitted, so the publication map never drops MapBiomas silently.
-  draw_lulc <- isTRUE(mapbiomas) && !is.null(hull)
-  draw_fire <- isTRUE(fire) && !is.null(hull)
+  draw_lulc <- isTRUE(mapbiomas) && !is.null(clip_geom)
+  draw_fire <- isTRUE(fire) && !is.null(clip_geom)
   if (draw_lulc && draw_fire && !requireNamespace("ggnewscale", quietly = TRUE)) {
     warning("Both MapBiomas and fire layers requested but 'ggnewscale' is not ",
             "installed: drawing MapBiomas only. Install 'ggnewscale' to overlay ",
@@ -84,32 +91,33 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
     draw_fire <- FALSE
   }
 
-  # ---- MapBiomas land-cover raster (clipped to the EOO) ----
+  # ---- MapBiomas land-cover raster (clipped to EOO or AOO) ----
   if (draw_lulc) {
     rdf <- tryCatch(
-      .mb_display_df(hull, st$year, st$collection, src, max_pixels, crs, lang),
+      .mb_display_df(clip_geom, st$year, st$collection, src, max_pixels, crs, lang),
       error = function(e) {
         warning("MapBiomas layer skipped: ", conditionMessage(e), call. = FALSE)
         NULL
       })
     if (!is.null(rdf) && nrow(rdf$df) > 0) {
+      lbl_clip <- if (clip == "aoo") "AOO" else "EOO"
       g <- g +
         ggplot2::geom_tile(
           data = rdf$df,
           ggplot2::aes(x = .data[["x"]], y = .data[["y"]], fill = .data[["class"]])) +
         ggplot2::scale_fill_manual(
           values = rdf$cols, drop = FALSE,
-          name = sprintf(if (lang == "en") "MapBiomas %s (in EOO)"
-                         else "MapBiomas %s (no EOO)", st$year))
+          name = sprintf(if (lang == "en") "MapBiomas %s (in %s)"
+                         else "MapBiomas %s (no %s)", st$year, lbl_clip))
     } else {
       draw_lulc <- FALSE
     }
   }
 
-  # ---- MapBiomas Fire frequency raster (clipped to the EOO) ----
+  # ---- MapBiomas Fire frequency raster (clipped to EOO or AOO) ----
   if (draw_fire) {
     fdf <- tryCatch(
-      .fire_display_df(hull, st$fire_collection %||% 4, src, max_pixels, crs),
+      .fire_display_df(clip_geom, st$fire_collection %||% 4, src, max_pixels, crs),
       error = function(e) {
         warning("Fire layer skipped: ", conditionMessage(e), call. = FALSE)
         NULL

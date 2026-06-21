@@ -37,7 +37,6 @@ ui <- bslib::page_sidebar(
     ),
     hr(),
     selectInput("year", "MapBiomas Year", choices = 2024:1985, selected = 2024),
-    selectInput("collection", "Collection", choices = c(10, 9), selected = 10),
     numericInput("cell_km", "AOO Cell (km)", value = 2, min = 0.5, step = 0.5),
     radioButtons("backend", "MapBiomas Source",
                  choices = c("Local (no GEE account)" = "local",
@@ -50,8 +49,7 @@ ui <- bslib::page_sidebar(
                  choices = c("English" = "en", "Português" = "pt"),
                  selected = "en", inline = TRUE),
     actionButton("run", "Assess", class = "btn-primary w-100", icon = icon("calculator")),
-    hr(),
-    downloadButton("dl_csv", "Download results (CSV)", class = "w-100"),
+    
     hr(),
     radioButtons("export_fmt", "EOO/AOO Maps",
                  choices = c("Shapefile (.zip)" = "shapefile",
@@ -91,6 +89,8 @@ ui <- bslib::page_sidebar(
     ),
     bslib::nav_panel(
       "Results", icon = icon("table"),
+      div(class = "mb-3",
+          downloadButton("dl_csv", "Download results (CSV)")),
       DT::DTOutput("tbl")
     ),
     bslib::nav_panel(
@@ -275,7 +275,7 @@ server <- function(input, output, session) {
         mappingAS::assess_species(
           o,
           year = as.integer(input$year),
-          collection = as.integer(input$collection),
+          collection = 10L,
           backend = input$backend,
           cell_km = input$cell_km,
           mapbiomas = isTRUE(input$do_mb),
@@ -437,7 +437,7 @@ server <- function(input, output, session) {
 
   ts_data <- eventReactive(input$ts_run, {
     req(result(), input$ts_species)
-    coll <- as.integer(input$collection)
+    coll <- 10L
     yy <- mappingAS::mb_years(coll)
     step <- max(1L, as.integer(input$ts_step))
     yrs <- sort(unique(c(seq(min(yy), max(yy), by = step), max(yy))))
@@ -534,7 +534,7 @@ server <- function(input, output, session) {
 
   fire_ts_data <- eventReactive(input$fire_ts_run, {
     req(result(), input$fire_species)
-    yy <- mappingAS::mb_years(as.integer(input$collection))
+    yy <- mappingAS::mb_years(10L))
     step <- max(1L, as.integer(input$fire_ts_step))
     yrs <- sort(unique(c(seq(min(yy), max(yy), by = step), max(yy))))
     withProgress(message = "Calculating fire series...", value = 0, {
@@ -585,7 +585,10 @@ server <- function(input, output, session) {
     content = function(file) {
       req(result(), input$map_species)
       m <- mappingAS::map_species(result(), species = input$map_species,
-                                  lang = input$lang %||% "en")
+                                  mapbiomas = isTRUE(input$do_mb),
+                                  fire = isTRUE(input$do_fire),
+                                  lang = input$lang %||% "en",
+                                  clip = input$map_clip %||% "eoo")
       htmlwidgets::saveWidget(m, file, selfcontained = TRUE)
     }
   )
@@ -602,7 +605,10 @@ server <- function(input, output, session) {
         req(FALSE)
       }
       m <- mappingAS::map_species(result(), species = input$map_species,
-                                  lang = input$lang %||% "en")
+                                  mapbiomas = isTRUE(input$do_mb),
+                                  fire = isTRUE(input$do_fire),
+                                  lang = input$lang %||% "en",
+                                  clip = input$map_clip %||% "eoo")
       tmp <- tempfile(fileext = ".html")
       htmlwidgets::saveWidget(m, tmp, selfcontained = TRUE)
       webshot2::webshot(tmp, file = file, vwidth = 1100, vheight = 800, delay = 1)
@@ -630,7 +636,8 @@ server <- function(input, output, session) {
             result(), species = input$map_species,
             mapbiomas = lyr %in% c("lulc", "both"),
             fire      = lyr %in% c("fire", "both"),
-            lang      = input$lang %||% "en"),
+            lang      = input$lang %||% "en",
+            clip      = input$map_clip %||% "eoo"),
           error = function(e) {
             showNotification(paste("Erro ao gerar o mapa publicável:",
                                    conditionMessage(e)),
