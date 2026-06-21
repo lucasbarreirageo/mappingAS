@@ -15,7 +15,8 @@ map_static(
   scalebar = TRUE,
   north = TRUE,
   title = NULL,
-  lang = c("pt", "en")
+  lang = c("pt", "en"),
+  clip = c("eoo", "aoo")
 )
 }
 \arguments{
@@ -47,6 +48,10 @@ species' equal-area projection from the EOO/AOO.}
 \item{lang}{Legend language: \code{"pt"} (default) or \code{"en"}. Controls
 the language of the MapBiomas class labels, the fire-frequency legend and
 the feature labels (EOO/AOO/occurrences).}
+
+\item{clip}{Geometry the rasters are clipped to: \code{"eoo"} (default, the
+EOO hull) or \code{"aoo"} (the union of occupied AOO cells). Matches the
+\code{clip} argument of \code{\link{map_species}}.}
 }
 \value{
 A \code{ggplot} object.
