@@ -1,3 +1,12 @@
+# mappingAS 1.3.2
+
+* Publishable/exported maps now honour the AOO clip selected in the app
+  (`map_static()` gained a `clip` argument), fixing the missing AOO layer.
+* Removed the redundant MapBiomas "Collection" selector from the Shiny app
+  (only the Collection 10 legend ships with the package).
+* Moved the "Download results (CSV)" button into the Results tab.
+
+
 # mappingAS 1.3.1
 
 * Shiny app: language selector (English/Português) for the MapBiomas land-cover
