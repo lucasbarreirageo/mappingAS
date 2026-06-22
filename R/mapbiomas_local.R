@@ -1,19 +1,44 @@
-#' Build the MapBiomas national GeoTIFF URL for a given year
+#' Build the MapBiomas national GeoTIFF URL for a given year (any country)
 #'
-#' Returns the public Google Cloud Storage URL of the MapBiomas Brazil
-#' land-use/land-cover annual mosaic. Collection 10 covers 1985-2024.
+#' Returns the public Google Cloud Storage URL of a MapBiomas annual LULC
+#' mosaic. Brazil keeps its historical default; the other South-American
+#' initiatives (Argentina, Bolivia, Ecuador, Peru) are resolved through the
+#' country registry (see \code{\link{mb_country_info}}). Collection 10 covers
+#' 1985-2024 for Brazil.
 #'
-#' @param year Integer year (1985-2024 for Collection 10).
-#' @param collection Integer collection number (default \code{10}).
+#' @param year Integer year (1985-2024).
+#' @param collection Integer collection number. Ignored when \code{country} is a
+#'   non-Brazil key (the registry pins each country's collection); kept for
+#'   backward compatibility with Brazil calls (default \code{10}).
+#' @param country Country name or ISO-2 alias (default \code{"brazil"}).
 #' @return A length-1 character URL.
 #' @examples
-#' mb_source_url(2024)
+#' mb_source_url(2024)                      # Brazil
+#' mb_source_url(2020, country = "peru")    # Peru, Collection 3
 #' @export
-mb_source_url <- function(year = 2024, collection = 10) {
-  sprintf(
-    "https://storage.googleapis.com/mapbiomas-public/initiatives/brasil/collection_%d/lulc/coverage/brazil_coverage_%d.tif",
-    as.integer(collection), as.integer(year)
-  )
+mb_source_url <- function(year = 2024, collection = 10, country = "brazil") {
+  key <- .mb_country_aliases(country)
+  if (identical(key, "brazil")) {
+    return(sprintf(
+      paste0("https://storage.googleapis.com/mapbiomas-public/initiatives/",
+             "brasil/collection_%d/lulc/coverage/brazil_coverage_%d.tif"),
+      as.integer(collection), as.integer(year)))
+  }
+  info <- mb_country_info(key)
+  .assert_mb_year(year, info)
+  sprintf(info$url_template, as.integer(year))
+}
+
+#' @keywords internal
+#' @noRd
+.assert_mb_year <- function(year, info) {
+  y <- as.integer(year)
+  if (is.na(y) || y < info$year_min || y > info$year_max) {
+    stop(sprintf("Year %s is outside the %s range (%d-%d).",
+                 year, info$country, info$year_min, info$year_max),
+         call. = FALSE)
+  }
+  invisible(TRUE)
 }
 
 #' @keywords internal
@@ -145,4 +170,132 @@ mb_class_areas_raster <- function(r) {
   names(z) <- c("code", "area_km2")
   z$code <- as.integer(z$code)
   z[is.finite(z$area_km2) & z$area_km2 > 0, , drop = FALSE]
+}
+
+## ===========================================================================
+## Multi-country extensions
+## ===========================================================================
+
+#' Crop a MapBiomas LULC raster to an AOI for ONE country (harmonised)
+#'
+#' Country-aware wrapper over \code{\link{mb_raster_local}}. It streams only the
+#' AOI window via \code{/vsicurl/} (reusing the on-disk cache), then reclassifies
+#' foreign pixel codes to the Brazil vocabulary (see
+#' \code{\link{mb_harmonise_raster}}) so all downstream summaries work unchanged.
+#' For \code{country = "brazil"} it is identical to \code{mb_raster_local()}.
+#'
+#' @inheritParams mb_raster_local
+#' @param country Country name/alias (default \code{"brazil"}).
+#' @return A \pkg{terra} \code{SpatRaster} of Brazil-harmonised codes over the AOI.
+#' @examples
+#' \dontrun{
+#' r <- mb_raster_country(eoo_hull, year = 2020, country = "peru")
+#' }
+#' @export
+mb_raster_country <- function(aoi, year = 2024, country = "brazil",
+                              src = NULL, mask = TRUE,
+                              cache = TRUE, cache_dir = NULL) {
+  key <- .mb_country_aliases(country)
+  info <- mb_country_info(key)
+  if (is.null(src)) src <- mb_source_url(year, info$collection, key)
+  r <- mb_raster_local(aoi, year = year, collection = info$collection,
+                       src = src, mask = mask, cache = cache,
+                       cache_dir = cache_dir)
+  mb_harmonise_raster(r, key)
+}
+
+#' Crop and MOSAIC MapBiomas LULC across one or more countries
+#'
+#' The multi-country entry point used by \code{\link{assess_species}}. Given an
+#' AOI and the set of countries it spans, it reads each country's harmonised
+#' window (Brazil vocabulary) and merges them into a single seamless raster
+#' covering the whole AOI. Single-country AOIs short-circuit to one read.
+#'
+#' Per-country failures (e.g. a year missing on one server, or a transient
+#' network error) are warned and skipped; the mosaic is built from whatever
+#' succeeded, so a transboundary species is not lost because one tile failed.
+#'
+#' @param aoi An \code{sf}/\code{sfc} polygon (e.g. an EOO hull or AOO union).
+#' @param countries Character vector of country keys (from
+#'   \code{\link{species_countries}}). If \code{NULL} or empty, defaults to
+#'   \code{"brazil"}.
+#' @param year Integer year (default \code{2024}).
+#' @param src Optional named list of per-country GeoTIFF overrides
+#'   (e.g. \code{list(peru = "/path/peru_2020.tif")}); mainly for tests/offline.
+#' @param mask,cache,cache_dir Passed through to the per-country reader.
+#' @param verbose Logical; print per-country progress (default \code{TRUE}).
+#' @return A \pkg{terra} \code{SpatRaster} of Brazil-harmonised codes spanning
+#'   the AOI (a mosaic when more than one country contributes).
+#' @examples
+#' \dontrun{
+#' # species spanning Peru and Bolivia
+#' r <- mb_raster_multicountry(aoo_union, countries = c("peru", "bolivia"),
+#'                             year = 2022)
+#' }
+#' @export
+mb_raster_multicountry <- function(aoi, countries = NULL, year = 2024,
+                                   src = NULL, mask = TRUE, cache = TRUE,
+                                   cache_dir = NULL, verbose = TRUE) {
+  if (!requireNamespace("terra", quietly = TRUE))
+    stop("Package 'terra' is required.", call. = FALSE)
+  if (is.null(countries) || !length(countries)) countries <- "brazil"
+  countries <- unique(vapply(countries, .mb_country_aliases, character(1)))
+
+  read_one <- function(k) {
+    s <- if (is.list(src)) src[[k]] else NULL
+    tryCatch(
+      mb_raster_country(aoi, year = year, country = k, src = s,
+                        mask = mask, cache = cache, cache_dir = cache_dir),
+      error = function(e) {
+        warning(sprintf("MapBiomas %s (%s) skipped: %s",
+                        k, year, conditionMessage(e)), call. = FALSE)
+        NULL
+      })
+  }
+
+  if (length(countries) == 1L) {
+    if (verbose) message("  country: ", countries)
+    r <- read_one(countries)
+    if (is.null(r)) stop("No MapBiomas raster could be read for the AOI.",
+                         call. = FALSE)
+    return(r)
+  }
+
+  rasters <- list()
+  for (k in countries) {
+    if (verbose) message("  country: ", k)
+    rk <- read_one(k)
+    if (!is.null(rk)) rasters[[k]] <- rk
+  }
+  if (!length(rasters))
+    stop("No MapBiomas raster could be read for any country in the AOI.",
+         call. = FALSE)
+  if (length(rasters) == 1L) return(rasters[[1]])
+
+  if (verbose) message("  mosaicking ", length(rasters), " countries...")
+  .mb_mosaic(rasters)
+}
+
+#' @keywords internal
+#' @noRd
+## Merge harmonised per-country crops into one raster. Countries use different
+## native grids/resolutions; align everyone to the first tile before merging so
+## terra::merge() has a common geometry. first=TRUE keeps the leading country's
+## pixel where footprints overlap at the border (deterministic; no averaging of
+## class codes, which would be meaningless for categorical data).
+.mb_mosaic <- function(rasters) {
+  ref <- rasters[[1]]
+  aligned <- vector("list", length(rasters))
+  aligned[[1]] <- ref
+  for (i in seq_along(rasters)[-1]) {
+    ri <- rasters[[i]]
+    same <- tryCatch(
+      terra::compareGeom(ref, ri, stopOnError = FALSE, messages = FALSE),
+      error = function(e) FALSE)
+    if (!isTRUE(same)) ri <- terra::project(ri, ref, method = "near")
+    aligned[[i]] <- ri
+  }
+  m <- do.call(terra::merge, c(aligned, list(first = TRUE)))
+  names(m) <- "mapbiomas_class"
+  m
 }
