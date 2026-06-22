@@ -1,3 +1,29 @@
+# mappingAS 1.4.0
+
+* Multi-country MapBiomas support for South America. `assess_species()` now
+  detects which MapBiomas initiative each species spans (Brazil, Argentina,
+  Bolivia, Ecuador, Peru) and reads the matching national raster(s); the new
+  `multicountry` and `countries` arguments control this (defaults: auto-detect
+  on the local backend).
+* Transboundary species are handled by reading each country's windowed crop and
+  mosaicking them into a single seamless raster covering the whole range
+  (`mb_raster_multicountry()`), with per-country failures warned and skipped.
+* Legend harmonisation: foreign pixel codes are reclassified to the Brazil
+  legend vocabulary on read (`mb_harmonise_raster()`), so `summarise_conversion()`,
+  `class_table()`, the time series and every plot keep working unchanged. The
+  reclassification preserves each class's conservation group
+  (natural / anthropic / water / other).
+* New country registry as the single source of truth for URLs, collection
+  numbers and reclassification tables (`mb_countries()`, `mb_country_info()`).
+* `mb_source_url()` gained a `country` argument; new `mb_raster_country()` reads
+  and harmonises one country's window.
+* Point-in-country detection (`country_of_points()`, `species_countries()`)
+  using an embedded borders layer (`inst/extdata/sa_borders.gpkg`), with a
+  bounding-box fallback when the layer is absent.
+* `mb_legend()`: added code 34 (Glacier) to the `water` group, so glaciers in
+  the Andean initiatives are not dropped from the conversion denominator.
+
+
 # mappingAS 1.3.2
 
 * Publishable/exported maps now honour the AOO clip selected in the app
