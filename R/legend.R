@@ -9,10 +9,18 @@
 #' are excluded from the conversion denominator (see
 #' \code{\link{summarise_conversion}}).
 #'
+#' This Brazil legend is also the \emph{target vocabulary} for the other
+#' MapBiomas South-American initiatives: foreign rasters (Argentina, Bolivia,
+#' Ecuador, Peru) are reclassified to these codes/groups on read (see
+#' \code{\link{mb_harmonise_raster}} and \code{\link{mb_country_info}}), so this
+#' table stays the single legend everything downstream is interpreted against.
+#'
 #' Codes follow "Códigos das classes da legenda da Coleção 10 do MapBiomas
 #' Brasil". A handful of parent/aggregation codes (e.g. 10, 13, 14, 18, 19, 36)
-#' and codes from neighbouring collections are included so the table also works
-#' if applied to Collection 9 rasters; unused codes simply contribute zero area.
+#' and codes from neighbouring collections/countries (e.g. 34 Glacier, used by
+#' the Andean initiatives) are included so the table also works when applied to
+#' Collection 9 or harmonised foreign rasters; unused codes simply contribute
+#' zero area.
 #'
 #' @param collection Integer collection number. Only \code{10} (default) is
 #'   currently shipped; other values emit a warning and fall back to 10.
@@ -41,8 +49,8 @@ mb_legend <- function(collection = 10) {
       24, 30, 75,
       # Ambiguous non-vegetated -> "other" (excluded by default)
       25,
-      # Water
-      26, 33, 31,
+      # Water (incl. 34 Glacier, used by harmonised Andean rasters)
+      26, 33, 31, 34,
       # Not observed
       27
     ),
@@ -58,7 +66,7 @@ mb_legend <- function(collection = 10) {
       "Mosaic of Uses",
       "Urban Area", "Mining", "Photovoltaic Power Plant (beta)",
       "Other non Vegetated Areas",
-      "Water", "River, Lake and Ocean", "Aquaculture",
+      "Water", "River, Lake and Ocean", "Aquaculture", "Glacier",
       "Not Observed"
     ),
     class_pt = c(
@@ -73,7 +81,7 @@ mb_legend <- function(collection = 10) {
       "Mosaico de Usos",
       "Area Urbanizada", "Mineracao", "Usina Fotovoltaica (beta)",
       "Outras Areas nao Vegetadas",
-      "Corpo D'agua", "Rio, Lago e Oceano", "Aquicultura",
+      "Corpo D'agua", "Rio, Lago e Oceano", "Aquicultura", "Glaciar",
       "Nao Observado"
     ),
     hex = c(
@@ -90,8 +98,8 @@ mb_legend <- function(collection = 10) {
       "#d4271e", "#9c0027", "#c12100",
       # other non-vegetated
       "#db4d4f",
-      # water
-      "#2532e4", "#2532e4", "#091077",
+      # water (incl. glacier)
+      "#2532e4", "#2532e4", "#091077", "#93dfe6",
       # not observed
       "#ffffff"
     ),
@@ -101,7 +109,7 @@ mb_legend <- function(collection = 10) {
       rep("Farming", 16),
       rep("NonVegetated", 3),
       "NonVegetated",
-      rep("Water", 3),
+      rep("Water", 4),
       "NotObserved"
     ),
     group = c(
@@ -110,7 +118,7 @@ mb_legend <- function(collection = 10) {
       rep("anthropic", 16),  # farming block
       rep("anthropic", 3),   # urban, mining, photovoltaic
       "other",               # other non-vegetated (ambiguous)
-      "water", "water", "anthropic",  # water, river/lake/ocean, aquaculture
+      "water", "water", "anthropic", "water",  # water, river/lake/ocean, aquaculture, glacier
       "not_observed"
     ),
     stringsAsFactors = FALSE
