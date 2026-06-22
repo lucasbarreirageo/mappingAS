@@ -17,6 +17,8 @@ assess_species(
   src = NULL,
   fire_src = NULL,
   water_in_denominator = FALSE,
+  multicountry = TRUE,
+  countries = NULL,
   min_records = 1,
   verbose = TRUE
 )
@@ -26,7 +28,9 @@ assess_species(
 
 \item{year}{Integer MapBiomas year (default \code{2024}).}
 
-\item{collection}{Integer MapBiomas collection number (default \code{10}).}
+\item{collection}{Integer MapBiomas collection number (default \code{10}).
+Used by the GEE backend and as the legend vocabulary; per-country
+collections are taken from the registry automatically.}
 
 \item{backend}{Habitat backend: \code{"local"} (default) or \code{"gee"}.}
 
@@ -40,11 +44,21 @@ MapBiomas Fire (accumulated layer, read locally). Default \code{FALSE}.}
 \item{fire_collection, fire_host_collection}{Fire collection number (default
 \code{4}) and the initiative folder hosting it (default \code{9}).}
 
-\item{src}{Optional MapBiomas LULC GeoTIFF for the local backend.}
+\item{src}{Optional MapBiomas LULC GeoTIFF for the local backend. For
+multi-country runs this may be a named list of per-country overrides
+(e.g. \code{list(brazil = "...", peru = "...")}); a single path is treated
+as a Brazil/global override.}
 
 \item{fire_src}{Optional MapBiomas Fire GeoTIFF (overrides the public URL).}
 
 \item{water_in_denominator}{Passed to \code{\link{summarise_conversion}}.}
+
+\item{multicountry}{Logical; if \code{TRUE} (default) and \code{backend =
+"local"}, detect the MapBiomas country set per species and read/mosaic the
+matching national rasters. If \code{FALSE}, Brazil is assumed.}
+
+\item{countries}{Optional character vector of country keys to force for ALL
+species (skips per-species detection). \code{NULL} (default) auto-detects.}
 
 \item{min_records}{Minimum records required to attempt an assessment.}
 
@@ -54,16 +68,18 @@ MapBiomas Fire (accumulated layer, read locally). Default \code{FALSE}.}
 An object of class \code{geoconv_assessment}: a list with
 \code{summary} (one row per species) and \code{detail} (per-species
 \code{points}, \code{eoo}, \code{aoo}, \code{eoo_conversion},
-\code{aoo_conversion}, and — when \code{fire = TRUE} — \code{eoo_fire},
-\code{aoo_fire}).
+\code{aoo_conversion}, \code{countries}, and — when \code{fire = TRUE} —
+\code{eoo_fire}, \code{aoo_fire}).
 }
 \description{
 End-to-end pipeline. For each species it computes the EOO (minimum convex
 polygon) and AOO (2 km grid), then quantifies the percentage of converted
-(anthropic) and remaining natural habitat from the most recent MapBiomas
-collection inside both the EOO and the AOO. When \code{fire = TRUE} it also
-adds the percentage of the EOO/AOO that has burned and the mean fire
-recurrence, from the MapBiomas Fire accumulated layer.
+(anthropic) and remaining natural habitat from MapBiomas inside both the EOO
+and the AOO. With \code{multicountry = TRUE} (and the local backend) it detects
+which MapBiomas country each species spans and reads the matching national
+raster(s); transboundary species are mosaicked seamlessly. When
+\code{fire = TRUE} it also adds the percentage of the EOO/AOO that has burned
+and the mean fire recurrence, from the MapBiomas Fire accumulated layer.
 }
 \examples{
 \dontrun{

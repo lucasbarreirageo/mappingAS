@@ -2,22 +2,30 @@
 % Please edit documentation in R/mapbiomas_local.R
 \name{mb_source_url}
 \alias{mb_source_url}
-\title{Build the MapBiomas national GeoTIFF URL for a given year}
+\title{Build the MapBiomas national GeoTIFF URL for a given year (any country)}
 \usage{
-mb_source_url(year = 2024, collection = 10)
+mb_source_url(year = 2024, collection = 10, country = "brazil")
 }
 \arguments{
-\item{year}{Integer year (1985-2024 for Collection 10).}
+\item{year}{Integer year (1985-2024).}
 
-\item{collection}{Integer collection number (default \code{10}).}
+\item{collection}{Integer collection number. Ignored when \code{country} is a
+non-Brazil key (the registry pins each country's collection); kept for
+backward compatibility with Brazil calls (default \code{10}).}
+
+\item{country}{Country name or ISO-2 alias (default \code{"brazil"}).}
 }
 \value{
 A length-1 character URL.
 }
 \description{
-Returns the public Google Cloud Storage URL of the MapBiomas Brazil
-land-use/land-cover annual mosaic. Collection 10 covers 1985-2024.
+Returns the public Google Cloud Storage URL of a MapBiomas annual LULC
+mosaic. Brazil keeps its historical default; the other South-American
+initiatives (Argentina, Bolivia, Ecuador, Peru) are resolved through the
+country registry (see \code{\link{mb_country_info}}). Collection 10 covers
+1985-2024 for Brazil.
 }
 \examples{
-mb_source_url(2024)
+mb_source_url(2024)                      # Brazil
+mb_source_url(2020, country = "peru")    # Peru, Collection 3
 }

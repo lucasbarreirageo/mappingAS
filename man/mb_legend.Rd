@@ -26,10 +26,18 @@ are excluded from the conversion denominator (see
 \code{\link{summarise_conversion}}).
 }
 \details{
+This Brazil legend is also the \emph{target vocabulary} for the other
+MapBiomas South-American initiatives: foreign rasters (Argentina, Bolivia,
+Ecuador, Peru) are reclassified to these codes/groups on read (see
+\code{\link{mb_harmonise_raster}} and \code{\link{mb_country_info}}), so this
+table stays the single legend everything downstream is interpreted against.
+
 Codes follow "Códigos das classes da legenda da Coleção 10 do MapBiomas
 Brasil". A handful of parent/aggregation codes (e.g. 10, 13, 14, 18, 19, 36)
-and codes from neighbouring collections are included so the table also works
-if applied to Collection 9 rasters; unused codes simply contribute zero area.
+and codes from neighbouring collections/countries (e.g. 34 Glacier, used by
+the Andean initiatives) are included so the table also works when applied to
+Collection 9 or harmonised foreign rasters; unused codes simply contribute
+zero area.
 }
 \examples{
 head(mb_legend())
