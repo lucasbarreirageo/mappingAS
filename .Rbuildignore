@@ -8,3 +8,5 @@
 ^codecov\.yml$
 ^_pkgdown\.yml$
 ^release_notes\.md$
+^\.lintr$
+^\.gitattributes$

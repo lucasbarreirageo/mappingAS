@@ -5,6 +5,9 @@
 * Removed the redundant MapBiomas "Collection" selector from the Shiny app
   (only the Collection 10 legend ships with the package).
 * Moved the "Download results (CSV)" button into the Results tab.
+* Fixed a syntax error in the Shiny app (a stray bracket in the fire
+  time-series reactive) that stopped the app from launching; added a test
+  that parses the bundled app sources to prevent regressions.
 
 
 # mappingAS 1.3.1
