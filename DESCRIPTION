@@ -46,7 +46,6 @@ Suggests:
     ggplot2,
     ggnewscale,
     shinyWidgets,
-    webshot2,
     testthat (>= 3.0.0),
     knitr,
     rmarkdown

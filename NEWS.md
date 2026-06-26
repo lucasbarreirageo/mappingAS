@@ -8,6 +8,15 @@
 * Fixed a syntax error in the Shiny app (a stray bracket in the fire
   time-series reactive) that stopped the app from launching; added a test
   that parses the bundled app sources to prevent regressions.
+* Removed the "Download map (PNG)" button (interactive-map snapshot via
+  webshot2/Chrome); the HTML download and the publishable PNG remain.
+  Dropped the now-unused 'webshot2' from Suggests.
+* Refactored the time-series reactives to share a `.year_grid()` helper,
+  removing duplicated year-range logic.
+* App interface is now fully in English. (Map legends can still be exported
+  in English or Portuguese.)
+* All download buttons now report failures as a notification instead of a
+  raw Shiny error.
 
 
 # mappingAS 1.3.1
