@@ -11,6 +11,28 @@ suppressMessages({
 
 `%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || identical(a, "")) b else a
 
+# Year grid for the MapBiomas collection, thinned by `step` (always keeps the
+# last year). Shared by the land-cover and fire time-series reactives.
+.year_grid <- function(step, collection = 10L) {
+  yy <- mappingAS::mb_years(collection)
+  step <- max(1L, as.integer(step))
+  sort(unique(c(seq(min(yy), max(yy), by = step), max(yy))))
+}
+
+# Run a download's content function, surfacing failures as a notification
+# instead of a raw Shiny error. req()/validate() aborts stay silent.
+.safe_download <- function(fn) {
+  function(file) {
+    tryCatch(
+      fn(file),
+      shiny.silent.error = function(e) invisible(NULL),
+      error = function(e) showNotification(
+        paste("Download failed:", conditionMessage(e)),
+        type = "error", duration = NULL)
+    )
+  }
+}
+
 ui <- bslib::page_sidebar(
   title = "mappingAS | Mapping Area of Species",
   fillable = TRUE, # Allows the map to stretch and fill the entire screen
@@ -45,8 +67,8 @@ ui <- bslib::page_sidebar(
     checkboxInput("water_denom", "Include water as natural in denominator", FALSE),
     checkboxInput("do_mb", "Calculate MapBiomas conversion", TRUE),
     checkboxInput("do_fire", "Calculate fire (MapBiomas burned area)", FALSE),
-    radioButtons("lang", "Legend language / Idioma da legenda",
-                 choices = c("English" = "en", "Português" = "pt"),
+    radioButtons("lang", "Legend language",
+                 choices = c("English" = "en", "Portuguese" = "pt"),
                  selected = "en", inline = TRUE),
     actionButton("run", "Assess", class = "btn-primary w-100", icon = icon("calculator")),
     
@@ -82,7 +104,6 @@ ui <- bslib::page_sidebar(
                        selected = "lulc"),
           hr(),
           downloadButton("dl_map_html", "Download map (HTML)", class = "mb-2"),
-          downloadButton("dl_map_png", "Download map (PNG)", class = "mb-2"),
           downloadButton("dl_map_static", "Publishable map (PNG)", class = "mb-2")
         )
       )
@@ -381,10 +402,10 @@ server <- function(input, output, session) {
 
   output$dl_csv <- downloadHandler(
     filename = function() paste0("mappingAS_results_", Sys.Date(), ".csv"),
-    content = function(file) {
+    content = .safe_download(function(file) {
       req(result())
       utils::write.csv(result()$summary, file, row.names = FALSE, fileEncoding = "UTF-8")
-    }
+    })
   )
 
   output$dl_ranges <- downloadHandler(
@@ -392,7 +413,7 @@ server <- function(input, output, session) {
       ext <- if (identical(input$export_fmt, "gpkg")) "gpkg" else "zip"
       paste0("mappingAS_EOO_AOO_", Sys.Date(), ".", ext)
     },
-    content = function(file) {
+    content = .safe_download(function(file) {
       req(result())
       tmp <- file.path(tempdir(), paste0("ranges_", as.integer(Sys.time())))
       dir.create(tmp, showWarnings = FALSE, recursive = TRUE)
@@ -410,7 +431,7 @@ server <- function(input, output, session) {
       )
       req(out)
       file.copy(out, file, overwrite = TRUE)
-    }
+    })
   )
 
   output$class_tbl <- DT::renderDT({
@@ -427,20 +448,17 @@ server <- function(input, output, session) {
 
   output$dl_classes <- downloadHandler(
     filename = function() paste0("mappingAS_classes_", Sys.Date(), ".csv"),
-    content = function(file) {
+    content = .safe_download(function(file) {
       req(result())
       df <- tryCatch(mappingAS::class_table(result(), range = "both"),
                      error = function(e) data.frame())
       utils::write.csv(df, file, row.names = FALSE, fileEncoding = "UTF-8")
-    }
+    })
   )
 
   ts_data <- eventReactive(input$ts_run, {
     req(result(), input$ts_species)
-    coll <- 10L
-    yy <- mappingAS::mb_years(coll)
-    step <- max(1L, as.integer(input$ts_step))
-    yrs <- sort(unique(c(seq(min(yy), max(yy), by = step), max(yy))))
+    yrs <- .year_grid(input$ts_step)
     withProgress(message = "Calculating time series...", value = 0, {
       ts <- tryCatch(
         mappingAS::timeseries_for_species(
@@ -493,10 +511,10 @@ server <- function(input, output, session) {
 
   output$dl_ts <- downloadHandler(
     filename = function() paste0("mappingAS_series_", input$ts_species, "_", Sys.Date(), ".csv"),
-    content = function(file) {
+    content = .safe_download(function(file) {
       ts <- ts_data(); req(ts)
       utils::write.csv(ts, file, row.names = FALSE, fileEncoding = "UTF-8")
-    }
+    })
   )
 
   output$fire_summary <- renderUI({
@@ -534,9 +552,7 @@ server <- function(input, output, session) {
 
   fire_ts_data <- eventReactive(input$fire_ts_run, {
     req(result(), input$fire_species)
-    yy <- mappingAS::mb_years(10L)
-    step <- max(1L, as.integer(input$fire_ts_step))
-    yrs <- sort(unique(c(seq(min(yy), max(yy), by = step), max(yy))))
+    yrs <- .year_grid(input$fire_ts_step)
     withProgress(message = "Calculating fire series...", value = 0, {
       ts <- tryCatch(
         mappingAS::fire_timeseries_for_species(
@@ -559,15 +575,15 @@ server <- function(input, output, session) {
 
   output$dl_fire_ts <- downloadHandler(
     filename = function() paste0("mappingAS_fire_", input$fire_species, "_", Sys.Date(), ".csv"),
-    content = function(file) {
+    content = .safe_download(function(file) {
       ts <- fire_ts_data(); req(ts)
       utils::write.csv(ts, file, row.names = FALSE, fileEncoding = "UTF-8")
-    }
+    })
   )
 
   output$dl_fire_ts_png <- downloadHandler(
     filename = function() paste0("mappingAS_fire_", input$fire_species, "_", Sys.Date(), ".png"),
-    content = function(file) {
+    content = .safe_download(function(file) {
       ts <- fire_ts_data(); req(ts)
       p <- mappingAS::plot_fire_timeseries(ts)
       if (inherits(p, "ggplot") && requireNamespace("ggplot2", quietly = TRUE)) {
@@ -577,12 +593,12 @@ server <- function(input, output, session) {
         on.exit(grDevices::dev.off(), add = TRUE)
         mappingAS::plot_fire_timeseries(ts)
       }
-    }
+    })
   )
 
   output$dl_map_html <- downloadHandler(
     filename = function() paste0("mappingAS_map_", input$map_species, "_", Sys.Date(), ".html"),
-    content = function(file) {
+    content = .safe_download(function(file) {
       req(result(), input$map_species)
       m <- mappingAS::map_species(result(), species = input$map_species,
                                   mapbiomas = isTRUE(input$do_mb),
@@ -590,47 +606,25 @@ server <- function(input, output, session) {
                                   lang = input$lang %||% "en",
                                   clip = input$map_clip %||% "eoo")
       htmlwidgets::saveWidget(m, file, selfcontained = TRUE)
-    }
-  )
-
-  output$dl_map_png <- downloadHandler(
-    filename = function() paste0("mappingAS_map_", input$map_species, "_", Sys.Date(), ".png"),
-    content = function(file) {
-      req(result(), input$map_species)
-      if (!requireNamespace("webshot2", quietly = TRUE)) {
-        showNotification(
-          paste("To save the map as a PNG, install the 'webshot2' package",
-                "(requires Chrome/Chromium). Meanwhile, use the 'Download map (HTML)' button."),
-          type = "warning", duration = NULL)
-        req(FALSE)
-      }
-      m <- mappingAS::map_species(result(), species = input$map_species,
-                                  mapbiomas = isTRUE(input$do_mb),
-                                  fire = isTRUE(input$do_fire),
-                                  lang = input$lang %||% "en",
-                                  clip = input$map_clip %||% "eoo")
-      tmp <- tempfile(fileext = ".html")
-      htmlwidgets::saveWidget(m, tmp, selfcontained = TRUE)
-      webshot2::webshot(tmp, file = file, vwidth = 1100, vheight = 800, delay = 1)
-    }
+    })
   )
 
   output$dl_map_static <- downloadHandler(
-    filename = function() paste0("mappingAS_mapa_", input$map_species, "_", Sys.Date(), ".png"),
-    content = function(file) {
+    filename = function() paste0("mappingAS_map_static_", input$map_species, "_", Sys.Date(), ".png"),
+    content = .safe_download(function(file) {
       req(result(), input$map_species)
       if (!requireNamespace("ggplot2", quietly = TRUE)) {
-        showNotification("Pacote 'ggplot2' necessário para o mapa publicável.",
+        showNotification("The 'ggplot2' package is required for the publishable map.",
                          type = "error", duration = NULL)
         req(FALSE)
       }
       lyr <- input$static_layer %||% "lulc"
       if (lyr == "both" && !requireNamespace("ggnewscale", quietly = TRUE)) {
         showNotification(
-          "Para sobrepor uso do solo e fogo, instale 'ggnewscale'. Exportando só o uso do solo.",
+          "To overlay land use and fire, install 'ggnewscale'. Exporting land use only.",
           type = "warning", duration = 8)
       }
-      m <- withProgress(message = "Gerando mapa publicável...", value = 0, {
+      m <- withProgress(message = "Generating publishable map...", value = 0, {
         out <- tryCatch(
           mappingAS::map_static(
             result(), species = input$map_species,
@@ -639,7 +633,7 @@ server <- function(input, output, session) {
             lang      = input$lang %||% "en",
             clip      = input$map_clip %||% "eoo"),
           error = function(e) {
-            showNotification(paste("Erro ao gerar o mapa publicável:",
+            showNotification(paste("Error generating the publishable map:",
                                    conditionMessage(e)),
                              type = "error", duration = NULL)
             NULL
@@ -649,22 +643,22 @@ server <- function(input, output, session) {
       })
       req(inherits(m, "ggplot"))
       ggplot2::ggsave(file, plot = m, width = 9, height = 8, dpi = 300)
-    }
+    })
   )
 
   output$dl_chart_png <- downloadHandler(
     filename = function() paste0("mappingAS_conversion_", input$chart_species, "_", Sys.Date(), ".png"),
-    content = function(file) {
+    content = .safe_download(function(file) {
       req(result(), input$chart_species)
       grDevices::png(file, width = 1100, height = 750, res = 130)
       on.exit(grDevices::dev.off(), add = TRUE)
       mappingAS::plot_conversion(result(), species = input$chart_species)
-    }
+    })
   )
 
   output$dl_ts_png <- downloadHandler(
     filename = function() paste0("mappingAS_series_", input$ts_species, "_", Sys.Date(), ".png"),
-    content = function(file) {
+    content = .safe_download(function(file) {
       ts <- ts_data(); req(ts)
       p <- mappingAS::plot_timeseries(ts)
       if (inherits(p, "ggplot") && requireNamespace("ggplot2", quietly = TRUE)) {
@@ -674,7 +668,7 @@ server <- function(input, output, session) {
         on.exit(grDevices::dev.off(), add = TRUE)
         mappingAS::plot_timeseries(ts)
       }
-    }
+    })
   )
 }
 
