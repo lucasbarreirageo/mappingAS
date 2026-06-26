@@ -1,0 +1,17 @@
+* text=auto eol=lf
+*.R    text eol=lf
+*.r    text eol=lf
+*.Rmd  text eol=lf
+*.md   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.css  text eol=lf
+*.html text eol=lf
+*.csv  text eol=lf
+*.tif  binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.pdf  binary
+*.rds  binary
