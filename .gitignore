@@ -10,3 +10,8 @@ Meta/
 /saida/
 *.tif
 *.tif.aux.xml
+
+# R build artefacts
+..Rcheck/
+*.Rcheck/
+*.tar.gz

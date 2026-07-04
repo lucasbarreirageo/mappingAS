@@ -49,7 +49,7 @@ cover_timeseries <- function(geom, years = NULL, collection = 10,
   out <- vector("list", length(years))
   for (i in seq_along(years)) {
     y <- years[i]
-    if (verbose) message(sprintf("  cobertura %d (%d/%d)...", y, i, length(years)))
+    if (verbose) message(sprintf("  coverage %d (%d/%d)...", y, i, length(years)))
     ca <- tryCatch({
       if (backend == "gee") {
         mb_class_areas_gee(g, year = y, collection = collection)
@@ -59,14 +59,14 @@ cover_timeseries <- function(geom, years = NULL, collection = 10,
         )
       }
     }, error = function(e) {
-      warning(sprintf("ano %d falhou: %s", y, conditionMessage(e)), call. = FALSE)
+      warning(sprintf("year %d failed: %s", y, conditionMessage(e)), call. = FALSE)
       NULL
     })
     if (is.null(ca) || !nrow(ca)) next
 
     m <- merge(ca, leg, by = "code", all.x = TRUE)
     m$group[is.na(m$group)] <- "other"
-    unk <- is.na(m$class_pt); m$class_pt[unk] <- paste0("Classe ", m$code[unk])
+    unk <- is.na(m$class_pt); m$class_pt[unk] <- paste0("Class ", m$code[unk])
     m$class_en[is.na(m$class_en)] <- m$class_pt[is.na(m$class_en)]
     m$hex[is.na(m$hex)] <- "#bdbdbd"
     if (!include_not_observed) m <- m[m$group != "not_observed", , drop = FALSE]
@@ -77,13 +77,12 @@ cover_timeseries <- function(geom, years = NULL, collection = 10,
 
   df <- do.call(rbind, out)
   if (is.null(df) || !nrow(df))
-    stop("Nenhum dado pode ser calculado para os anos solicitados.", call. = FALSE)
+    stop("No data could be computed for the requested years.", call. = FALSE)
 
   if (by == "group") {
-    grp_lab <- c(natural = "Natural", anthropic = "Alterado (antropico)",
-                 water = "Agua", other = "Outros", not_observed = "Nao observado")
-    grp_hex <- c(natural = "#1f8d49", anthropic = "#d4271e", water = "#2532e4",
-                 other = "#bdbdbd", not_observed = "#cccccc")
+    gl <- .mb_group_labels("pt")   # cover_timeseries stores PT labels; plot_timeseries translates
+    grp_lab <- gl$labels
+    grp_hex <- gl$hex
     agg <- stats::aggregate(area_km2 ~ year + group, data = df, FUN = sum)
     agg$label <- unname(grp_lab[agg$group])
     agg$hex   <- unname(grp_hex[agg$group])
@@ -180,12 +179,33 @@ timeseries_for_species <- function(assessment, species = NULL,
 #' @param title Optional plot title. If \code{NULL}, a title is built from the
 #'   \code{species}/\code{range} attributes when present.
 #' @param legend Logical; draw the class legend (default \code{TRUE}).
+#' @param lang Legend language: \code{"en"} (default) or \code{"pt"}. When
+#'   \code{"en"}, the band labels use the MapBiomas \code{class_en} column (when
+#'   present in \code{ts}) and the axis/legend/title text is in English.
 #' @return A \pkg{ggplot} object (invisibly) when ggplot2 is available; otherwise
 #'   \code{NULL} after drawing a base plot.
 #' @export
-plot_timeseries <- function(ts, title = NULL, legend = TRUE) {
+plot_timeseries <- function(ts, title = NULL, legend = TRUE,
+                            lang = c("en", "pt")) {
+  lang <- match.arg(lang)
   stopifnot(is.data.frame(ts),
             all(c("year", "label", "hex", "pct") %in% names(ts)))
+
+  # Swap the (Portuguese) `label` for the English MapBiomas class names when
+  # requested and the `class_en` column is available (by = "class" carries it;
+  # by = "group" does not, so group labels are translated further below).
+  if (lang == "en" && "class_en" %in% names(ts)) ts$label <- ts$class_en
+
+  # UI strings by language
+  lab <- if (lang == "en") {
+    list(x = "Year", y = "Percentage (%)",
+         fill = "Land-cover classes", legend = "Classes",
+         title = "land cover over time (MapBiomas)")
+  } else {
+    list(x = "Ano", y = "Porcentagem (%)",
+         fill = "Classes de cobertura do solo", legend = "Classes",
+         title = "cobertura ao longo do tempo (MapBiomas)")
+  }
 
   # guarantee a rectangular series (every label in every year) so a class that
   # is absent in some years cannot break ggplot2::geom_area()
@@ -205,8 +225,9 @@ plot_timeseries <- function(ts, title = NULL, legend = TRUE) {
 
   if (is.null(title)) {
     sp <- attr(ts, "species"); rg <- attr(ts, "range")
-    if (!is.null(sp)) title <- sprintf("%s%s - cobertura ao longo do tempo (MapBiomas)",
-                                       sp, if (!is.null(rg)) paste0(" (", rg, ")") else "")
+    if (!is.null(sp)) title <- sprintf("%s%s - %s",
+                                       sp, if (!is.null(rg)) paste0(" (", rg, ")") else "",
+                                       lab$title)
   }
 
   # canonical ordering: by MapBiomas hierarchy when codes are present
@@ -216,7 +237,11 @@ plot_timeseries <- function(ts, title = NULL, legend = TRUE) {
     ord <- order(key)
     lvls <- unique(ts$label[ord])
   } else {
-    pref <- c("Natural", "Alterado (antropico)", "Agua", "Outros", "Nao observado")
+    # group series (no code): relabel from the internal `group` key via the
+    # single-source helper, so PT and EN never drift apart.
+    gl <- .mb_group_labels(lang)
+    if ("group" %in% names(ts)) ts$label <- unname(gl$labels[ts$group])
+    pref <- unname(gl$labels[c("natural", "anthropic", "water", "other", "not_observed")])
     lvls <- c(intersect(pref, unique(ts$label)), setdiff(unique(ts$label), pref))
   }
   cols <- vapply(lvls, function(L) ts$hex[ts$label == L][1], character(1))
@@ -234,9 +259,9 @@ plot_timeseries <- function(ts, title = NULL, legend = TRUE) {
                        fill = .data[["label"]])) +
       layer +
       ggplot2::scale_fill_manual(values = cols, drop = FALSE,
-                                 name = "Classes de cobertura do solo") +
+                                 name = lab$fill) +
       ggplot2::scale_y_continuous(expand = c(0, 0)) +
-      ggplot2::labs(x = "Ano", y = "Porcentagem (%)", title = title) +
+      ggplot2::labs(x = lab$x, y = lab$y, title = title) +
       ggplot2::theme_minimal(base_size = 12) +
       ggplot2::theme(panel.grid.minor = ggplot2::element_blank(),
                      legend.key.size = ggplot2::unit(10, "pt"))
@@ -260,11 +285,11 @@ plot_timeseries <- function(ts, title = NULL, legend = TRUE) {
   if (ny < 2) {
     graphics::barplot(matrix(M[1, ], ncol = 1), col = cols, border = "white",
                       ylim = c(0, 100), names.arg = rownames(M)[1],
-                      ylab = "Porcentagem (%)", xlab = "Ano", main = title)
+                      ylab = lab$y, xlab = lab$x, main = title)
   } else {
     cum <- if (ncol(M) == 1) M else t(apply(M, 1, cumsum))
-    plot(range(yrs), c(0, 100), type = "n", xlab = "Ano",
-         ylab = "Porcentagem (%)", main = title)
+    plot(range(yrs), c(0, 100), type = "n", xlab = lab$x,
+         ylab = lab$y, main = title)
     for (j in seq_along(lvls)) {
       lower <- if (j == 1) rep(0, length(yrs)) else cum[, j - 1]
       upper <- cum[, j]
@@ -274,7 +299,7 @@ plot_timeseries <- function(ts, title = NULL, legend = TRUE) {
   }
   if (legend) {
     graphics::legend("topright", inset = c(-0.32, 0), legend = lvls, fill = cols,
-                     border = NA, bty = "n", cex = 0.75, title = "Classes",
+                     border = NA, bty = "n", cex = 0.75, title = lab$legend,
                      xpd = NA)
   }
   invisible(NULL)
