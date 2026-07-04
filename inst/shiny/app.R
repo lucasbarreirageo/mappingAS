@@ -441,6 +441,11 @@ server <- function(input, output, session) {
       error = function(e) data.frame())
     validate(need(nrow(df) > 0,
                   "No class data available. Enable 'Calculate MapBiomas conversion' and reassess."))
+
+    lg <- input$lang %||% "en"
+    if (lg == "en") df$class_pt <- NULL else df$class_en <- NULL
+    names(df)[names(df) %in% c("class_pt", "class_en")] <- "class"
+
     DT::datatable(df, rownames = FALSE,
                   options = list(scrollX = TRUE, pageLength = 25),
                   caption = "Area and % by MapBiomas class (EOO and AOO)")
@@ -570,7 +575,7 @@ server <- function(input, output, session) {
 
   output$fire_ts_plot <- renderPlot({
     ts <- fire_ts_data(); req(ts)
-    mappingAS::plot_fire_timeseries(ts)
+    mappingAS::plot_fire_timeseries(ts, lang = input$lang %||% "en")
   })
 
   output$dl_fire_ts <- downloadHandler(
@@ -652,7 +657,7 @@ server <- function(input, output, session) {
       req(result(), input$chart_species)
       grDevices::png(file, width = 1100, height = 750, res = 130)
       on.exit(grDevices::dev.off(), add = TRUE)
-      mappingAS::plot_conversion(result(), species = input$chart_species)
+      mappingAS::plot_conversion(result(), species = input$chart_species, lang = input$lang %||% "en")
     })
   )
 
@@ -660,7 +665,7 @@ server <- function(input, output, session) {
     filename = function() paste0("mappingAS_series_", input$ts_species, "_", Sys.Date(), ".png"),
     content = .safe_download(function(file) {
       ts <- ts_data(); req(ts)
-      p <- mappingAS::plot_timeseries(ts)
+      p <- mappingAS::plot_timeseries(ts, lang = input$lang %||% "en")
       if (inherits(p, "ggplot") && requireNamespace("ggplot2", quietly = TRUE)) {
         ggplot2::ggsave(file, plot = p, width = 10, height = 6, dpi = 130)
       } else {

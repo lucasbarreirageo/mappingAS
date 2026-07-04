@@ -129,3 +129,27 @@ iucn_category_B <- function(eoo_km2 = NA_real_, aoo_km2 = NA_real_) {
   }
   list(eoo_category = cat_eoo, aoo_category = cat_aoo, combined = combined)
 }
+
+#' Conservation-group labels and colours (single source of truth)
+#'
+#' Central lookup for the four conservation groups used across the plotting
+#' functions, so the same group is never labelled differently in different
+#' places (e.g. "Altered" vs "Altered (anthropic)").
+#'
+#' @param lang \code{"en"} (default) or \code{"pt"}.
+#' @return A list with \code{labels} and \code{hex}, both named character
+#'   vectors keyed by internal group name.
+#' @keywords internal
+#' @noRd
+.mb_group_labels <- function(lang = c("en", "pt")) {
+  lang <- match.arg(lang)
+  labels <- if (lang == "en")
+    c(natural = "Natural", anthropic = "Altered", water = "Water",
+      other = "Other", not_observed = "Not observed")
+  else
+    c(natural = "Natural", anthropic = "Alterado", water = "Agua",
+      other = "Outros", not_observed = "Nao observado")
+  hex <- c(natural = "#1f8d49", anthropic = "#d4271e", water = "#2532e4",
+           other = "#bdbdbd", not_observed = "#cccccc")
+  list(labels = labels, hex = hex)
+}

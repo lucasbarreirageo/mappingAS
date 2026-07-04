@@ -248,15 +248,20 @@ fire_palette <- function(n = 6) {
 #' @param ts A data frame from \code{\link{fire_timeseries}} /
 #'   \code{\link{fire_timeseries_for_species}}.
 #' @param title Optional title (built from attributes when \code{NULL}).
+#' @param lang Label language: \code{"en"} (default) or \code{"pt"}.
 #' @return A \pkg{ggplot} object when ggplot2 is available; otherwise \code{NULL}
 #'   after a base plot.
 #' @export
-plot_fire_timeseries <- function(ts, title = NULL) {
+plot_fire_timeseries <- function(ts, title = NULL, lang = c("en", "pt")) {
+  lang <- match.arg(lang)
   stopifnot(is.data.frame(ts), all(c("year", "burned_pct") %in% names(ts)))
+  ylab      <- if (lang == "en") "% of area burned" else "% da area queimada"
+  title_fmt <- if (lang == "en") "%s%s - area burned per year (MapBiomas Fire)"
+               else "%s%s - area queimada por ano (MapBiomas Fogo)"
   if (is.null(title)) {
     sp <- attr(ts, "species"); rg <- attr(ts, "range")
     if (!is.null(sp))
-      title <- sprintf("%s%s - area queimada por ano (MapBiomas Fogo)",
+      title <- sprintf(title_fmt,
                        sp, if (!is.null(rg)) paste0(" (", rg, ")") else "")
   }
   if (requireNamespace("ggplot2", quietly = TRUE)) {
@@ -264,11 +269,11 @@ plot_fire_timeseries <- function(ts, title = NULL) {
                                      y = .data[["burned_pct"]])) +
       ggplot2::geom_col(fill = "#fd8d3c") +
       ggplot2::geom_line(colour = "#bd0026", linewidth = 0.5) +
-      ggplot2::labs(x = NULL, y = "% da area queimada", title = title) +
+      ggplot2::labs(x = NULL, y = ylab, title = title) +
       ggplot2::theme_minimal(base_size = 12)
   } else {
     graphics::barplot(ts$burned_pct, names.arg = ts$year, col = "#fd8d3c",
-                      ylab = "% da area queimada", main = title %||% "")
+                      ylab = ylab, main = title %||% "")
     invisible(NULL)
   }
 }

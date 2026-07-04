@@ -4,6 +4,8 @@ Title: Spatial Metrics and Habitat Conversion for Extinction Risk Assessment
 Version: 1.3.2
 Authors@R: 
     person("Antônio Lucas Barreira Rodrigues", email = "barreira_rodrigues@hotmail.com", role = c("aut", "cre"))
+Author: Antônio Lucas Barreira Rodrigues [aut, cre]
+Maintainer: Antônio Lucas Barreira Rodrigues <barreira_rodrigues@hotmail.com>
 Description: Provides a spatial analytical framework for species extinction 
     risk assessment following the IUCN Red List Criterion B guidelines. 
     Computes the Extent of Occurrence (EOO) and Area of Occupancy (AOO) 

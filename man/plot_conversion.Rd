@@ -4,12 +4,14 @@
 \alias{plot_conversion}
 \title{Habitat composition chart (natural / altered / water / other) for EOO and AOO}
 \usage{
-plot_conversion(assessment, species = NULL)
+plot_conversion(assessment, species = NULL, lang = c("en", "pt"))
 }
 \arguments{
 \item{assessment}{A \code{geoconv_assessment}.}
 
 \item{species}{Species name (default: first).}
+
+\item{lang}{Label language: \code{"en"} (default) or \code{"pt"}.}
 }
 \value{
 Invisibly, the plotted percentage matrix.

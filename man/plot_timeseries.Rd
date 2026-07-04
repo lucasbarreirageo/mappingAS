@@ -4,7 +4,7 @@
 \alias{plot_timeseries}
 \title{Stacked-area chart of land-cover percentage over time}
 \usage{
-plot_timeseries(ts, title = NULL, legend = TRUE)
+plot_timeseries(ts, title = NULL, legend = TRUE, lang = c("en", "pt"))
 }
 \arguments{
 \item{ts}{A long data frame from \code{\link{cover_timeseries}} or
@@ -14,6 +14,10 @@ plot_timeseries(ts, title = NULL, legend = TRUE)
 \code{species}/\code{range} attributes when present.}
 
 \item{legend}{Logical; draw the class legend (default \code{TRUE}).}
+
+\item{lang}{Legend language: \code{"en"} (default) or \code{"pt"}. When
+\code{"en"}, the band labels use the MapBiomas \code{class_en} column (when
+present in \code{ts}) and the axis/legend/title text is in English.}
 }
 \value{
 A \pkg{ggplot} object (invisibly) when ggplot2 is available; otherwise

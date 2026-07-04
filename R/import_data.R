@@ -143,6 +143,12 @@ read_occurrences <- function(path,
   df <- df[ok, , drop = FALSE]
   x <- x[ok]; y <- y[ok]
 
+  if (!nrow(df))
+    stop("No valid occurrences remain after removing rows with missing or invalid coordinates.",
+         call. = FALSE)
+
+  if (is.null(species_col)) species_col <- .match_col(names(df), cand$species)
+
   if (is.null(species_col)) species_col <- .match_col(names(df), cand$species)
   df$species <- if (!is.na(species_col)) {
     trimws(as.character(df[[species_col]]))

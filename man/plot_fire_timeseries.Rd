@@ -4,13 +4,15 @@
 \alias{plot_fire_timeseries}
 \title{Bar/line chart of burned area (\%) over time}
 \usage{
-plot_fire_timeseries(ts, title = NULL)
+plot_fire_timeseries(ts, title = NULL, lang = c("en", "pt"))
 }
 \arguments{
 \item{ts}{A data frame from \code{\link{fire_timeseries}} /
 \code{\link{fire_timeseries_for_species}}.}
 
 \item{title}{Optional title (built from attributes when \code{NULL}).}
+
+\item{lang}{Label language: \code{"en"} (default) or \code{"pt"}.}
 }
 \value{
 A \pkg{ggplot} object when ggplot2 is available; otherwise \code{NULL}
