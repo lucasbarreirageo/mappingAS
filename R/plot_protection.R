@@ -60,7 +60,7 @@ plot_protection <- function(assessment, species = NULL, lang = c("en", "pt")) {
   main <- sprintf(if (en) "%s - protection by Conservation Units"
                   else    "%s - protecao por Unidades de Conservacao", species)
 
-  op <- graphics::par(mar = c(5, 5, 4, 9), xpd = NA)
+  op <- graphics::par(mar = c(5, 4, 4, 8), xpd = NA)
   on.exit(graphics::par(op), add = TRUE)
   bp <- graphics::barplot(t(M), horiz = TRUE, col = cols[grp], border = "white",
     xlim = c(0, 100), las = 1, xlab = xlab, main = main)
@@ -74,25 +74,27 @@ plot_protection <- function(assessment, species = NULL, lang = c("en", "pt")) {
 
   occ <- if (is.null(pa$occ_pct) || is.na(pa$occ_pct)) "-"
          else sprintf("%.0f%%", pa$occ_pct)
-  graphics::mtext(
+  try(graphics::mtext(
     sprintf(if (en) "Occurrences in UCs: %d / %d (%s)  |  UCs: %d"
             else    "Ocorrencias em UC: %d / %d (%s)  |  UCs: %d",
             pa$n_occ_in, pa$n_occ, occ, pa$n_uc),
-    side = 3, line = if (has_nat) 0.9 else 0.2, cex = 0.8)
+    side = 3, line = if (has_nat) 0.9 else 0.2, cex = 0.8), silent = TRUE)
 
   if (has_nat) {
     pin <- function(x) if (is.null(x) || is.na(x)) "-" else sprintf("%.0f%%", x)
-    graphics::mtext(
+    try(graphics::mtext(
       sprintf(if (en) "Natural of the UC area: EOO %s | AOO %s"
               else    "Natural da area em UC: EOO %s | AOO %s",
               pin(pa$eoo_nat_uc_pct_in), pin(pa$aoo_nat_uc_pct_in)),
-      side = 3, line = 0.1, cex = 0.8)
+      side = 3, line = 0.1, cex = 0.8), silent = TRUE)
   }
 
-  usr <- graphics::par("usr")
-  graphics::legend(
-    x = usr[2] + 0.02 * diff(usr[1:2]), y = mean(usr[3:4]), yjust = 0.5,
-    legend = grp, fill = cols[grp], border = "white", bty = "n",
-    cex = 0.9, xpd = NA)
+  try({
+    usr <- graphics::par("usr")
+    graphics::legend(
+      x = usr[2] + 0.02 * diff(usr[1:2]), y = mean(usr[3:4]), yjust = 0.5,
+      legend = grp, fill = cols[grp], border = "white", bty = "n",
+      cex = 0.9, xpd = NA)
+  }, silent = TRUE)
   invisible(M)
 }

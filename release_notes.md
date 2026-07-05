@@ -1,3 +1,21 @@
+## Sobreposição com Unidades de Conservação federais (offline)
+
+Esta versão (1.7.0) adiciona o cruzamento das métricas de distribuição com as
+**Unidades de Conservação (UC) federais** do ICMBio. Para cada espécie o pacote
+calcula a fração de ocorrências dentro de UCs, o percentual do EOO e do AOO
+dentro de UCs, a lista de UCs sobrepostas e — quando o MapBiomas é usado — o
+**hábitat natural que também está dentro de UC** (proteção efetiva), reportado
+sobre a área total do range e sobre a parte dentro da UC. Há gráfico dedicado
+(`plot_protection()`), tabela (`pa_table()`) e uma aba no aplicativo Shiny.
+
+Como a WFS do ICMBio é intermitente, os limites das UCs federais são lidos por
+padrão de uma cópia **embutida** (`inst/extdata/ucs_federais.rds`, resolução
+cheia), o que faz a sobreposição funcionar **offline**. A WFS continua disponível
+como alternativa automática, e é possível apontar um arquivo próprio de UCs com
+`pa_src=`. Fonte dos limites: ICMBio/INDE (licença PDDL, domínio público).
+
+---
+
 ## Nova metodologia de cálculo: EOO e AOO no padrão ConR
 
 Esta versão substitui o cálculo da Extensão de Ocorrência (EOO) e da Área de

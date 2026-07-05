@@ -1,3 +1,18 @@
+# mappingAS 1.7.0
+
+* Federal Conservation Units are now read from a bundled copy
+  (`inst/extdata/ucs_federais.rds`, full resolution) by default, so overlap works
+  offline and does not depend on the (intermittent) ICMBio WFS. The WFS remains
+  available and is used automatically as a fallback when the bundled data is not
+  installed. Pass `pa_src=` to use your own UC file. Source: ICMBio/INDE (PDDL).
+* `assess_species(protected = TRUE, mapbiomas = TRUE)` reports the natural
+  habitat that is *also* inside UCs (effectively protected): `eoo_nat_uc_pct` /
+  `aoo_nat_uc_pct` (of the whole range) and `eoo_nat_uc_pct_in` /
+  `aoo_nat_uc_pct_in` (of the UC area). New `plot_protection()` charts this.
+* Fixed `plot_protection()` failing to render in the Shiny "Conservation Units"
+  tab on small plot areas ("invalid graphics state"): leaner margins, resilient
+  margin annotations, and a taller plot panel.
+
 # mappingAS 1.6.0
 
 * New module `R/protected_areas.R` integrating Brazilian federal Conservation
