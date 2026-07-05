@@ -2,7 +2,7 @@
 % Please edit documentation in R/protected_areas.R
 \name{icmbio_wfs_base}
 \alias{icmbio_wfs_base}
-\title{Default ICMBio INDE WFS endpoint (federal conservation units)}
+\title{Default ICMBio INDE WFS endpoint (federal Protected areas)}
 \usage{
 icmbio_wfs_base()
 }

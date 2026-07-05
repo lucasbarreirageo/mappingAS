@@ -18,17 +18,21 @@
 #'   the language of the MapBiomas class labels and the fire-frequency legend.
 #' @param clip Geometry the rasters are clipped to: \code{"eoo"} (default, the
 #'   EOO hull) or \code{"aoo"} (the union of occupied AOO cells).
-#' @param protected Logical; overlay federal Conservation Units (UCs). Uses the
+#' @param protected Logical; overlay federal Protected areas (UCs). Uses the
 #'   UC layer already stored by \code{assess_species(..., protected = TRUE)}, or
 #'   fetches it on the fly from the ICMBio WFS otherwise. Default \code{FALSE}.
 #' @param pa_src Optional local UC vector file for the overlay (offline).
+#' @param pa_occ_only Logical; when \code{TRUE} (default) the map draws only the
+#'   UCs that actually contain occurrences of the species. Set \code{FALSE} to
+#'   draw every UC the range overlaps. Does not affect the EOO/AOO overlap
+#'   percentages, which are computed over the whole range.
 #' @return A \code{leaflet} widget.
 #' @export
 map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
                         fire = FALSE, src = NULL, fire_src = NULL,
                         max_pixels = 800, lang = c("pt", "en"),
                         clip = c("eoo", "aoo"),
-                        protected = FALSE, pa_src = NULL) {
+                        protected = FALSE, pa_src = NULL, pa_occ_only = TRUE) {
   lang <- match.arg(lang)
   clip <- match.arg(clip)
   lulc_col   <- if (lang == "en") "class_en" else "class_pt"
@@ -113,8 +117,8 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
     }
   }
   
-  # --- optional federal Conservation Units (UCs) overlay ---
-  grp_uc <- if (lang == "en") "Conservation Units" else "Unidades de Conservacao"
+  # --- optional federal Protected areas (UCs) overlay ---
+  grp_uc <- if (lang == "en") "Protected areas" else "Unidades de Conservacao"
   pa_on <- FALSE
   if (isTRUE(protected)) {
     pa_sf <- obj$pa$layer
@@ -123,6 +127,13 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
                         error = function(e) NULL)
     if (!is.null(pa_sf) && nrow(pa_sf) > 0) {
       pa_sf <- sf::st_transform(pa_sf, 4326)
+      if (isTRUE(pa_occ_only) && !is.null(obj$points)) {
+        occ <- sf::st_transform(sf::st_geometry(obj$points), 4326)
+        pa_sf <- pa_sf[lengths(suppressMessages(
+          sf::st_intersects(pa_sf, occ))) > 0, , drop = FALSE]
+      }
+    }
+    if (!is.null(pa_sf) && nrow(pa_sf) > 0) {
       lab <- sprintf("<b>%s</b><br>%s", pa_sf$pa_name,
                      ifelse(is.na(pa_sf$pa_category), "", pa_sf$pa_category))
       m <- leaflet::addPolygons(m, data = pa_sf, color = "#1f8d49", weight = 1.5,

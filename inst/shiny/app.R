@@ -67,7 +67,7 @@ ui <- bslib::page_sidebar(
     checkboxInput("water_denom", "Include water as natural in denominator", FALSE),
     checkboxInput("do_mb", "Calculate MapBiomas conversion", TRUE),
     checkboxInput("do_fire", "Calculate fire (MapBiomas burned area)", FALSE),
-    checkboxInput("do_pa", "Overlap with Conservation Units (ICMBio)", FALSE),
+    checkboxInput("do_pa", "Overlap with Protected areas (ICMBio)", FALSE),
     radioButtons("lang", "Legend language",
                  choices = c("English" = "en", "Portuguese" = "pt"),
                  selected = "en", inline = TRUE),
@@ -129,14 +129,14 @@ ui <- bslib::page_sidebar(
       DT::DTOutput("class_tbl")
     ),
     bslib::nav_panel(
-      "Conservation Units", icon = icon("tree"),
+      "Protected areas", icon = icon("tree"),
       selectInput("pa_species", "Species", choices = NULL),
       helpText(htmltools::HTML(
-        "Overlap of the range with federal Conservation Units (UCs). Source: ",
+        "Overlap of the range with federal Protected areas (UCs). Source: ",
         "<a href='https://www.gov.br/icmbio/pt-br/assuntos/dados_geoespaciais' ",
         "target='_blank'>ICMBio / INDE geoservice</a> (PDDL public domain).")),
       uiOutput("pa_summary"),
-      plotOutput("pa_chart", height = 380),
+      plotOutput("pa_chart", height = 460),
       downloadButton("dl_pa_png", "Save chart (PNG)", class = "my-2"),
       downloadButton("dl_pa", "Download UC list (CSV)", class = "my-3"),
       DT::DTOutput("pa_tbl")
@@ -348,13 +348,13 @@ server <- function(input, output, session) {
                   caption = "EOO, AOO and conversion by species")
   })
 
-  # --- Conservation Units (UC) tab ---
+  # --- Protected areas (UC) tab ---
   output$pa_summary <- renderUI({
     req(result(), input$pa_species)
     d  <- result()$detail[[input$pa_species]]
     pa <- if (!is.null(d)) d$pa else NULL
     if (is.null(pa)) return(htmltools::HTML(
-      "<div class='text-muted'>Run the assessment with the Conservation Units option enabled.</div>"))
+      "<div class='text-muted'>Run the assessment with the Protected areas option enabled.</div>"))
     en  <- (input$lang %||% "en") == "en"
     pct <- function(x) if (is.null(x) || is.na(x)) "&mdash;" else sprintf("%.1f%%", x)
     card <- function(t, v) sprintf(
@@ -378,17 +378,17 @@ server <- function(input, output, session) {
     tb <- tryCatch(mappingAS::pa_table(result(), species = input$pa_species),
                    error = function(e) data.frame())
     validate(need(nrow(tb) > 0,
-                  "No Conservation Units overlap this species' range."))
+                  "No Protected areas overlap this species' range."))
     DT::datatable(tb, rownames = FALSE,
                   options = list(scrollX = TRUE, pageLength = 15),
-                  caption = "Federal Conservation Units overlapping the range")
+                  caption = "Federal Protected areas overlapping the range")
   })
 
   output$pa_chart <- renderPlot({
     req(result(), input$pa_species)
     d <- result()$detail[[input$pa_species]]
     validate(need(!is.null(d) && !is.null(d$pa),
-                  "Run the assessment with the Conservation Units option enabled."))
+                  "Run the assessment with the Protected areas option enabled."))
     mappingAS::plot_protection(result(), species = input$pa_species,
                                lang = input$lang %||% "en")
   })

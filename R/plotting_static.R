@@ -36,10 +36,13 @@
 #' @param clip Geometry the rasters are clipped to: \code{"eoo"} (default, the
 #'   EOO hull) or \code{"aoo"} (the union of occupied AOO cells). Matches the
 #'   \code{clip} argument of \code{\link{map_species}}.
-#' @param protected Logical; overlay federal Conservation Units (UCs) on the
+#' @param protected Logical; overlay federal Protected areas (UCs) on the
 #'   publishable map (default \code{FALSE}). Uses the UC layer stored by
 #'   \code{assess_species(..., protected = TRUE)}, or fetches it on the fly.
 #' @param pa_src Optional local UC vector file for the overlay (offline).
+#' @param pa_occ_only Logical; when \code{TRUE} (default) draw only the UCs that
+#'   contain occurrences of the species. \code{FALSE} draws every UC the range
+#'   overlaps.
 #' @return A \code{ggplot} object.
 #' @examples
 #' \dontrun{
@@ -54,7 +57,7 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
                        fire = FALSE, src = NULL, max_pixels = 600, crs = NULL,
                        scalebar = TRUE, north = TRUE, title = NULL,
                        lang = c("pt", "en"), clip = c("eoo", "aoo"),
-                       protected = FALSE, pa_src = NULL) {
+                       protected = FALSE, pa_src = NULL, pa_occ_only = TRUE) {
   lang <- match.arg(lang)
   clip <- match.arg(clip)
   stopifnot(inherits(assessment, "geoconv_assessment"))
@@ -144,13 +147,21 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
   lab_eoo  <- "EOO (MCP)"
   lab_aoo  <- if (lang == "en") "AOO (2 km)" else "AOO (2 km)"
   lab_pts  <- if (lang == "en") "Occurrences" else "Ocorrencias"
-  lab_uc   <- if (lang == "en") "Conservation Units" else "Unidades de Conservacao"
+  lab_uc   <- if (lang == "en") "Protected areas" else "Unidades de Conservacao"
   feat <- character(0)
   if (isTRUE(protected)) {
     pa_sf <- obj$pa$layer
     if (is.null(pa_sf) && !is.null(clip_geom))
       pa_sf <- tryCatch(protected_areas(clip_geom, src = pa_src),
                         error = function(e) NULL)
+    if (!is.null(pa_sf) && nrow(pa_sf) > 0) {
+      pa_sf <- sf::st_transform(pa_sf, 4326)
+      if (isTRUE(pa_occ_only) && !is.null(obj$points)) {
+        occ <- sf::st_transform(sf::st_geometry(obj$points), 4326)
+        pa_sf <- pa_sf[lengths(suppressMessages(
+          sf::st_intersects(pa_sf, occ))) > 0, , drop = FALSE]
+      }
+    }
     if (!is.null(pa_sf) && nrow(pa_sf) > 0) {
       g <- g + ggplot2::geom_sf(data = sf::st_transform(pa_sf, crs),
                                 ggplot2::aes(colour = lab_uc),

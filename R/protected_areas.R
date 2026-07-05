@@ -1,4 +1,4 @@
-#' Default ICMBio INDE WFS endpoint (federal conservation units)
+#' Default ICMBio INDE WFS endpoint (federal Protected areas)
 #'
 #' The base OWS URL of the ICMBio geoservice on Brazil's Infraestrutura Nacional
 #' de Dados Espaciais (INDE). Used by [protected_areas()] and
@@ -34,7 +34,7 @@ protected_layers <- function(base = icmbio_wfs_base()) {
   )
 }
 
-#' Read federal Conservation Units (UCs) intersecting an area of interest
+#' Read federal Protected areas (UCs) intersecting an area of interest
 #'
 #' Downloads the official ICMBio federal Conservation Unit polygons that fall
 #' within the bounding box of `aoi` from the INDE WFS geoservice, and returns
@@ -92,7 +92,7 @@ protected_areas <- function(aoi, typename = NULL, src = NULL,
   .pa_standardise(pa)
 }
 
-#' Overlap between a species' range and federal Conservation Units
+#' Overlap between a species' range and federal Protected areas
 #'
 #' Given a species' occurrence points and (optionally) its EOO and AOO, plus a
 #' UC layer from [protected_areas()], computes how much of the range is legally
@@ -161,7 +161,7 @@ summarise_protected <- function(points, pa, eoo = NULL, aoo = NULL) {
        n_uc = nrow(lst), list = lst, layer = pa)
 }
 
-#' Per-species table of Conservation Units overlapping the range
+#' Per-species table of Protected areas overlapping the range
 #'
 #' Long `data.frame` (one row per species x UC) listing each federal UC that
 #' contains occurrences of, or overlaps the EOO of, each assessed species.

@@ -15,7 +15,8 @@ map_species(
   lang = c("pt", "en"),
   clip = c("eoo", "aoo"),
   protected = FALSE,
-  pa_src = NULL
+  pa_src = NULL,
+  pa_occ_only = TRUE
 )
 }
 \arguments{
@@ -41,11 +42,16 @@ the language of the MapBiomas class labels and the fire-frequency legend.}
 \item{clip}{Geometry the rasters are clipped to: \code{"eoo"} (default, the
 EOO hull) or \code{"aoo"} (the union of occupied AOO cells).}
 
-\item{protected}{Logical; overlay federal Conservation Units (UCs). Uses the
+\item{protected}{Logical; overlay federal Protected areas (UCs). Uses the
 UC layer already stored by \code{assess_species(..., protected = TRUE)}, or
 fetches it on the fly from the ICMBio WFS otherwise. Default \code{FALSE}.}
 
 \item{pa_src}{Optional local UC vector file for the overlay (offline).}
+
+\item{pa_occ_only}{Logical; when \code{TRUE} (default) the map draws only the
+UCs that actually contain occurrences of the species. Set \code{FALSE} to
+draw every UC the range overlaps. Does not affect the EOO/AOO overlap
+percentages, which are computed over the whole range.}
 }
 \value{
 A \code{leaflet} widget.
