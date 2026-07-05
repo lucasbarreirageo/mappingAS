@@ -78,8 +78,10 @@ protected_areas <- function(aoi, typename = NULL, src = NULL,
 
   if (is.null(src)) {
     src <- system.file("extdata", "ucs_federais.rds", package = "mappingAS")
-    if (src == "") {
-       stop("Arquivo ucs_federais.rds nao encontrado na pasta inst/extdata do pacote.", call. = FALSE)
+    if (src == "") {                       # data not installed -> use the WFS
+      pa <- .pa_read_wfs(base, typename, bb, cache, cache_dir, quiet)
+      if (is.null(pa) || nrow(pa) == 0) return(pa)
+      return(.pa_standardise(sf::st_make_valid(sf::st_transform(pa, 4326))))
     }
   }
   

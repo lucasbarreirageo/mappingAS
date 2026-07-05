@@ -136,7 +136,7 @@ ui <- bslib::page_sidebar(
         "<a href='https://www.gov.br/icmbio/pt-br/assuntos/dados_geoespaciais' ",
         "target='_blank'>ICMBio / INDE geoservice</a> (PDDL public domain).")),
       uiOutput("pa_summary"),
-      plotOutput("pa_chart", height = 260),
+      plotOutput("pa_chart", height = 380),
       downloadButton("dl_pa_png", "Save chart (PNG)", class = "my-2"),
       downloadButton("dl_pa", "Download UC list (CSV)", class = "my-3"),
       DT::DTOutput("pa_tbl")
