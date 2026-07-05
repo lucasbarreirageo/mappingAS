@@ -76,8 +76,14 @@ protected_areas <- function(aoi, typename = NULL, src = NULL,
   if (is.na(sf::st_crs(g))) sf::st_crs(g) <- 4326
   bb <- sf::st_bbox(sf::st_transform(g, 4326))
 
-  pa <- if (!is.null(src)) .pa_read_local(src, bb)
-        else .pa_read_wfs(base, typename, bb, cache, cache_dir, quiet)
+  if (is.null(src)) {
+    src <- system.file("extdata", "ucs_federais.rds", package = "mappingAS")
+    if (src == "") {
+       stop("Arquivo ucs_federais.rds nao encontrado na pasta inst/extdata do pacote.", call. = FALSE)
+    }
+  }
+  
+  pa <- .pa_read_local(src, bb)
   if (is.null(pa)) return(NULL)
   if (nrow(pa) == 0) return(pa)
   pa <- sf::st_make_valid(sf::st_transform(pa, 4326))
@@ -242,11 +248,19 @@ pa_table <- function(assessment, species = NULL) {
 #' @keywords internal
 #' @noRd
 .pa_read_local <- function(src, bb) {
-  pa <- sf::st_read(src, quiet = TRUE)
+  # Verifica se e o RDS interno ou um shapefile/gpkg externo
+  if (grepl("\\.rds$", src, ignore.case = TRUE)) {
+    pa <- readRDS(src)
+  } else {
+    pa <- sf::st_read(src, quiet = TRUE)
+  }
+  
   pa <- sf::st_make_valid(sf::st_transform(pa, 4326))
   box <- sf::st_as_sfc(sf::st_bbox(
     c(xmin = bb[["xmin"]], ymin = bb[["ymin"]],
       xmax = bb[["xmax"]], ymax = bb[["ymax"]]), crs = 4326))
+  
+  # Filtra apenas as UCs que tocam a Bounding Box da area de interesse
   pa[lengths(suppressMessages(sf::st_intersects(pa, box))) > 0, , drop = FALSE]
 }
 
