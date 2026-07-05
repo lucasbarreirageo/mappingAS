@@ -19,9 +19,13 @@ Invisibly, the plotted percentage matrix (rows \code{EOO}/\code{AOO}).
 \description{
 Draws, for one species, two horizontal stacked bars (EOO and AOO) showing the
 share of the range that falls inside federal Conservation Units (UCs) versus
-outside them, from \code{assess_species(..., protected = TRUE)}. The share of
-occurrences inside UCs is shown as a subtitle. Mirrors the layout of
-\code{\link{plot_conversion}} so the two charts read consistently.
+outside them, from \code{assess_species(..., protected = TRUE)}. When the
+assessment also computed MapBiomas (\code{mapbiomas = TRUE}), the inside-UC
+segment is split into \emph{natural} and \emph{altered} habitat, so the chart
+shows how much of the range is natural habitat that is \emph{also} protected
+(the dark-green segment) - the most conservation-relevant quantity. The share
+of occurrences inside UCs and the natural fraction \emph{of the UC area} are
+shown as subtitles. Mirrors the layout of \code{\link{plot_conversion}}.
 }
 \examples{
 \dontrun{

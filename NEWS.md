@@ -14,6 +14,11 @@
   polygons as a labelled layer.
 * New `plot_protection()`: horizontal stacked bars (EOO and AOO) of the range
   inside vs outside UCs, mirroring `plot_conversion()`.
+* With `protected = TRUE` and `mapbiomas = TRUE`, `assess_species()` also
+  reports the natural habitat that is *also* inside UCs (effectively protected):
+  `eoo_nat_uc_pct`/`aoo_nat_uc_pct` (of the whole range) and
+  `eoo_nat_uc_pct_in`/`aoo_nat_uc_pct_in` (of the UC area). `plot_protection()`
+  splits the inside-UC bar into natural vs altered when these are present.
 * `export_ranges()` writes the UC fields (`uc_pct`, `uc_occ_pct`, `n_uc`) into
   the EOO/AOO attribute tables when available.
 * Shiny app: a "Overlap with Conservation Units (ICMBio)" option and a new

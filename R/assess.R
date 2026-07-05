@@ -98,6 +98,20 @@ assess_species <- function(occ, year = 2024, collection = 10,
       pa <- .protected_for(pts, eoo, aoo, src = pa_src,
                            typename = pa_typename, verbose = verbose)
     }
+    if (protected && mapbiomas && !is.null(pa) && !is.null(pa$layer)) {
+      uc_u <- .st_union_quiet(sf::st_geometry(pa$layer))
+      e_nat <- .nat_in_uc(eoo$hull, uc_u, eoo_conv, year, collection, backend,
+                          src, water_in_denominator, verbose, "EOO")
+      a_nat <- .nat_in_uc(.st_union_quiet(aoo$cells), uc_u, aoo_conv, year,
+                          collection, backend, src, water_in_denominator,
+                          verbose, "AOO")
+      pa$eoo_nat_uc_pct <- e_nat$nat_pct_total
+      pa$eoo_alt_uc_pct <- e_nat$alt_pct_total
+      pa$eoo_nat_uc_pct_in <- e_nat$nat_pct_uc
+      pa$aoo_nat_uc_pct <- a_nat$nat_pct_total
+      pa$aoo_alt_uc_pct <- a_nat$alt_pct_total
+      pa$aoo_nat_uc_pct_in <- a_nat$nat_pct_uc
+    }
     
     row <- data.frame(
       species = sp,
@@ -127,6 +141,12 @@ assess_species <- function(occ, year = 2024, collection = 10,
       row$eoo_uc_pct    <- .pp(pa$eoo_pct)
       row$aoo_uc_pct    <- .pp(pa$aoo_pct)
       row$n_uc          <- if (is.null(pa)) NA_integer_ else pa$n_uc
+      if (mapbiomas) {
+        row$eoo_nat_uc_pct    <- .pp(pa$eoo_nat_uc_pct)
+        row$eoo_nat_uc_pct_in <- .pp(pa$eoo_nat_uc_pct_in)
+        row$aoo_nat_uc_pct    <- .pp(pa$aoo_nat_uc_pct)
+        row$aoo_nat_uc_pct_in <- .pp(pa$aoo_nat_uc_pct_in)
+      }
     }
     rows[[i]] <- row
     detail[[sp]] <- list(points = pts, eoo = eoo, aoo = aoo,

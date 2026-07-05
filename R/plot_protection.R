@@ -2,9 +2,13 @@
 #'
 #' Draws, for one species, two horizontal stacked bars (EOO and AOO) showing the
 #' share of the range that falls inside federal Conservation Units (UCs) versus
-#' outside them, from \code{assess_species(..., protected = TRUE)}. The share of
-#' occurrences inside UCs is shown as a subtitle. Mirrors the layout of
-#' \code{\link{plot_conversion}} so the two charts read consistently.
+#' outside them, from \code{assess_species(..., protected = TRUE)}. When the
+#' assessment also computed MapBiomas (\code{mapbiomas = TRUE}), the inside-UC
+#' segment is split into \emph{natural} and \emph{altered} habitat, so the chart
+#' shows how much of the range is natural habitat that is \emph{also} protected
+#' (the dark-green segment) - the most conservation-relevant quantity. The share
+#' of occurrences inside UCs and the natural fraction \emph{of the UC area} are
+#' shown as subtitles. Mirrors the layout of \code{\link{plot_conversion}}.
 #'
 #' @param assessment A \code{geoconv_assessment} run with \code{protected = TRUE}.
 #' @param species Species name (default: first).
@@ -28,41 +32,62 @@ plot_protection <- function(assessment, species = NULL, lang = c("en", "pt")) {
     stop("No protected-area data; run assess_species(..., protected = TRUE).",
          call. = FALSE)
 
-  if (lang == "en") {
-    grp <- c("In UCs", "Outside UCs")
-    xlab <- "% of range"
-    main_fmt <- "%s - protection by Conservation Units"
-    sub_fmt  <- "Occurrences in UCs: %d / %d (%s)  |  UCs: %d"
-  } else {
-    grp <- c("Em UC", "Fora de UC")
-    xlab <- "% da distribuicao"
-    main_fmt <- "%s - protecao por Unidades de Conservacao"
-    sub_fmt  <- "Ocorrencias em UC: %d / %d (%s)  |  UCs: %d"
-  }
-  cols <- stats::setNames(c("#1f8d49", "#d9d9d9"), grp)
+  en  <- lang == "en"
+  num <- function(x) if (is.null(x) || is.na(x)) 0 else x
+  has_nat <- !is.null(pa$eoo_nat_uc_pct) && is.finite(pa$eoo_nat_uc_pct)
 
-  brk <- function(p) {
-    p <- if (is.null(p) || is.na(p)) NA_real_ else p
-    stats::setNames(c(p, 100 - p), grp)
+  if (has_nat) {
+    grp  <- if (en) c("Natural in UCs", "Altered in UCs", "Outside UCs")
+            else    c("Natural em UC", "Alterado em UC", "Fora de UC")
+    cols <- stats::setNames(c("#1f8d49", "#f2c14e", "#d9d9d9"), grp)
+    txt  <- stats::setNames(c("white", "black", "black"), grp)
+    seg3 <- function(nat, alt) {
+      nat <- num(nat); alt <- num(alt)
+      stats::setNames(c(nat, alt, max(0, 100 - nat - alt)), grp)
+    }
+    M <- rbind(AOO = seg3(pa$aoo_nat_uc_pct, pa$aoo_alt_uc_pct),
+               EOO = seg3(pa$eoo_nat_uc_pct, pa$eoo_alt_uc_pct))
+    xlab <- if (en) "% of terrestrial range" else "% da area terrestre"
+  } else {
+    grp  <- if (en) c("In UCs", "Outside UCs") else c("Em UC", "Fora de UC")
+    cols <- stats::setNames(c("#1f8d49", "#d9d9d9"), grp)
+    txt  <- stats::setNames(c("white", "black"), grp)
+    seg2 <- function(p) { p <- num(p); stats::setNames(c(p, 100 - p), grp) }
+    M <- rbind(AOO = seg2(pa$aoo_pct), EOO = seg2(pa$eoo_pct))
+    xlab <- if (en) "% of range" else "% da distribuicao"
   }
-  M <- rbind(AOO = brk(pa$aoo_pct), EOO = brk(pa$eoo_pct))
+
+  main <- sprintf(if (en) "%s - protection by Conservation Units"
+                  else    "%s - protecao por Unidades de Conservacao", species)
 
   op <- graphics::par(mar = c(5, 5, 4, 9), xpd = NA)
   on.exit(graphics::par(op), add = TRUE)
   bp <- graphics::barplot(t(M), horiz = TRUE, col = cols[grp], border = "white",
-    xlim = c(0, 100), las = 1, xlab = xlab, main = sprintf(main_fmt, species))
+    xlim = c(0, 100), las = 1, xlab = xlab, main = main)
 
   for (r in seq_len(nrow(M))) {
     x <- M[r, ]; cm <- cumsum(c(0, x))
     for (k in seq_along(x)) if (is.finite(x[k]) && x[k] >= 6)
       graphics::text(cm[k] + x[k] / 2, bp[r], sprintf("%.0f%%", x[k]),
-        cex = 0.8, col = if (k == 1) "white" else "black")
+        cex = 0.8, col = txt[grp[k]])
   }
 
   occ <- if (is.null(pa$occ_pct) || is.na(pa$occ_pct)) "-"
          else sprintf("%.0f%%", pa$occ_pct)
-  graphics::mtext(sprintf(sub_fmt, pa$n_occ_in, pa$n_occ, occ, pa$n_uc),
-    side = 3, line = 0.2, cex = 0.85)
+  graphics::mtext(
+    sprintf(if (en) "Occurrences in UCs: %d / %d (%s)  |  UCs: %d"
+            else    "Ocorrencias em UC: %d / %d (%s)  |  UCs: %d",
+            pa$n_occ_in, pa$n_occ, occ, pa$n_uc),
+    side = 3, line = if (has_nat) 0.9 else 0.2, cex = 0.8)
+
+  if (has_nat) {
+    pin <- function(x) if (is.null(x) || is.na(x)) "-" else sprintf("%.0f%%", x)
+    graphics::mtext(
+      sprintf(if (en) "Natural of the UC area: EOO %s | AOO %s"
+              else    "Natural da area em UC: EOO %s | AOO %s",
+              pin(pa$eoo_nat_uc_pct_in), pin(pa$aoo_nat_uc_pct_in)),
+      side = 3, line = 0.1, cex = 0.8)
+  }
 
   usr <- graphics::par("usr")
   graphics::legend(
