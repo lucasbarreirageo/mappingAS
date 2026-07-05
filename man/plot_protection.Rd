@@ -2,7 +2,7 @@
 % Please edit documentation in R/plot_protection.R
 \name{plot_protection}
 \alias{plot_protection}
-\title{Protection chart (inside vs outside Conservation Units) for EOO and AOO}
+\title{Protection chart (inside vs outside Protected areas) for EOO and AOO}
 \usage{
 plot_protection(assessment, species = NULL, lang = c("en", "pt"))
 }
@@ -17,15 +17,13 @@ plot_protection(assessment, species = NULL, lang = c("en", "pt"))
 Invisibly, the plotted percentage matrix (rows \code{EOO}/\code{AOO}).
 }
 \description{
-Draws, for one species, two horizontal stacked bars (EOO and AOO) showing the
-share of the range that falls inside federal Conservation Units (UCs) versus
-outside them, from \code{assess_species(..., protected = TRUE)}. When the
-assessment also computed MapBiomas (\code{mapbiomas = TRUE}), the inside-UC
-segment is split into \emph{natural} and \emph{altered} habitat, so the chart
-shows how much of the range is natural habitat that is \emph{also} protected
-(the dark-green segment) - the most conservation-relevant quantity. The share
-of occurrences inside UCs and the natural fraction \emph{of the UC area} are
-shown as subtitles. Mirrors the layout of \code{\link{plot_conversion}}.
+Two horizontal stacked bars (EOO and AOO) showing the share of the range
+inside federal Protected areas (Protected areas, UCs) versus outside, from
+\code{assess_species(..., protected = TRUE)}. When MapBiomas was also computed
+(\code{mapbiomas = TRUE}), the inside-UC part is split into \emph{natural} and
+\emph{altered} habitat, so the dark-green segment is the range that is natural
+\emph{and} protected. Layout mirrors \code{\link{plot_conversion}}: title,
+one subtitle with the occurrence count, and a legend on the right.
 }
 \examples{
 \dontrun{

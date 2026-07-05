@@ -2,7 +2,7 @@
 % Please edit documentation in R/protected_areas.R
 \name{pa_table}
 \alias{pa_table}
-\title{Per-species table of Conservation Units overlapping the range}
+\title{Per-species table of Protected areas overlapping the range}
 \usage{
 pa_table(assessment, species = NULL)
 }

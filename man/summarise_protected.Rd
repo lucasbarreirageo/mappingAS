@@ -2,7 +2,7 @@
 % Please edit documentation in R/protected_areas.R
 \name{summarise_protected}
 \alias{summarise_protected}
-\title{Overlap between a species' range and federal Conservation Units}
+\title{Overlap between a species' range and federal Protected areas}
 \usage{
 summarise_protected(points, pa, eoo = NULL, aoo = NULL)
 }

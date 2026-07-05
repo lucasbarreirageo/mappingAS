@@ -2,7 +2,7 @@
 % Please edit documentation in R/protected_areas.R
 \name{protected_areas}
 \alias{protected_areas}
-\title{Read federal Conservation Units (UCs) intersecting an area of interest}
+\title{Read federal Protected areas (UCs) intersecting an area of interest}
 \usage{
 protected_areas(
   aoi,
