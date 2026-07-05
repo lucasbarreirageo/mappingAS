@@ -338,7 +338,42 @@ pa_table <- function(assessment, species = NULL) {
     if (verbose) message("  UC: no federal Conservation Unit intersects the range.")
     out <- .pa_empty(); out$occ_pct <- 0; out$eoo_pct <- 0; out$aoo_pct <- 0
     out$eoo_km2 <- 0; out$aoo_km2 <- 0; out$aoo_cells_in <- 0L
+    out$eoo_nat_uc_pct <- 0; out$aoo_nat_uc_pct <- 0
+    out$eoo_alt_uc_pct <- 0; out$aoo_alt_uc_pct <- 0
+    out$eoo_nat_uc_pct_in <- NA_real_; out$aoo_nat_uc_pct_in <- NA_real_
     return(out)
   }
   summarise_protected(points, pa, eoo = eoo, aoo = aoo)
+}
+
+#' Natural habitat that is also inside UCs, reusing summarise_conversion()
+#' @keywords internal
+#' @noRd
+.nat_in_uc <- function(range_geom, uc_union, conv_range, year, collection,
+                       backend, src, water_in_denominator, verbose, label) {
+  na3 <- list(nat_km2 = NA_real_, alt_km2 = NA_real_,
+              nat_pct_total = NA_real_, alt_pct_total = NA_real_,
+              nat_pct_uc = NA_real_)
+  if (is.null(range_geom) || is.null(uc_union) || is.null(conv_range)) return(na3)
+  inter <- tryCatch(
+    suppressWarnings(sf::st_intersection(sf::st_geometry(range_geom),
+                                         sf::st_geometry(uc_union))),
+    error = function(e) NULL)
+  if (is.null(inter) || !length(inter) || all(sf::st_is_empty(inter)))
+    return(utils::modifyList(na3, list(nat_km2 = 0, alt_km2 = 0,
+                                       nat_pct_total = 0, alt_pct_total = 0)))
+  cu <- .conversion_for(inter, year, collection, backend, src,
+                        water_in_denominator, verbose, paste0(label, "/UC"))
+  if (is.null(cu)) return(na3)
+  wd   <- isTRUE(water_in_denominator)
+  nat  <- cu$natural_km2 + if (wd) cu$water_km2 else 0
+  alt  <- cu$anthropic_km2
+  terr <- conv_range$natural_km2 + conv_range$anthropic_km2 +
+          if (wd) conv_range$water_km2 else 0
+  list(
+    nat_km2 = nat, alt_km2 = alt,
+    nat_pct_total = if (isTRUE(terr > 0)) 100 * nat / terr else NA_real_,
+    alt_pct_total = if (isTRUE(terr > 0)) 100 * alt / terr else NA_real_,
+    nat_pct_uc = cu$natural_pct
+  )
 }
