@@ -36,6 +36,10 @@
 #' @param clip Geometry the rasters are clipped to: \code{"eoo"} (default, the
 #'   EOO hull) or \code{"aoo"} (the union of occupied AOO cells). Matches the
 #'   \code{clip} argument of \code{\link{map_species}}.
+#' @param protected Logical; overlay federal Conservation Units (UCs) on the
+#'   publishable map (default \code{FALSE}). Uses the UC layer stored by
+#'   \code{assess_species(..., protected = TRUE)}, or fetches it on the fly.
+#' @param pa_src Optional local UC vector file for the overlay (offline).
 #' @return A \code{ggplot} object.
 #' @examples
 #' \dontrun{
@@ -49,7 +53,8 @@
 map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
                        fire = FALSE, src = NULL, max_pixels = 600, crs = NULL,
                        scalebar = TRUE, north = TRUE, title = NULL,
-                       lang = c("pt", "en"), clip = c("eoo", "aoo")) {
+                       lang = c("pt", "en"), clip = c("eoo", "aoo"),
+                       protected = FALSE, pa_src = NULL) {
   lang <- match.arg(lang)
   clip <- match.arg(clip)
   stopifnot(inherits(assessment, "geoconv_assessment"))
@@ -139,7 +144,20 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
   lab_eoo  <- "EOO (MCP)"
   lab_aoo  <- if (lang == "en") "AOO (2 km)" else "AOO (2 km)"
   lab_pts  <- if (lang == "en") "Occurrences" else "Ocorrencias"
+  lab_uc   <- if (lang == "en") "Conservation Units" else "Unidades de Conservacao"
   feat <- character(0)
+  if (isTRUE(protected)) {
+    pa_sf <- obj$pa$layer
+    if (is.null(pa_sf) && !is.null(clip_geom))
+      pa_sf <- tryCatch(protected_areas(clip_geom, src = pa_src),
+                        error = function(e) NULL)
+    if (!is.null(pa_sf) && nrow(pa_sf) > 0) {
+      g <- g + ggplot2::geom_sf(data = sf::st_transform(pa_sf, crs),
+                                ggplot2::aes(colour = lab_uc),
+                                fill = "#1f8d49", alpha = 0.15, linewidth = 0.4)
+      feat[lab_uc] <- "#1f8d49"
+    }
+  }
   if (!is.null(hull)) {
     g <- g + ggplot2::geom_sf(data = hull, ggplot2::aes(colour = lab_eoo),
                               fill = NA, linewidth = 0.7)
@@ -153,8 +171,10 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
   g <- g + ggplot2::geom_sf(data = pts, ggplot2::aes(colour = lab_pts),
                             shape = 21, fill = "#f1c40f", size = 2, stroke = 0.4)
   feat[lab_pts] <- "#111111"
-  lw_all <- stats::setNames(c(0.7, 0.25, 0), c(lab_eoo, lab_aoo, lab_pts))
-  sh_all <- stats::setNames(c(NA, NA, 21),   c(lab_eoo, lab_aoo, lab_pts))
+  lw_all <- stats::setNames(c(0.7, 0.25, 0, 0.4),
+                            c(lab_eoo, lab_aoo, lab_pts, lab_uc))
+  sh_all <- stats::setNames(c(NA, NA, 21, NA),
+                            c(lab_eoo, lab_aoo, lab_pts, lab_uc))
   g <- g + ggplot2::scale_colour_manual(
     values = feat, name = NULL,
     guide = ggplot2::guide_legend(order = 1, override.aes = list(

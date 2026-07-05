@@ -13,7 +13,9 @@ map_species(
   fire_src = NULL,
   max_pixels = 800,
   lang = c("pt", "en"),
-  clip = c("eoo", "aoo")
+  clip = c("eoo", "aoo"),
+  protected = FALSE,
+  pa_src = NULL
 )
 }
 \arguments{
@@ -38,6 +40,12 @@ the language of the MapBiomas class labels and the fire-frequency legend.}
 
 \item{clip}{Geometry the rasters are clipped to: \code{"eoo"} (default, the
 EOO hull) or \code{"aoo"} (the union of occupied AOO cells).}
+
+\item{protected}{Logical; overlay federal Conservation Units (UCs). Uses the
+UC layer already stored by \code{assess_species(..., protected = TRUE)}, or
+fetches it on the fly from the ICMBio WFS otherwise. Default \code{FALSE}.}
+
+\item{pa_src}{Optional local UC vector file for the overlay (offline).}
 }
 \value{
 A \code{leaflet} widget.

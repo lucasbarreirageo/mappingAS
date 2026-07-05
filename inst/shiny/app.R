@@ -67,6 +67,7 @@ ui <- bslib::page_sidebar(
     checkboxInput("water_denom", "Include water as natural in denominator", FALSE),
     checkboxInput("do_mb", "Calculate MapBiomas conversion", TRUE),
     checkboxInput("do_fire", "Calculate fire (MapBiomas burned area)", FALSE),
+    checkboxInput("do_pa", "Overlap with Conservation Units (ICMBio)", FALSE),
     radioButtons("lang", "Legend language",
                  choices = c("English" = "en", "Portuguese" = "pt"),
                  selected = "en", inline = TRUE),
@@ -126,6 +127,19 @@ ui <- bslib::page_sidebar(
       helpText("Area and % of each MapBiomas class within EOO and AOO."),
       downloadButton("dl_classes", "Download classes (CSV)", class = "mb-3"),
       DT::DTOutput("class_tbl")
+    ),
+    bslib::nav_panel(
+      "Conservation Units", icon = icon("tree"),
+      selectInput("pa_species", "Species", choices = NULL),
+      helpText(htmltools::HTML(
+        "Overlap of the range with federal Conservation Units (UCs). Source: ",
+        "<a href='https://www.gov.br/icmbio/pt-br/assuntos/dados_geoespaciais' ",
+        "target='_blank'>ICMBio / INDE geoservice</a> (PDDL public domain).")),
+      uiOutput("pa_summary"),
+      plotOutput("pa_chart", height = 260),
+      downloadButton("dl_pa_png", "Save chart (PNG)", class = "my-2"),
+      downloadButton("dl_pa", "Download UC list (CSV)", class = "my-3"),
+      DT::DTOutput("pa_tbl")
     ),
     bslib::nav_panel(
       "Time Series", icon = icon("chart-line"),
@@ -301,6 +315,7 @@ server <- function(input, output, session) {
           cell_km = input$cell_km,
           mapbiomas = isTRUE(input$do_mb),
           fire = isTRUE(input$do_fire),
+          protected = isTRUE(input$do_pa),
           water_in_denominator = isTRUE(input$water_denom),
           verbose = FALSE
         ),
@@ -323,6 +338,7 @@ server <- function(input, output, session) {
     updateSelectInput(session, "class_species", choices = sp, selected = sp[1])
     updateSelectInput(session, "ts_species", choices = sp, selected = sp[1])
     updateSelectInput(session, "fire_species", choices = sp, selected = sp[1])
+    updateSelectInput(session, "pa_species", choices = sp, selected = sp[1])
   })
 
   output$tbl <- DT::renderDT({
@@ -331,6 +347,71 @@ server <- function(input, output, session) {
                   options = list(scrollX = TRUE, pageLength = 25),
                   caption = "EOO, AOO and conversion by species")
   })
+
+  # --- Conservation Units (UC) tab ---
+  output$pa_summary <- renderUI({
+    req(result(), input$pa_species)
+    d  <- result()$detail[[input$pa_species]]
+    pa <- if (!is.null(d)) d$pa else NULL
+    if (is.null(pa)) return(htmltools::HTML(
+      "<div class='text-muted'>Run the assessment with the Conservation Units option enabled.</div>"))
+    en  <- (input$lang %||% "en") == "en"
+    pct <- function(x) if (is.null(x) || is.na(x)) "&mdash;" else sprintf("%.1f%%", x)
+    card <- function(t, v) sprintf(
+      "<div style='flex:1;min-width:150px;border:1px solid #e4ddce;border-radius:.6rem;
+        padding:12px 14px;background:#fffdf8'>
+        <div style='color:#7a857b;font-size:.8rem'>%s</div>
+        <div style='font-family:monospace;font-weight:700;font-size:1.25rem'>%s</div></div>",
+      t, v)
+    htmltools::HTML(sprintf(
+      "<div style='display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px'>%s%s%s%s%s</div>",
+      card(if (en) "Occurrences in UCs" else "Ocorrencias em UC",
+           sprintf("%d / %d", pa$n_occ_in, pa$n_occ)),
+      card(if (en) "% occurrences in UCs" else "% ocorrencias em UC", pct(pa$occ_pct)),
+      card(if (en) "% EOO in UCs" else "% EOO em UC", pct(pa$eoo_pct)),
+      card(if (en) "% AOO in UCs" else "% AOO em UC", pct(pa$aoo_pct)),
+      card(if (en) "UCs touched" else "N. de UCs", as.character(pa$n_uc))))
+  })
+
+  output$pa_tbl <- DT::renderDT({
+    req(result(), input$pa_species)
+    tb <- tryCatch(mappingAS::pa_table(result(), species = input$pa_species),
+                   error = function(e) data.frame())
+    validate(need(nrow(tb) > 0,
+                  "No Conservation Units overlap this species' range."))
+    DT::datatable(tb, rownames = FALSE,
+                  options = list(scrollX = TRUE, pageLength = 15),
+                  caption = "Federal Conservation Units overlapping the range")
+  })
+
+  output$pa_chart <- renderPlot({
+    req(result(), input$pa_species)
+    d <- result()$detail[[input$pa_species]]
+    validate(need(!is.null(d) && !is.null(d$pa),
+                  "Run the assessment with the Conservation Units option enabled."))
+    mappingAS::plot_protection(result(), species = input$pa_species,
+                               lang = input$lang %||% "en")
+  })
+
+  output$dl_pa_png <- downloadHandler(
+    filename = function() paste0("mappingAS_UC_", input$pa_species, "_", Sys.Date(), ".png"),
+    content = .safe_download(function(file) {
+      req(result(), input$pa_species)
+      grDevices::png(file, width = 1100, height = 520, res = 130)
+      on.exit(grDevices::dev.off(), add = TRUE)
+      mappingAS::plot_protection(result(), species = input$pa_species,
+                                 lang = input$lang %||% "en")
+    })
+  )
+
+  output$dl_pa <- downloadHandler(
+    filename = function() paste0("mappingAS_UCs_", Sys.Date(), ".csv"),
+    content = .safe_download(function(file) {
+      req(result())
+      tb <- tryCatch(mappingAS::pa_table(result()), error = function(e) data.frame())
+      utils::write.csv(tb, file, row.names = FALSE, fileEncoding = "UTF-8")
+    })
+  )
   
   output$map <- leaflet::renderLeaflet({
     req(result(), input$map_species)
@@ -338,7 +419,8 @@ server <- function(input, output, session) {
                            mapbiomas = isTRUE(input$do_mb),
                            fire = isTRUE(input$do_fire),
                            lang = input$lang %||% "en",
-                           clip = input$map_clip %||% "eoo")
+                           clip = input$map_clip %||% "eoo",
+                           protected = isTRUE(input$do_pa))
   })
 
   # IUCN badges (EOO/B1 and AOO/B2) + headline metrics, beside the map.
@@ -606,10 +688,11 @@ server <- function(input, output, session) {
     content = .safe_download(function(file) {
       req(result(), input$map_species)
       m <- mappingAS::map_species(result(), species = input$map_species,
-                                  mapbiomas = isTRUE(input$do_mb),
-                                  fire = isTRUE(input$do_fire),
-                                  lang = input$lang %||% "en",
-                                  clip = input$map_clip %||% "eoo")
+                           mapbiomas = isTRUE(input$do_mb),
+                           fire = isTRUE(input$do_fire),
+                           lang = input$lang %||% "en",
+                           clip = input$map_clip %||% "eoo",
+                           protected = isTRUE(input$do_pa))
       htmlwidgets::saveWidget(m, file, selfcontained = TRUE)
     })
   )

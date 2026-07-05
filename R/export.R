@@ -144,8 +144,9 @@ export_ranges <- function(assessment, dir = ".", layer_prefix = "mappingAS",
   s <- assessment$summary
   r <- s[s$species == species, , drop = FALSE][1, , drop = FALSE]
   
-  # Verifica dinamicamente se a avaliação incluiu o módulo de fogo
+  # Verifica dinamicamente se a avaliação incluiu os módulos de fogo / UC
   has_fire <- "fire_collection" %in% names(r)
+  has_pa   <- "eoo_uc_pct" %in% names(r)
   
   if (identical(range, "eoo")) {
     df <- data.frame(
@@ -162,6 +163,11 @@ export_ranges <- function(assessment, dir = ".", layer_prefix = "mappingAS",
     if (has_fire) {
       df$brnd_pct <- r$eoo_burned_pct
       df$fire_col <- r$fire_collection
+    }
+    if (has_pa) {
+      df$uc_pct     <- r$eoo_uc_pct
+      df$uc_occ_pct <- r$occ_in_uc_pct
+      df$n_uc       <- r$n_uc
     }
     return(df)
   } else {
@@ -180,6 +186,11 @@ export_ranges <- function(assessment, dir = ".", layer_prefix = "mappingAS",
     if (has_fire) {
       df$brnd_pct <- r$aoo_burned_pct
       df$fire_col <- r$fire_collection
+    }
+    if (has_pa) {
+      df$uc_pct     <- r$aoo_uc_pct
+      df$uc_occ_pct <- r$occ_in_uc_pct
+      df$n_uc       <- r$n_uc
     }
     return(df)
   }
