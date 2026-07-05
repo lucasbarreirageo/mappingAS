@@ -16,7 +16,9 @@ map_static(
   north = TRUE,
   title = NULL,
   lang = c("pt", "en"),
-  clip = c("eoo", "aoo")
+  clip = c("eoo", "aoo"),
+  protected = FALSE,
+  pa_src = NULL
 )
 }
 \arguments{
@@ -52,6 +54,12 @@ the feature labels (EOO/AOO/occurrences).}
 \item{clip}{Geometry the rasters are clipped to: \code{"eoo"} (default, the
 EOO hull) or \code{"aoo"} (the union of occupied AOO cells). Matches the
 \code{clip} argument of \code{\link{map_species}}.}
+
+\item{protected}{Logical; overlay federal Conservation Units (UCs) on the
+publishable map (default \code{FALSE}). Uses the UC layer stored by
+\code{assess_species(..., protected = TRUE)}, or fetches it on the fly.}
+
+\item{pa_src}{Optional local UC vector file for the overlay (offline).}
 }
 \value{
 A \code{ggplot} object.

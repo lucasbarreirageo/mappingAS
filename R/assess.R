@@ -17,6 +17,14 @@
 #'   MapBiomas Fire (accumulated layer, read locally). Default \code{FALSE}.
 #' @param fire_collection,fire_host_collection Fire collection number (default
 #'   \code{4}) and the initiative folder hosting it (default \code{9}).
+#' @param protected Logical; if \code{TRUE}, also compute the overlap of the
+#'   range with federal Conservation Units (UCs) from the ICMBio WFS: the share
+#'   of occurrences inside UCs and the \% of the EOO/AOO within UCs. Default
+#'   \code{FALSE}. Requires internet unless \code{pa_src} is given.
+#' @param pa_src Optional local UC vector file (\code{.shp}/\code{.gpkg}/
+#'   \code{.geojson}) used instead of the WFS (offline).
+#' @param pa_typename Optional ICMBio WFS layer name; \code{NULL} (default)
+#'   auto-detects it (see \code{\link{protected_layers}}).
 #' @param src Optional MapBiomas LULC GeoTIFF for the local backend.
 #' @param fire_src Optional MapBiomas Fire GeoTIFF (overrides the public URL).
 #' @param water_in_denominator Passed to \code{\link{summarise_conversion}}.
@@ -40,6 +48,7 @@ assess_species <- function(occ, year = 2024, collection = 10,
                            cell_km = 2, mapbiomas = TRUE,
                            fire = FALSE, fire_collection = 4,
                            fire_host_collection = 9,
+                           protected = FALSE, pa_src = NULL, pa_typename = NULL,
                            src = NULL, fire_src = NULL,
                            water_in_denominator = FALSE,
                            min_records = 1, verbose = TRUE) {
@@ -83,6 +92,12 @@ assess_species <- function(occ, year = 2024, collection = 10,
                       fire_collection, fire_host_collection, fire_src,
                       verbose, "AOO")
     }
+
+    pa <- NULL
+    if (protected) {
+      pa <- .protected_for(pts, eoo, aoo, src = pa_src,
+                           typename = pa_typename, verbose = verbose)
+    }
     
     row <- data.frame(
       species = sp,
@@ -107,10 +122,16 @@ assess_species <- function(occ, year = 2024, collection = 10,
       row$aoo_burned_pct  <- .pp(aoo_fire$burned_pct)
       row$fire_collection <- fire_collection
     }
+    if (protected) {
+      row$occ_in_uc_pct <- .pp(pa$occ_pct)
+      row$eoo_uc_pct    <- .pp(pa$eoo_pct)
+      row$aoo_uc_pct    <- .pp(pa$aoo_pct)
+      row$n_uc          <- if (is.null(pa)) NA_integer_ else pa$n_uc
+    }
     rows[[i]] <- row
     detail[[sp]] <- list(points = pts, eoo = eoo, aoo = aoo,
                          eoo_conversion = eoo_conv, aoo_conversion = aoo_conv,
-                         eoo_fire = eoo_fire, aoo_fire = aoo_fire)
+                         eoo_fire = eoo_fire, aoo_fire = aoo_fire, pa = pa)
   }
   
   summary_df <- do.call(rbind, rows)
@@ -121,6 +142,7 @@ assess_species <- function(occ, year = 2024, collection = 10,
                                  mapbiomas = mapbiomas, fire = fire,
                                  fire_collection = fire_collection,
                                  fire_host_collection = fire_host_collection,
+                                 protected = protected,
                                  water_in_denominator = water_in_denominator)),
             class = "geoconv_assessment")
 }

@@ -18,12 +18,17 @@
 #'   the language of the MapBiomas class labels and the fire-frequency legend.
 #' @param clip Geometry the rasters are clipped to: \code{"eoo"} (default, the
 #'   EOO hull) or \code{"aoo"} (the union of occupied AOO cells).
+#' @param protected Logical; overlay federal Conservation Units (UCs). Uses the
+#'   UC layer already stored by \code{assess_species(..., protected = TRUE)}, or
+#'   fetches it on the fly from the ICMBio WFS otherwise. Default \code{FALSE}.
+#' @param pa_src Optional local UC vector file for the overlay (offline).
 #' @return A \code{leaflet} widget.
 #' @export
 map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
                         fire = FALSE, src = NULL, fire_src = NULL,
                         max_pixels = 800, lang = c("pt", "en"),
-                        clip = c("eoo", "aoo")) {
+                        clip = c("eoo", "aoo"),
+                        protected = FALSE, pa_src = NULL) {
   lang <- match.arg(lang)
   clip <- match.arg(clip)
   lulc_col   <- if (lang == "en") "class_en" else "class_pt"
@@ -108,6 +113,26 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
     }
   }
   
+  # --- optional federal Conservation Units (UCs) overlay ---
+  grp_uc <- if (lang == "en") "Conservation Units" else "Unidades de Conservacao"
+  pa_on <- FALSE
+  if (isTRUE(protected)) {
+    pa_sf <- obj$pa$layer
+    if (is.null(pa_sf) && !is.null(clip_geom))
+      pa_sf <- tryCatch(protected_areas(clip_geom, src = pa_src),
+                        error = function(e) NULL)
+    if (!is.null(pa_sf) && nrow(pa_sf) > 0) {
+      pa_sf <- sf::st_transform(pa_sf, 4326)
+      lab <- sprintf("<b>%s</b><br>%s", pa_sf$pa_name,
+                     ifelse(is.na(pa_sf$pa_category), "", pa_sf$pa_category))
+      m <- leaflet::addPolygons(m, data = pa_sf, color = "#1f8d49", weight = 1.5,
+                                fillColor = "#1f8d49", fillOpacity = 0.15,
+                                popup = lab, label = pa_sf$pa_name,
+                                group = grp_uc)
+      pa_on <- TRUE
+    }
+  }
+
   if (!is.null(obj$eoo$hull))
     m <- leaflet::addPolygons(m, data = sf::st_transform(obj$eoo$hull, 4326),
                               color = "#1f4e79", weight = 2,
@@ -126,6 +151,7 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
                                  group = "Occurrences")
   
   overlay <- c("Occurrences", "EOO (hull)", "AOO (2 km cells)")
+  if (pa_on)   overlay <- c(grp_uc, overlay)
    if (fire_on) overlay <- c(grp_fire, overlay)
   if (mb_on)   overlay <- c("MapBiomas", overlay)
   m <- leaflet::addLayersControl(

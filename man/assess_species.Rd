@@ -14,6 +14,9 @@ assess_species(
   fire = FALSE,
   fire_collection = 4,
   fire_host_collection = 9,
+  protected = FALSE,
+  pa_src = NULL,
+  pa_typename = NULL,
   src = NULL,
   fire_src = NULL,
   water_in_denominator = FALSE,
@@ -39,6 +42,17 @@ MapBiomas Fire (accumulated layer, read locally). Default \code{FALSE}.}
 
 \item{fire_collection, fire_host_collection}{Fire collection number (default
 \code{4}) and the initiative folder hosting it (default \code{9}).}
+
+\item{protected}{Logical; if \code{TRUE}, also compute the overlap of the
+range with federal Conservation Units (UCs) from the ICMBio WFS: the share
+of occurrences inside UCs and the \\% of the EOO/AOO within UCs. Default
+\code{FALSE}. Requires internet unless \code{pa_src} is given.}
+
+\item{pa_src}{Optional local UC vector file (\code{.shp}/\code{.gpkg}/
+\code{.geojson}) used instead of the WFS (offline).}
+
+\item{pa_typename}{Optional ICMBio WFS layer name; \code{NULL} (default)
+auto-detects it (see \code{\link{protected_layers}}).}
 
 \item{src}{Optional MapBiomas LULC GeoTIFF for the local backend.}
 

@@ -1,3 +1,25 @@
+# mappingAS 1.6.0
+
+* New module `R/protected_areas.R` integrating Brazilian federal Conservation
+  Units (Unidades de Conservacao, UCs) from the ICMBio geoservice on the INDE.
+  Added `protected_areas()` (reads UCs intersecting an area of interest from the
+  WFS, with a local-file fallback and on-disk cache), `protected_layers()`
+  (lists the WFS `typeName`s), `summarise_protected()` (overlap metrics),
+  `pa_table()` (per-species UC list) and `icmbio_wfs_base()`.
+* `assess_species()` gains `protected`, `pa_src` and `pa_typename`. With
+  `protected = TRUE` the summary now reports `occ_in_uc_pct` (share of
+  occurrences inside UCs), `eoo_uc_pct`, `aoo_uc_pct` and `n_uc`, and each
+  species' `detail` stores the full UC overlap and layer.
+* `map_species()` and `map_static()` gain `protected`/`pa_src` to draw the UC
+  polygons as a labelled layer.
+* New `plot_protection()`: horizontal stacked bars (EOO and AOO) of the range
+  inside vs outside UCs, mirroring `plot_conversion()`.
+* `export_ranges()` writes the UC fields (`uc_pct`, `uc_occ_pct`, `n_uc`) into
+  the EOO/AOO attribute tables when available.
+* Shiny app: a "Overlap with Conservation Units (ICMBio)" option and a new
+  "Conservation Units" tab (headline cards, protection chart, per-UC table and
+  CSV/PNG downloads); the UC layer is added to the interactive map.
+
 # mappingAS 1.5.0
 
 * Chart legends in the Shiny app (conversion, classes, time-series and fire
