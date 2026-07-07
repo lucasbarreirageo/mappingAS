@@ -225,6 +225,19 @@ ui <- bslib::page_sidebar(
     ),
 
     bslib::nav_panel(
+      "Report", icon = icon("file-word"),
+      selectInput("report_species", "Species", choices = NULL),
+      helpText("A written, referenced summary of this species' assessment. The text follows the modules you calculated (conversion, fire, protected areas) and can be downloaded as a Word document."),
+      div(class = "mb-3",
+          downloadButton("dl_report", "Download report (.docx)",
+                         class = "btn-primary")),
+      bslib::card(
+        class = "p-3",
+        uiOutput("report_preview")
+      )
+    ),
+
+    bslib::nav_panel(
       "Methods", icon = icon("info-circle"),
       htmltools::HTML(
         "<div style='max-width:820px'>
@@ -375,6 +388,7 @@ server <- function(input, output, session) {
     updateSelectInput(session, "ts_species", choices = sp, selected = sp[1])
     updateSelectInput(session, "fire_species", choices = sp, selected = sp[1])
     updateSelectInput(session, "pa_species", choices = sp, selected = sp[1])
+    updateSelectInput(session, "report_species", choices = sp, selected = sp[1])
   })
 
   output$tbl <- DT::renderDT({
@@ -803,6 +817,33 @@ server <- function(input, output, session) {
         on.exit(grDevices::dev.off(), add = TRUE)
         mappingAS::plot_timeseries(ts)
       }
+    })
+  )
+
+  # --- Report tab: narrative assessment + Word download ---
+  output$report_preview <- renderUI({
+    req(result(), input$report_species)
+    htmltools::HTML(
+      mappingAS::assessment_report(
+        result(), species = input$report_species,
+        lang = input$lang %||% "en", output = "html"))
+  })
+
+  output$dl_report <- downloadHandler(
+    filename = function()
+      paste0("mappingAS_report_", gsub("[^A-Za-z0-9]+", "_", input$report_species %||% "species"),
+             "_", Sys.Date(), ".docx"),
+    content = .safe_download(function(file) {
+      req(result(), input$report_species)
+      if (!requireNamespace("officer", quietly = TRUE)) {
+        showNotification(
+          "The 'officer' package is required to export the Word report. Install it with install.packages('officer').",
+          type = "error", duration = NULL)
+        req(FALSE)
+      }
+      mappingAS::assessment_report(
+        result(), species = input$report_species,
+        lang = input$lang %||% "en", output = "docx", file = file)
     })
   )
 }
