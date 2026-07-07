@@ -233,10 +233,10 @@ assessment_report <- function(assessment, species = NULL,
          "Install it with install.packages('officer').", call. = FALSE)
 
   strip <- function(x) {
-    x <- gsub("<sup>2</sup>", "²", x, fixed = TRUE)
-    x <- gsub("&mdash;", "—", x, fixed = TRUE)
+    x <- gsub("<sup>2</sup>", "\u00b2", x, fixed = TRUE)
+    x <- gsub("&mdash;", "\u2014", x, fixed = TRUE)
     x <- gsub("&lt;", "<", x, fixed = TRUE)
-    x <- gsub("&times;", "×", x, fixed = TRUE)
+    x <- gsub("&times;", "\u00d7", x, fixed = TRUE)
     x <- gsub("<i>|</i>|<b>|</b>", "", x)
     x <- gsub("<[^>]+>", "", x)
     x
