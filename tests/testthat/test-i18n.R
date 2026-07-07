@@ -27,15 +27,17 @@
 
 test_that("plot_conversion uses English group labels by default", {
   tmp <- tempfile(fileext = ".png"); grDevices::png(tmp); on.exit(unlink(tmp))
-  M <- plot_conversion(.mk_assessment())
+  p <- plot_conversion(.mk_assessment())
   grDevices::dev.off()
+  M <- if (inherits(p, "ggplot")) attr(p, "pct") else p
   expect_true(all(c("Natural", "Altered", "Water", "Other") %in% colnames(M)))
 })
 
 test_that("plot_conversion switches to Portuguese group labels", {
   tmp <- tempfile(fileext = ".png"); grDevices::png(tmp); on.exit(unlink(tmp))
-  M <- plot_conversion(.mk_assessment(), lang = "pt")
+  p <- plot_conversion(.mk_assessment(), lang = "pt")
   grDevices::dev.off()
+  M <- if (inherits(p, "ggplot")) attr(p, "pct") else p
   expect_true(all(c("Natural", "Alterado", "Agua", "Outros") %in% colnames(M)))
 })
 

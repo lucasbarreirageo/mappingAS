@@ -1,3 +1,21 @@
+# mappingAS 1.8.0 (development)
+
+* **Interactive charts.** The conversion, protection, land-cover and fire
+  time-series charts are now interactive in the Shiny app (hover tooltips,
+  zoom, pan) via a new exported helper `mas_plotly()`, which wraps any
+  mappingAS `plot_*` ggplot into a \pkg{plotly} widget and preserves the chart
+  subtitle in the title. `plot_conversion()` and `plot_protection()` now return
+  a `ggplot` object (with the percentage matrix kept in `attr(p, "pct")`); a
+  base-graphics fallback remains when \pkg{ggplot2} is unavailable.
+* All four charts share a single minimal theme (`.mas_theme()`) so the static
+  PNG exports and their interactive versions look consistent.
+* `ggplot2` and `plotly` moved to `Imports` (previously `ggplot2` was a
+  suggestion); PNG downloads of the conversion/protection charts now use
+  `ggplot2::ggsave()`.
+* **Prettier tables.** Every table in the Shiny app now uses a shared style
+  (compact striped rows, numerics rounded to two decimals, and an in-cell
+  colour bar on percentage columns) for quicker reading.
+
 # mappingAS 1.7.0
 
 * Federal Conservation Units are now read from a bundled copy

@@ -262,11 +262,15 @@ plot_timeseries <- function(ts, title = NULL, legend = TRUE,
                                  name = lab$fill) +
       ggplot2::scale_y_continuous(expand = c(0, 0)) +
       ggplot2::labs(x = lab$x, y = lab$y, title = title) +
-      ggplot2::theme_minimal(base_size = 12) +
-      ggplot2::theme(panel.grid.minor = ggplot2::element_blank(),
-                     legend.key.size = ggplot2::unit(10, "pt"))
+      .mas_theme()
     if (ny >= 2) p <- p + ggplot2::scale_x_continuous(expand = c(0, 0))
     if (!legend) p <- p + ggplot2::theme(legend.position = "none")
+    attr(p, "mas") <- list(
+      kind = "area",
+      df = data.frame(year = ts$year, label = as.character(ts$label),
+                      pct = ts$pct, stringsAsFactors = FALSE),
+      palette = as.list(cols), levels = lvls, ny = ny,
+      xlab = lab$x, ylab = lab$y, title = title)
     return(p)
   }
 

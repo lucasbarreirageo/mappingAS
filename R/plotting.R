@@ -181,10 +181,17 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
 #' bar and the legend sits below the plot, so nothing overlaps. The headline
 #' \emph{terrestrial} converted percentage is shown as a subtitle.
 #'
+#' When \pkg{ggplot2} is available (a hard dependency) the function returns a
+#' \code{ggplot} object, which \code{\link{mas_plotly}} can turn into an
+#' interactive chart; otherwise it draws a base-graphics fallback and returns
+#' the percentage matrix invisibly.
+#'
 #' @param assessment A \code{geoconv_assessment}.
 #' @param species Species name (default: first).
 #' @param lang Label language: \code{"en"} (default) or \code{"pt"}.
-#' @return Invisibly, the plotted percentage matrix.
+#' @return A \code{ggplot} object (ggplot2 available) or, in the base-graphics
+#'   fallback, invisibly the plotted percentage matrix.
+#' @seealso \code{\link{mas_plotly}} for the interactive version.
 #' @export
 plot_conversion <- function(assessment, species = NULL, lang = c("en", "pt")) {
   lang <- match.arg(lang)
@@ -218,10 +225,48 @@ plot_conversion <- function(assessment, species = NULL, lang = c("en", "pt")) {
   }
   M <- rbind(AOO = comp(obj$aoo_conversion), EOO = comp(obj$eoo_conversion))
 
+  fmt <- function(cv) { v <- if (is.null(cv)) NA_real_ else cv$converted_pct
+    if (is.finite(v)) sprintf("%.0f%%", v) else "-" }
+  title <- sprintf(main_fmt, species, assessment$settings$year)
+  subtitle <- sprintf(sub_fmt, fmt(obj$eoo_conversion), fmt(obj$aoo_conversion))
+
+  # --- ggplot2 (interactive-ready) ---
+  if (requireNamespace("ggplot2", quietly = TRUE)) {
+    df <- data.frame(
+      range = factor(rep(c("AOO", "EOO"), each = length(grp)),
+                     levels = c("AOO", "EOO")),
+      group = factor(rep(grp, 2), levels = grp),
+      pct   = c(M["AOO", ], M["EOO", ]),
+      stringsAsFactors = FALSE
+    )
+    df$lab <- ifelse(is.finite(df$pct) & df$pct >= 6,
+                     sprintf("%.0f%%", df$pct), "")
+    df$lab_col <- ifelse(as.character(df$group) == other_lab, "black", "white")
+    p <- ggplot2::ggplot(
+      df, ggplot2::aes(x = .data[["pct"]], y = .data[["range"]],
+                       fill = .data[["group"]])) +
+      ggplot2::geom_col(width = 0.62, colour = "white", linewidth = 0.3) +
+      ggplot2::geom_text(
+        ggplot2::aes(label = .data[["lab"]], colour = .data[["lab_col"]]),
+        position = ggplot2::position_stack(vjust = 0.5),
+        size = 3.4, fontface = "bold", show.legend = FALSE) +
+      ggplot2::scale_fill_manual(values = cols[grp], drop = FALSE, name = NULL) +
+      ggplot2::scale_colour_identity() +
+      ggplot2::scale_x_continuous(limits = c(0, 100), expand = c(0, 0)) +
+      ggplot2::labs(x = xlab, y = NULL, title = title, subtitle = subtitle) +
+      .mas_theme() +
+      ggplot2::theme(panel.grid.major.y = ggplot2::element_blank())
+    attr(p, "pct") <- M   # keep the percentage matrix accessible
+    attr(p, "mas") <- list(kind = "bar", df = df, palette = as.list(cols[grp]),
+                           levels = grp, xlab = xlab,
+                           title = title, subtitle = subtitle)
+    return(p)
+  }
+
+  # --- base-graphics fallback ---
   op <- graphics::par(mar = c(5, 5, 4, 9), xpd = NA); on.exit(graphics::par(op), add = TRUE)
   bp <- graphics::barplot(t(M), horiz = TRUE, col = cols[grp], border = "white",
-    xlim = c(0, 100), las = 1, xlab = xlab,
-    main = sprintf(main_fmt, species, assessment$settings$year))
+    xlim = c(0, 100), las = 1, xlab = xlab, main = title)
 
   for (r in seq_len(nrow(M))) {
     x <- M[r, ]; cm <- cumsum(c(0, x))
@@ -229,10 +274,7 @@ plot_conversion <- function(assessment, species = NULL, lang = c("en", "pt")) {
       graphics::text(cm[k] + x[k] / 2, bp[r], sprintf("%.0f%%", x[k]),
         cex = 0.8, col = if (grp[k] == other_lab) "black" else "white")
   }
-  fmt <- function(cv) { v <- if (is.null(cv)) NA_real_ else cv$converted_pct
-    if (is.finite(v)) sprintf("%.0f%%", v) else "-" }
-  graphics::mtext(sprintf(sub_fmt, fmt(obj$eoo_conversion), fmt(obj$aoo_conversion)),
-    side = 3, line = 0.2, cex = 0.85)
+  graphics::mtext(subtitle, side = 3, line = 0.2, cex = 0.85)
   usr <- graphics::par("usr")
   graphics::legend(
     x = usr[2] + 0.02 * diff(usr[1:2]), y = mean(usr[3:4]), yjust = 0.5,

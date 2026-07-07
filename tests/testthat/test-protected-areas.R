@@ -119,7 +119,8 @@ test_that("plot_protection returns the EOO/AOO percentage matrix", {
 
   grDevices::pdf(NULL)                     # draw to a null device
   on.exit(grDevices::dev.off(), add = TRUE)
-  M <- plot_protection(res)
+  p <- plot_protection(res)
+  M <- if (inherits(p, "ggplot")) attr(p, "pct") else p
   expect_true(is.matrix(M))
   expect_equal(rownames(M), c("AOO", "EOO"))
   expect_equal(unname(rowSums(M)), c(100, 100))
