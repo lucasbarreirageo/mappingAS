@@ -1,5 +1,12 @@
 # mappingAS 1.8.0 (development)
 
+* **Written assessment report.** New `assessment_report()` builds a narrative,
+  referenced summary of a species' Criterion B screening (range metrics,
+  provisional category, and — when computed — habitat conversion, fire and
+  protected-area overlap), with the IUCN/GeoCAT/MapBiomas references. It
+  returns HTML, plain text, or a Word `.docx` (via \pkg{officer}). A new
+  **Report** tab in the Shiny app (after *Fire*) previews the text and downloads
+  the `.docx`.
 * **Interactive charts.** The conversion, protection, land-cover and fire
   time-series charts are now interactive in the Shiny app (hover tooltips,
   zoom, pan) via a new exported helper `mas_plotly()`, which wraps any

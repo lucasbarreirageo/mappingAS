@@ -2,6 +2,7 @@
 
 S3method(print,geoconv_assessment)
 export(assess_species)
+export(assessment_report)
 export(calc_aoo)
 export(calc_eoo)
 export(class_table)

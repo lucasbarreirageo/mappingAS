@@ -50,6 +50,7 @@ Suggests:
     reticulate,
     writexl,
     zip,
+    officer,
     ggnewscale,
     shinyWidgets,
     testthat (>= 3.0.0),
