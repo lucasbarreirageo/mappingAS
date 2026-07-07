@@ -6,10 +6,40 @@ suppressMessages({
   library(bslib)
   library(leaflet)
   library(DT)
+  library(plotly)
   if (requireNamespace("mappingAS", quietly = TRUE)) library(mappingAS)
 })
 
 `%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || identical(a, "")) b else a
+
+# Consistent, prettier styling for every DT table in the app: compact striped
+# rows, non-integer numerics rounded to 2 dp, and a subtle in-cell colour bar
+# on percentage columns so magnitudes read at a glance.
+.mas_dt <- function(df, caption = NULL, page = 15) {
+  num <- names(df)[vapply(df, is.numeric, logical(1))]
+  realish <- num[vapply(df[num], function(x)
+    any(is.finite(x) & abs(x - round(x)) > 1e-9), logical(1))]
+  pct <- intersect(
+    grep("pct|percent|_pc$|perc", names(df), ignore.case = TRUE, value = TRUE),
+    num)
+  opts <- list(scrollX = TRUE, pageLength = page, dom = "frtip")
+  num_idx <- which(names(df) %in% num) - 1
+  if (length(num_idx))
+    opts$columnDefs <- list(list(className = "dt-center", targets = num_idx))
+  dt <- DT::datatable(
+    df, rownames = FALSE, caption = caption,
+    class = "compact stripe hover row-border order-column",
+    options = opts)
+  if (length(realish))
+    dt <- DT::formatRound(dt, columns = realish, digits = 2)
+  if (length(pct))
+    dt <- DT::formatStyle(
+      dt, pct,
+      background = DT::styleColorBar(c(0, 100), "#c9e7d4"),
+      backgroundSize = "98% 55%", backgroundRepeat = "no-repeat",
+      backgroundPosition = "center")
+  dt
+}
 
 # Year grid for the MapBiomas collection, thinned by `step` (always keeps the
 # last year). Shared by the land-cover and fire time-series reactives.
@@ -35,7 +65,9 @@ suppressMessages({
 
 ui <- bslib::page_sidebar(
   title = "mappingAS | Mapping Area of Species",
-  fillable = TRUE, # Allows the map to stretch and fill the entire screen
+  # Non-fillable so tall tabs (chart + table) scroll normally instead of being
+  # clipped to the viewport height; the map gets an explicit height below.
+  fillable = FALSE,
   theme = bslib::bs_theme(version = 5, bootswatch = "flatly", primary = "#1f8d49"),
   header = bslib::input_dark_mode(id = "dark_mode", mode = "light"),
   sidebar = bslib::sidebar(
@@ -89,7 +121,7 @@ ui <- bslib::page_sidebar(
         col_widths = c(9, 3), # 75% for Map, 25% for Controls
         bslib::card(
           full_screen = TRUE,
-          leaflet::leafletOutput("map", height = "100%") # Stretched map
+          leaflet::leafletOutput("map", height = "78vh") # Large map (fullscreen btn available)
         ),
         bslib::card(
           selectInput("map_species", "Species", choices = NULL),
@@ -119,7 +151,8 @@ ui <- bslib::page_sidebar(
       "Conversion", icon = icon("chart-pie"),
       selectInput("chart_species", "Species", choices = NULL),
       downloadButton("dl_chart_png", "Save image (PNG)", class = "mb-2"),
-      plotOutput("chart", height = 460)
+      div(style = "height:460px; min-height:460px;",
+          plotly::plotlyOutput("chart", height = "100%"))
     ),
     bslib::nav_panel(
       "Classes", icon = icon("list"),
@@ -136,7 +169,8 @@ ui <- bslib::page_sidebar(
         "<a href='https://www.gov.br/icmbio/pt-br/assuntos/dados_geoespaciais' ",
         "target='_blank'>ICMBio / INDE geoservice</a> (PDDL public domain).")),
       uiOutput("pa_summary"),
-      plotOutput("pa_chart", height = 460),
+      div(style = "height:460px; min-height:460px;",
+          plotly::plotlyOutput("pa_chart", height = "100%")),
       downloadButton("dl_pa_png", "Save chart (PNG)", class = "my-2"),
       downloadButton("dl_pa", "Download UC list (CSV)", class = "my-3"),
       DT::DTOutput("pa_tbl")
@@ -162,7 +196,8 @@ ui <- bslib::page_sidebar(
       ),
       helpText("Complete MapBiomas history (annual by default). A 1-year step reads all years and may be slow; increase the step to speed up."),
       uiOutput("ts_summary"),
-      plotOutput("ts_plot", height = 480),
+      div(style = "height:480px; min-height:480px;",
+          plotly::plotlyOutput("ts_plot", height = "100%")),
       DT::DTOutput("ts_tbl")
     ),
 
@@ -184,7 +219,8 @@ ui <- bslib::page_sidebar(
         downloadButton("dl_fire_ts_png", "Save image (PNG)")
       ),
       helpText("Burned area per year (MapBiomas Fire, 1985-2024). A 1-year step reads all years and may be slow; increase the step to speed up."),
-      plotOutput("fire_ts_plot", height = 420),
+      div(style = "height:440px; min-height:440px;",
+          plotly::plotlyOutput("fire_ts_plot", height = "100%")),
       DT::DTOutput("fire_tbl")
     ),
 
@@ -343,9 +379,8 @@ server <- function(input, output, session) {
 
   output$tbl <- DT::renderDT({
     req(result())
-    DT::datatable(result()$summary, rownames = FALSE,
-                  options = list(scrollX = TRUE, pageLength = 25),
-                  caption = "EOO, AOO and conversion by species")
+    .mas_dt(result()$summary, page = 25,
+            caption = "EOO, AOO and conversion by species")
   })
 
   # --- Protected areas (UC) tab ---
@@ -379,28 +414,34 @@ server <- function(input, output, session) {
                    error = function(e) data.frame())
     validate(need(nrow(tb) > 0,
                   "No Protected areas overlap this species' range."))
-    DT::datatable(tb, rownames = FALSE,
-                  options = list(scrollX = TRUE, pageLength = 15),
-                  caption = "Federal Protected areas overlapping the range")
+    .mas_dt(tb, page = 15,
+            caption = "Federal Protected areas overlapping the range")
   })
 
-  output$pa_chart <- renderPlot({
+  output$pa_chart <- plotly::renderPlotly({
     req(result(), input$pa_species)
     d <- result()$detail[[input$pa_species]]
     validate(need(!is.null(d) && !is.null(d$pa),
                   "Run the assessment with the Protected areas option enabled."))
-    mappingAS::plot_protection(result(), species = input$pa_species,
-                               lang = input$lang %||% "en")
+    mappingAS::mas_plotly(
+      mappingAS::plot_protection(result(), species = input$pa_species,
+                                 lang = input$lang %||% "en"))
   })
 
   output$dl_pa_png <- downloadHandler(
     filename = function() paste0("mappingAS_UC_", input$pa_species, "_", Sys.Date(), ".png"),
     content = .safe_download(function(file) {
       req(result(), input$pa_species)
-      grDevices::png(file, width = 1100, height = 520, res = 130)
-      on.exit(grDevices::dev.off(), add = TRUE)
-      mappingAS::plot_protection(result(), species = input$pa_species,
-                                 lang = input$lang %||% "en")
+      p <- mappingAS::plot_protection(result(), species = input$pa_species,
+                                      lang = input$lang %||% "en")
+      if (inherits(p, "ggplot") && requireNamespace("ggplot2", quietly = TRUE)) {
+        ggplot2::ggsave(file, plot = p, width = 8.5, height = 5.2, dpi = 130)
+      } else {
+        grDevices::png(file, width = 1100, height = 520, res = 130)
+        on.exit(grDevices::dev.off(), add = TRUE)
+        mappingAS::plot_protection(result(), species = input$pa_species,
+                                   lang = input$lang %||% "en")
+      }
     })
   )
 
@@ -477,9 +518,11 @@ server <- function(input, output, session) {
 
   outputOptions(output, "map", suspendWhenHidden = FALSE)
 
-  output$chart <- renderPlot({
+  output$chart <- plotly::renderPlotly({
     req(result(), input$chart_species)
-    mappingAS::plot_conversion(result(), species = input$chart_species)
+    mappingAS::mas_plotly(
+      mappingAS::plot_conversion(result(), species = input$chart_species,
+                                 lang = input$lang %||% "en"))
   })
 
   output$dl_csv <- downloadHandler(
@@ -528,9 +571,8 @@ server <- function(input, output, session) {
     if (lg == "en") df$class_pt <- NULL else df$class_en <- NULL
     names(df)[names(df) %in% c("class_pt", "class_en")] <- "class"
 
-    DT::datatable(df, rownames = FALSE,
-                  options = list(scrollX = TRUE, pageLength = 25),
-                  caption = "Area and % by MapBiomas class (EOO and AOO)")
+    .mas_dt(df, page = 25,
+            caption = "Area and % by MapBiomas class (EOO and AOO)")
   })
 
   output$dl_classes <- downloadHandler(
@@ -561,9 +603,10 @@ server <- function(input, output, session) {
     })
   })
 
-  output$ts_plot <- renderPlot({
+  output$ts_plot <- plotly::renderPlotly({
     ts <- ts_data(); req(ts)
-    mappingAS::plot_timeseries(ts)
+    mappingAS::mas_plotly(
+      mappingAS::plot_timeseries(ts, lang = input$lang %||% "en"))
   })
 
   output$ts_summary <- renderUI({
@@ -591,9 +634,7 @@ server <- function(input, output, session) {
 
   output$ts_tbl <- DT::renderDT({
     ts <- ts_data(); req(ts)
-    DT::datatable(ts, rownames = FALSE,
-                  options = list(scrollX = TRUE, pageLength = 15),
-                  caption = "Composition (%) by year")
+    .mas_dt(ts, page = 15, caption = "Composition (%) by year")
   })
 
   output$dl_ts <- downloadHandler(
@@ -632,9 +673,7 @@ server <- function(input, output, session) {
     }
     df <- rbind(mk(obj$eoo_fire, "EOO"), mk(obj$aoo_fire, "AOO"))
     validate(need(!is.null(df) && nrow(df) > 0, "No fire data (or fire was not calculated)."))
-    DT::datatable(df, rownames = FALSE,
-                  options = list(scrollX = TRUE, pageLength = 10),
-                  caption = "Burned area by extent (EOO and AOO)")
+    .mas_dt(df, page = 10, caption = "Burned area by extent (EOO and AOO)")
   })
 
   fire_ts_data <- eventReactive(input$fire_ts_run, {
@@ -655,9 +694,10 @@ server <- function(input, output, session) {
     })
   })
 
-  output$fire_ts_plot <- renderPlot({
+  output$fire_ts_plot <- plotly::renderPlotly({
     ts <- fire_ts_data(); req(ts)
-    mappingAS::plot_fire_timeseries(ts, lang = input$lang %||% "en")
+    mappingAS::mas_plotly(
+      mappingAS::plot_fire_timeseries(ts, lang = input$lang %||% "en"))
   })
 
   output$dl_fire_ts <- downloadHandler(
@@ -738,9 +778,16 @@ server <- function(input, output, session) {
     filename = function() paste0("mappingAS_conversion_", input$chart_species, "_", Sys.Date(), ".png"),
     content = .safe_download(function(file) {
       req(result(), input$chart_species)
-      grDevices::png(file, width = 1100, height = 750, res = 130)
-      on.exit(grDevices::dev.off(), add = TRUE)
-      mappingAS::plot_conversion(result(), species = input$chart_species, lang = input$lang %||% "en")
+      p <- mappingAS::plot_conversion(result(), species = input$chart_species,
+                                      lang = input$lang %||% "en")
+      if (inherits(p, "ggplot") && requireNamespace("ggplot2", quietly = TRUE)) {
+        ggplot2::ggsave(file, plot = p, width = 8.5, height = 5.8, dpi = 130)
+      } else {
+        grDevices::png(file, width = 1100, height = 750, res = 130)
+        on.exit(grDevices::dev.off(), add = TRUE)
+        mappingAS::plot_conversion(result(), species = input$chart_species,
+                                   lang = input$lang %||% "en")
+      }
     })
   )
 

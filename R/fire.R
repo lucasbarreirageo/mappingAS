@@ -265,12 +265,17 @@ plot_fire_timeseries <- function(ts, title = NULL, lang = c("en", "pt")) {
                        sp, if (!is.null(rg)) paste0(" (", rg, ")") else "")
   }
   if (requireNamespace("ggplot2", quietly = TRUE)) {
-    ggplot2::ggplot(ts, ggplot2::aes(x = .data[["year"]],
+    p <- ggplot2::ggplot(ts, ggplot2::aes(x = .data[["year"]],
                                      y = .data[["burned_pct"]])) +
       ggplot2::geom_col(fill = "#fd8d3c") +
       ggplot2::geom_line(colour = "#bd0026", linewidth = 0.5) +
       ggplot2::labs(x = NULL, y = ylab, title = title) +
-      ggplot2::theme_minimal(base_size = 12)
+      .mas_theme()
+    attr(p, "mas") <- list(
+      kind = "fire",
+      df = data.frame(year = ts$year, burned_pct = ts$burned_pct),
+      ylab = ylab, title = title)
+    p
   } else {
     graphics::barplot(ts$burned_pct, names.arg = ts$year, col = "#fd8d3c",
                       ylab = ylab, main = title %||% "")

@@ -14,7 +14,8 @@ plot_conversion(assessment, species = NULL, lang = c("en", "pt"))
 \item{lang}{Label language: \code{"en"} (default) or \code{"pt"}.}
 }
 \value{
-Invisibly, the plotted percentage matrix.
+A \code{ggplot} object (ggplot2 available) or, in the base-graphics
+fallback, invisibly the plotted percentage matrix.
 }
 \description{
 Draws, for one species, two horizontal stacked bars (EOO and AOO) showing the
@@ -22,4 +23,13 @@ MapBiomas composition as a percentage of the mapped (observed) area: natural,
 altered (anthropic), water and other. Segment labels are placed inside each
 bar and the legend sits below the plot, so nothing overlaps. The headline
 \emph{terrestrial} converted percentage is shown as a subtitle.
+}
+\details{
+When \pkg{ggplot2} is available (a hard dependency) the function returns a
+\code{ggplot} object, which \code{\link{mas_plotly}} can turn into an
+interactive chart; otherwise it draws a base-graphics fallback and returns
+the percentage matrix invisibly.
+}
+\seealso{
+\code{\link{mas_plotly}} for the interactive version.
 }

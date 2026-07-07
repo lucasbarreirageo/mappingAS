@@ -14,7 +14,8 @@ plot_protection(assessment, species = NULL, lang = c("en", "pt"))
 \item{lang}{Label language: \code{"en"} (default) or \code{"pt"}.}
 }
 \value{
-Invisibly, the plotted percentage matrix (rows \code{EOO}/\code{AOO}).
+A \code{ggplot} object (ggplot2 available) or, in the base-graphics
+fallback, invisibly the plotted percentage matrix (rows \code{EOO}/\code{AOO}).
 }
 \description{
 Two horizontal stacked bars (EOO and AOO) showing the share of the range
@@ -30,4 +31,7 @@ one subtitle with the occurrence count, and a legend on the right.
 res <- assess_species(read_occurrences("occ.csv"), protected = TRUE)
 plot_protection(res)
 }
+}
+\seealso{
+\code{\link{mas_plotly}} for the interactive version.
 }

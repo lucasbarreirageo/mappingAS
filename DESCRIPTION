@@ -42,13 +42,14 @@ Imports:
     grDevices,
     DT,
     htmltools,
-    htmlwidgets
+    htmlwidgets,
+    ggplot2,
+    plotly
 Suggests:
     rgee,
     reticulate,
     writexl,
     zip,
-    ggplot2,
     ggnewscale,
     shinyWidgets,
     testthat (>= 3.0.0),
