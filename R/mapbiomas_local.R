@@ -19,9 +19,19 @@ mb_source_url <- function(year = 2024, collection = 10) {
 #' @keywords internal
 #' @noRd
 .mb_set_gdal <- function() {
+  # Read tuning for /vsicurl/ streaming. These only affect I/O speed (bigger
+  # block cache, larger chunked range requests, HTTP/2 multiplexing, threaded
+  # decompression) - never the pixel values returned, so area statistics are
+  # unchanged.
   keys <- c("GDAL_DISABLE_READDIR_ON_OPEN", "CPL_VSIL_CURL_USE_HEAD",
-            "GDAL_HTTP_MAX_RETRY", "GDAL_HTTP_RETRY_DELAY", "VSI_CACHE")
-  vals <- c("EMPTY_DIR", "NO", "3", "1", "TRUE")
+            "GDAL_HTTP_MAX_RETRY", "GDAL_HTTP_RETRY_DELAY", "VSI_CACHE",
+            "GDAL_CACHEMAX", "GDAL_NUM_THREADS", "GDAL_HTTP_MULTIPLEX",
+            "GDAL_HTTP_VERSION", "CPL_VSIL_CURL_CHUNK_SIZE",
+            "CPL_VSIL_CURL_CACHE_SIZE")
+  vals <- c("EMPTY_DIR", "NO", "3", "1", "TRUE",
+            "512", "ALL_CPUS", "YES",
+            "2", "1048576",
+            "200000000")
   old <- stats::setNames(lapply(keys, terra::getGDALconfig), keys)
   for (i in seq_along(keys)) terra::setGDALconfig(keys[i], vals[i])
   old

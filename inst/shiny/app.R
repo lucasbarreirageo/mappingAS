@@ -137,13 +137,30 @@ ui <- bslib::page_sidebar(
                        selected = "lulc"),
           hr(),
           downloadButton("dl_map_html", "Download map (HTML)", class = "mb-2"),
-          downloadButton("dl_map_static", "Publishable map (PNG)", class = "mb-2")
+          downloadButton("dl_map_static", "Publishable map (PNG)", class = "mb-2"),
+          hr(),
+          checkboxGroupInput("raster_layers", "GeoTIFF rasters to export",
+                             choices = c("MapBiomas land use" = "lulc",
+                                         "MapBiomas fire (accumulated)" = "fire"),
+                             selected = "lulc"),
+          downloadButton("dl_rasters", "Download rasters (GeoTIFF .zip)",
+                         class = "mb-1"),
+          helpText("For the species and clip (EOO/AOO) selected above.")
         )
       )
     ),
     bslib::nav_panel(
       "Results", icon = icon("table"),
-      div(class = "mb-3",
+      selectInput("results_species", "Species", choices = NULL),
+      uiOutput("results_cards"),
+      bslib::accordion(
+        open = FALSE,
+        bslib::accordion_panel(
+          "Column glossary - what each field means",
+          uiOutput("results_glossary")
+        )
+      ),
+      div(class = "mt-3 mb-2",
           downloadButton("dl_csv", "Download results (CSV)")),
       DT::DTOutput("tbl")
     ),
@@ -384,6 +401,7 @@ server <- function(input, output, session) {
     req(result())
     sp <- result()$summary$species
     updateSelectInput(session, "map_species", choices = sp, selected = sp[1])
+    updateSelectInput(session, "results_species", choices = sp, selected = sp[1])
     updateSelectInput(session, "chart_species", choices = sp, selected = sp[1])
     updateSelectInput(session, "class_species", choices = sp, selected = sp[1])
     updateSelectInput(session, "ts_species", choices = sp, selected = sp[1])
@@ -396,6 +414,103 @@ server <- function(input, output, session) {
     req(result())
     .mas_dt(result()$summary, page = 25,
             caption = "EOO, AOO and conversion by species")
+  })
+
+  # Visual overview cards (with in-cell bars) for the selected species.
+  output$results_cards <- renderUI({
+    req(result(), input$results_species)
+    s <- result()$summary
+    r <- s[s$species == input$results_species, , drop = FALSE]
+    validate(need(nrow(r) > 0, "Select a species."))
+    r  <- r[1, , drop = FALSE]
+    st <- result()$settings
+    has <- function(c) c %in% names(r) && !is.na(r[[c]])
+    v   <- function(c) if (has(c)) r[[c]] else NA_real_
+    badge <- function(cat) {
+      b <- mappingAS:::.iucn_badge(cat)
+      sprintf("<span style='display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%%;background:%s;color:%s;font-weight:700;font-size:.8rem;border:2px solid rgba(0,0,0,.15)'>%s</span>", b$bg, b$fg, b$code)
+    }
+    fkm <- function(x) if (is.na(x)) "&mdash;" else formatC(x, format = "f", big.mark = ",", digits = 2)
+    fpc <- function(x) if (is.na(x)) "&mdash;" else sprintf("%.1f%%", x)
+    card <- function(inner) sprintf("<div style='flex:1;min-width:180px;border:1px solid #e4ddce;border-radius:.6rem;padding:10px 12px;background:#fffdf8'>%s</div>", inner)
+    lab  <- function(t) sprintf("<div style='color:#7a857b;font-size:.78rem;margin-bottom:3px'>%s</div>", t)
+    big  <- function(x) sprintf("<div style='font-family:monospace;font-weight:700;font-size:1.1rem'>%s</div>", x)
+    bar  <- function(pct, col) { p <- if (is.na(pct)) 0 else max(0, min(100, pct))
+      sprintf("<div style='background:#eee;border-radius:5px;height:9px;overflow:hidden;margin-top:4px'><div style='width:%.1f%%;height:100%%;background:%s'></div></div>", p, col) }
+    dual <- function(title, e, a, col) card(paste0(lab(title),
+      sprintf("<div style='font-size:.82rem'>EOO %s</div>", fpc(e)), bar(e, col),
+      sprintf("<div style='font-size:.82rem;margin-top:4px'>AOO %s</div>", fpc(a)), bar(a, col)))
+
+    cards <- c(
+      card(paste0(lab(sprintf("EOO / B1 &nbsp; %s", badge(r$eoo_cat_B1))),
+                  big(paste0(fkm(v("eoo_km2")), " km<sup>2</sup>")))),
+      card(paste0(lab(sprintf("AOO / B2 &nbsp; %s", badge(r$aoo_cat_B2))),
+                  big(paste0(fkm(v("aoo_km2")), " km<sup>2</sup>")),
+                  sprintf("<div style='color:#7a857b;font-size:.75rem'>%s cells &middot; %s records (%s unique)</div>",
+                          v("aoo_cells"), v("n_records"), v("n_unique")))),
+      card(paste0(lab("Provisional category (screening)"),
+                  sprintf("<div style='display:flex;align-items:center;gap:8px;font-weight:700'>%s<span>%s</span></div>",
+                          badge(r$provisional_cat), r$provisional_cat)))
+    )
+    if (isTRUE(st$mapbiomas)) cards <- c(cards,
+      dual("Converted (anthropic)", v("eoo_converted_pct"), v("aoo_converted_pct"), "#d4271e"),
+      dual("Natural (remaining)",   v("eoo_natural_pct"),   v("aoo_natural_pct"),   "#1f8d49"))
+    if (isTRUE(st$fire) && has("eoo_burned_pct"))
+      cards <- c(cards, dual("Burned at least once (1985-2024)",
+                             v("eoo_burned_pct"), v("aoo_burned_pct"), "#fd8d3c"))
+    if (isTRUE(st$protected) && has("occ_in_uc_pct")) {
+      cards <- c(cards, card(paste0(lab("In protected areas (UCs)"),
+        sprintf("<div style='font-size:.82rem'>Occurrences %s</div>", fpc(v("occ_in_uc_pct"))),
+        bar(v("occ_in_uc_pct"), "#1f8d49"),
+        sprintf("<div style='font-size:.82rem;margin-top:4px'>EOO %s &middot; AOO %s</div>",
+                fpc(v("eoo_uc_pct")), fpc(v("aoo_uc_pct"))),
+        sprintf("<div style='color:#7a857b;font-size:.75rem;margin-top:2px'>%s UCs touched</div>", v("n_uc")))))
+      if (has("eoo_nat_uc_pct"))
+        cards <- c(cards, dual("Natural AND protected", v("eoo_nat_uc_pct"), v("aoo_nat_uc_pct"), "#04381d"))
+    }
+    htmltools::HTML(sprintf(
+      "<div style='display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px'>%s</div>",
+      paste(cards, collapse = "")))
+  })
+
+  # Plain-language glossary for every summary column (language-aware).
+  output$results_glossary <- renderUI({
+    en <- (input$lang %||% "en") == "en"
+    L  <- function(a, b) if (en) a else b
+    defs <- list(
+      c("species", L("Species name.", "Nome da especie.")),
+      c("n_records", L("Number of occurrence records used.", "Numero de registros de ocorrencia usados.")),
+      c("n_unique", L("Number of unique coordinates.", "Numero de coordenadas unicas.")),
+      c("eoo_km2", L("Extent of Occurrence: area of the minimum convex polygon (km2).", "Extensao de Ocorrencia: area do poligono convexo minimo (km2).")),
+      c("aoo_km2", L("Area of Occupancy: occupied 2x2 km cells x 4 km2.", "Area de Ocupacao: celulas ocupadas de 2x2 km x 4 km2.")),
+      c("aoo_cells", L("Number of occupied AOO cells.", "Numero de celulas ocupadas da AOO.")),
+      c("eoo_converted_pct", L("% of the terrestrial EOO that is converted (anthropic).", "% da EOO terrestre convertida (antropica).")),
+      c("eoo_natural_pct", L("% of the terrestrial EOO that is remaining natural habitat.", "% da EOO terrestre de habitat natural remanescente.")),
+      c("aoo_converted_pct", L("% of the terrestrial AOO that is converted (anthropic).", "% da AOO terrestre convertida (antropica).")),
+      c("aoo_natural_pct", L("% of the terrestrial AOO that is remaining natural habitat.", "% da AOO terrestre de habitat natural remanescente.")),
+      c("eoo_cat_B1", L("Provisional category by EOO size (sub-criterion B1).", "Categoria provisoria pelo tamanho da EOO (subcriterio B1).")),
+      c("aoo_cat_B2", L("Provisional category by AOO size (sub-criterion B2).", "Categoria provisoria pelo tamanho da AOO (subcriterio B2).")),
+      c("provisional_cat", L("Combined provisional category (the more threatened of B1/B2). Screening only.", "Categoria provisoria combinada (a mais ameacada entre B1/B2). Apenas triagem.")),
+      c("mapbiomas_year", L("MapBiomas land-cover year used.", "Ano da cobertura MapBiomas usada.")),
+      c("mapbiomas_collection", L("MapBiomas collection number.", "Numero da colecao MapBiomas.")),
+      c("eoo_burned_pct", L("% of the EOO burned at least once (1985-2024).", "% da EOO queimada ao menos uma vez (1985-2024).")),
+      c("aoo_burned_pct", L("% of the AOO burned at least once (1985-2024).", "% da AOO queimada ao menos uma vez (1985-2024).")),
+      c("fire_collection", L("MapBiomas Fire collection number.", "Numero da colecao MapBiomas Fogo.")),
+      c("occ_in_uc_pct", L("% of occurrences inside federal protected areas (UCs).", "% das ocorrencias dentro de UCs federais.")),
+      c("eoo_uc_pct", L("% of the EOO overlapping UCs.", "% da EOO sobreposta a UCs.")),
+      c("aoo_uc_pct", L("% of the AOO overlapping UCs.", "% da AOO sobreposta a UCs.")),
+      c("n_uc", L("Number of UCs the range touches.", "Numero de UCs que a distribuicao toca.")),
+      c("eoo_nat_uc_pct", L("% of the terrestrial EOO that is BOTH natural and inside UCs.", "% da EOO terrestre que e natural E dentro de UCs.")),
+      c("eoo_nat_uc_pct_in", L("% of the EOO area inside UCs that is natural.", "% da area da EOO dentro de UCs que e natural.")),
+      c("aoo_nat_uc_pct", L("% of the terrestrial AOO that is BOTH natural and inside UCs.", "% da AOO terrestre que e natural E dentro de UCs.")),
+      c("aoo_nat_uc_pct_in", L("% of the AOO area inside UCs that is natural.", "% da area da AOO dentro de UCs que e natural."))
+    )
+    rows <- vapply(defs, function(d) sprintf(
+      "<tr><td style='padding:4px 10px;font-family:monospace;white-space:nowrap;vertical-align:top;color:#1f8d49'>%s</td><td style='padding:4px 10px'>%s</td></tr>",
+      d[1], d[2]), character(1))
+    htmltools::HTML(sprintf(
+      "<table style='border-collapse:collapse;font-size:.86rem'><tbody>%s</tbody></table>",
+      paste(rows, collapse = "")))
   })
 
   # --- Protected areas (UC) tab ---
@@ -468,7 +583,70 @@ server <- function(input, output, session) {
       utils::write.csv(tb, file, row.names = FALSE, fileEncoding = "UTF-8")
     })
   )
-  
+
+  # Export the MapBiomas land-use and/or fire GeoTIFF rasters for the selected
+  # species and clip (EOO/AOO), bundled into a .zip.
+  output$dl_rasters <- downloadHandler(
+    filename = function()
+      paste0("mappingAS_rasters_",
+             gsub("[^A-Za-z0-9]+", "_", input$map_species %||% "species"),
+             "_", input$map_clip %||% "eoo", "_", Sys.Date(), ".zip"),
+    content = .safe_download(function(file) {
+      req(result(), input$map_species)
+      layers <- input$raster_layers
+      if (is.null(layers) || !length(layers)) {
+        showNotification("Select at least one raster layer to export.",
+                         type = "warning"); req(FALSE)
+      }
+      if (!requireNamespace("terra", quietly = TRUE)) {
+        showNotification("Package 'terra' is required.", type = "error",
+                         duration = NULL); req(FALSE)
+      }
+      obj  <- result()$detail[[input$map_species]]; req(!is.null(obj))
+      st   <- result()$settings
+      clip <- input$map_clip %||% "eoo"
+      geom <- if (clip == "aoo" && !is.null(obj$aoo$cells))
+                suppressWarnings(sf::st_union(sf::st_geometry(obj$aoo$cells)))
+              else obj$eoo$hull
+      validate(need(!is.null(geom) && length(sf::st_geometry(geom)) > 0,
+                    "No polygon available for this clip."))
+      tmp <- file.path(tempdir(), paste0("rasters_", as.integer(Sys.time())))
+      dir.create(tmp, showWarnings = FALSE, recursive = TRUE)
+      files <- character(0)
+      withProgress(message = "Preparing rasters (reading MapBiomas)...", value = 0, {
+        if ("lulc" %in% layers) {
+          r <- tryCatch(mappingAS::mb_raster_local(geom, year = st$year,
+                          collection = st$collection), error = function(e) NULL)
+          if (!is.null(r)) {
+            f <- file.path(tmp, sprintf("mapbiomas_lulc_%s_%s.tif", clip, st$year))
+            terra::writeRaster(r, f, overwrite = TRUE, datatype = "INT1U",
+                               gdal = "COMPRESS=LZW"); files <- c(files, f)
+          }
+        }
+        incProgress(0.5)
+        if ("fire" %in% layers) {
+          fr <- tryCatch(mappingAS::fire_raster_local(geom, product = "accumulated",
+                          fire_collection = st$fire_collection %||% 4,
+                          host_collection = st$fire_host_collection %||% 9),
+                         error = function(e) NULL)
+          if (!is.null(fr)) {
+            f <- file.path(tmp, sprintf("mapbiomas_fire_accumulated_%s.tif", clip))
+            terra::writeRaster(fr, f, overwrite = TRUE, gdal = "COMPRESS=LZW")
+            files <- c(files, f)
+          }
+        }
+        incProgress(0.5)
+      })
+      validate(need(length(files) > 0,
+                    "No raster could be produced (check the network / selection)."))
+      owd <- setwd(tmp); on.exit(setwd(owd), add = TRUE)
+      if (requireNamespace("zip", quietly = TRUE))
+        zip::zipr(file, basename(files))
+      else
+        utils::zip(file, basename(files))
+    })
+  )
+
   output$map <- leaflet::renderLeaflet({
     req(result(), input$map_species)
     mappingAS::map_species(result(), species = input$map_species,
