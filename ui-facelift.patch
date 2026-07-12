@@ -1,0 +1,358 @@
+diff --git a/inst/shiny/www/styles.css b/inst/shiny/www/styles.css
+index cafd048..549433a 100644
+--- a/inst/shiny/www/styles.css
++++ b/inst/shiny/www/styles.css
+@@ -1,172 +1,231 @@
+ /* ============================================================
+-   mappingAS — tema "naturalista editorial / cartográfico"
+-   Papel + verde-floresta + âmbar, com MODO CLARO e ESCURO.
+-   Fontes: Fraunces (títulos) · Hanken Grotesk (texto) · IBM Plex Mono (números)
+-   Salve em: inst/shiny/www/styles.css
++   mappingAS - modern, clean UI (MapBiomas-inspired)
++   Light + dark mode. Sans-serif (Inter), monospace numerals.
++   inst/shiny/www/styles.css
+    ============================================================ */
+-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
++@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap');
+ 
+-/* ---------- paleta: MODO CLARO ---------- */
++/* ---------- palette: LIGHT ---------- */
+ :root{
+-  --bs-body-font-family:"Hanken Grotesk", system-ui, sans-serif;
+-  --ink:#16271d;          /* texto principal   */
+-  --muted:#7a857b;        /* texto auxiliar    */
+-  --label:#2c4034;        /* rótulos / acento  */
+-  --paper:#f6f3ec;        /* fundo da página   */
+-  --surface:#fffdf8;      /* cartões           */
+-  --surface-2:#f4f1e8;    /* sidebar / cabeçalho de tabela */
+-  --line:#e4ddce;         /* bordas            */
++  --bs-body-font-family:"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
++  --ink:#1b2b23;          /* main text        */
++  --muted:#6b776f;        /* secondary text   */
++  --label:#2f4438;        /* labels / accent  */
++  --bg:#eef1ee;           /* page background   */
++  --surface:#ffffff;      /* cards            */
++  --surface-2:#f6f8f6;    /* sidebar / thead  */
++  --line:#e3e8e3;         /* borders          */
+   --green:#1f8d49;
+-  --green-deep:#0e5c4a;   /* acento escuro (texto de aba/botão ativo) */
+-  --amber:#c8651b;
+-  --legend-bg:rgba(255,253,248,.95);
+-  --glow-green:rgba(31,141,73,.07);
+-  --glow-amber:rgba(200,101,27,.06);
++  --green-2:#157a3d;      /* hover / active    */
++  --green-deep:#0e5c3a;   /* accent text       */
++  --tintg:rgba(31,141,73,.08);
++  --shadow:0 1px 2px rgba(16,40,28,.05), 0 12px 28px -18px rgba(16,40,28,.30);
++  --legend-bg:rgba(255,255,255,.96);
++  --radius:14px;
+ }
+ 
+-/* ---------- paleta: MODO ESCURO (sobrescreve só as variáveis) ---------- */
++/* ---------- palette: DARK ---------- */
+ [data-bs-theme="dark"]{
+-  --ink:#e8efe9;
+-  --muted:#9aa79d;
+-  --label:#cfe0d5;
+-  --paper:#0f1714;        /* carvão-pinho      */
+-  --surface:#16201c;      /* cartões           */
+-  --surface-2:#1b2723;    /* sidebar / cabeçalho de tabela */
+-  --line:#2a3a33;
+-  --green-deep:#7fd2a3;   /* no escuro o acento precisa ser CLARO */
+-  --legend-bg:rgba(22,32,28,.92);
+-  --glow-green:rgba(31,141,73,.13);
+-  --glow-amber:rgba(200,101,27,.10);
++  --ink:#e7efe9;
++  --muted:#9bab9f;
++  --label:#cfe0d6;
++  --bg:#0e1512;
++  --surface:#15201b;
++  --surface-2:#1a251f;
++  --line:#28352d;
++  --green-deep:#7fd2a3;
++  --tintg:rgba(31,141,73,.16);
++  --shadow:0 1px 2px rgba(0,0,0,.3), 0 16px 36px -20px rgba(0,0,0,.7);
++  --legend-bg:rgba(21,32,27,.94);
+ }
+ 
+ /* ---------- base ---------- */
+ body{
+   font-family:var(--bs-body-font-family);
+   color:var(--ink);
+-  background-color:var(--paper);
+-  background-image:
+-    radial-gradient(1100px 480px at 100% -8%, var(--glow-green), transparent 60%),
+-    radial-gradient(900px 420px at -10% 110%, var(--glow-amber), transparent 55%);
+-  background-attachment:fixed;
+-}
+-h1,h2,h3,h4,h5,h6,.navbar-brand,.bslib-page-title,.card-header,.value-box-title{
+-  font-family:"Fraunces", Georgia, serif; letter-spacing:-.01em;
+-}
+-hr{ border-top:1px solid var(--line); opacity:1; }
+-
+-/* ---------- cabeçalho / título ---------- */
+-.navbar,header.navbar,.bslib-page-navbar>.navbar,.bslib-page-title-container{
+-  background:linear-gradient(100deg,#1b6b3a,#1f8d49 55%,#2aa55a)!important;
+-  border-bottom:3px solid var(--amber);
+-  box-shadow:0 6px 22px rgba(0,0,0,.22);
+-}
+-.navbar .navbar-brand,.navbar-brand,.bslib-page-title{
+-  color:#fff!important; font-weight:600; font-size:1.18rem;
+-}
+-
+-/* ---------- cards / painéis ---------- */
+-.card,.bslib-card{
+-  background:var(--surface); border:1px solid var(--line); border-radius:.95rem;
+-  box-shadow:0 2px 4px rgba(0,0,0,.05), 0 14px 32px -18px rgba(0,0,0,.28);
++  background-color:var(--bg);
++  -webkit-font-smoothing:antialiased;
++  text-rendering:optimizeLegibility;
++}
++h1,h2,h3,h4,h5,h6{ font-weight:700; letter-spacing:-.015em; color:var(--ink); }
++a{ color:var(--green-2); text-decoration:none; }
++a:hover{ color:var(--green-deep); text-decoration:underline; }
++hr{ border-top:1px solid var(--line); opacity:1; margin:.9rem 0; }
++code, .font-monospace, [style*="monospace"]{ font-family:"IBM Plex Mono", ui-monospace, monospace !important; }
++::selection{ background:rgba(31,141,73,.22); }
++
++/* ---------- header / title bar ---------- */
++.navbar, header.navbar, .bslib-page-navbar>.navbar,
++.bslib-page-title, .navbar.navbar-static-top{
++  background:linear-gradient(92deg,#146a37 0%,#1f8d49 60%,#27a457 100%) !important;
++  border:0 !important;
++  box-shadow:0 2px 14px rgba(16,40,28,.20);
++}
++.navbar .navbar-brand, .navbar-brand, .bslib-page-title{
++  color:#fff !important; font-weight:700; font-size:1.16rem; letter-spacing:-.01em;
++}
++
++/* ---------- cards / panels ---------- */
++.card, .bslib-card{
++  background:var(--surface);
++  border:1px solid var(--line);
++  border-radius:var(--radius);
++  box-shadow:var(--shadow);
+   overflow:hidden;
+ }
+-.card-header,.bslib-card>.card-header{
+-  background:var(--surface); border-bottom:1px solid var(--line); font-weight:600;
++.card-header, .bslib-card>.card-header{
++  background:var(--surface);
++  border-bottom:1px solid var(--line);
++  font-weight:600; color:var(--ink);
+ }
++.card-body{ color:var(--ink); }
+ 
+ /* ---------- sidebar ---------- */
+-.bslib-sidebar-layout>.sidebar,.sidebar{ background:var(--surface-2); border-right:1px solid var(--line); }
+-.sidebar .form-label,.sidebar label{ font-weight:600; color:var(--label); }
++.bslib-sidebar-layout>.sidebar, .sidebar{
++  background:var(--surface-2);
++  border-right:1px solid var(--line);
++}
++.sidebar .form-label, .sidebar label, .shiny-input-container>label{
++  font-weight:600; color:var(--label); margin-bottom:.3rem;
++}
++.sidebar .btn{ font-size:.92rem; }
+ 
+-/* ---------- abas ---------- */
+-.nav-tabs{ border-bottom:1px solid var(--line); gap:.15rem; }
++/* ---------- nav tabs (navset_card_tab) ---------- */
++.nav-tabs{ border-bottom:1px solid var(--line); gap:.1rem; padding:.15rem .25rem 0; }
+ .nav-tabs .nav-link{
+-  color:var(--muted); font-weight:600; border:0;
+-  border-radius:.55rem .55rem 0 0; padding:.55rem .95rem;
++  color:var(--muted); font-weight:600; border:0; background:transparent;
++  border-radius:9px 9px 0 0; padding:.6rem 1rem;
++  transition:background .15s ease, color .15s ease;
+ }
+-.nav-tabs .nav-link:hover{ background:var(--glow-green); color:var(--green-deep); }
++.nav-tabs .nav-link .fa, .nav-tabs .nav-link .bi{ opacity:.85; margin-right:.35rem; }
++.nav-tabs .nav-link:hover{ background:var(--tintg); color:var(--green-deep); }
+ .nav-tabs .nav-link.active{
+-  color:var(--green-deep); background:transparent; box-shadow:inset 0 -3px 0 var(--green);
++  color:var(--green-deep); background:transparent;
++  box-shadow:inset 0 -3px 0 var(--green);
+ }
+ 
+-/* ---------- botões ---------- */
++/* ---------- buttons ---------- */
+ .btn{
+-  border-radius:.6rem; font-weight:600; letter-spacing:.01em;
+-  transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
++  border-radius:10px; font-weight:600; letter-spacing:.005em; padding:.5rem .95rem;
++  transition:transform .12s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease;
+ }
+ .btn-primary{
+   --bs-btn-bg:var(--green); --bs-btn-border-color:var(--green);
+-  --bs-btn-hover-bg:#1b7d41; --bs-btn-hover-border-color:#1b7d41; --bs-btn-active-bg:#176c38;
++  --bs-btn-hover-bg:var(--green-2); --bs-btn-hover-border-color:var(--green-2);
++  --bs-btn-active-bg:var(--green-deep); --bs-btn-active-border-color:var(--green-deep);
++  color:#fff; box-shadow:0 6px 16px -8px rgba(31,141,73,.7);
++}
++.btn-primary:hover{ transform:translateY(-1px); }
++.btn-outline-primary{
++  --bs-btn-color:var(--green-2); --bs-btn-border-color:var(--green);
++  --bs-btn-hover-bg:var(--green); --bs-btn-hover-border-color:var(--green);
+ }
+-.btn:not(.btn-primary){ background:var(--surface); border:1px solid var(--line); color:var(--label); }
+-.btn:not(.btn-primary):hover{
++/* download + neutral buttons: soft surface chips */
++.btn-default, .btn-secondary, .shiny-download-link:not(.btn-primary){
++  background:var(--surface); border:1px solid var(--line); color:var(--label);
++}
++.shiny-download-link:not(.btn-primary):hover{
+   border-color:var(--green); color:var(--green-deep);
+-  transform:translateY(-1px); box-shadow:0 6px 16px -8px rgba(0,0,0,.4);
++  transform:translateY(-1px); box-shadow:0 6px 16px -10px rgba(16,40,28,.5);
+ }
++.btn:focus-visible{ outline:3px solid rgba(31,141,73,.35); outline-offset:2px; }
+ 
+ /* ---------- inputs ---------- */
+-.form-control,.form-select{ border-radius:.55rem; border-color:var(--line); }
+-.form-control:focus,.form-select:focus{
+-  border-color:var(--green); box-shadow:0 0 0 .2rem rgba(31,141,73,.22);
++.form-control, .form-select, .selectize-input{
++  border-radius:10px; border-color:var(--line);
++  background:var(--surface); color:var(--ink);
++}
++.form-control:focus, .form-select:focus, .selectize-input.focus{
++  border-color:var(--green);
++  box-shadow:0 0 0 .2rem rgba(31,141,73,.2);
+ }
++.form-check-input:checked{ background-color:var(--green); border-color:var(--green); }
++.form-range::-webkit-slider-thumb{ background:var(--green); }
+ 
+-/* ---------- value boxes (se adicionar) ---------- */
+-.bslib-value-box{ border-radius:.95rem; border:1px solid var(--line); box-shadow:0 14px 32px -20px rgba(0,0,0,.35); }
++/* ---------- accordion (glossary etc.) ---------- */
++.accordion{ --bs-accordion-border-color:var(--line); border-radius:12px; overflow:hidden; }
++.accordion-item{ background:var(--surface); border-color:var(--line); }
++.accordion-button{ background:var(--surface-2); color:var(--ink); font-weight:600; }
++.accordion-button:not(.collapsed){ background:var(--tintg); color:var(--green-deep); box-shadow:none; }
++.accordion-button:focus{ box-shadow:0 0 0 .2rem rgba(31,141,73,.18); }
++
++/* ---------- value boxes ---------- */
++.bslib-value-box{
++  border-radius:var(--radius); border:1px solid var(--line); box-shadow:var(--shadow);
++}
+ .bslib-value-box .value-box-value{ font-family:"IBM Plex Mono",monospace; font-weight:600; }
+ 
+-/* ---------- tabelas DT (não escurecem sozinhas) ---------- */
+-.dataTables_wrapper{ font-size:.92rem; color:var(--ink); }
+-table.dataTable{ color:var(--ink); background-color:transparent; }
+-table.dataTable tbody tr{ background-color:transparent; }
+-table.dataTable tbody td{ color:var(--ink); }
++/* ---------- DT tables ---------- */
++.dataTables_wrapper{ font-size:.9rem; color:var(--ink); }
++table.dataTable{ color:var(--ink); background:transparent; border-collapse:separate; }
+ table.dataTable thead th{
+-  font-family:"Hanken Grotesk",sans-serif; font-weight:700; color:var(--label);
+-  background:var(--surface-2); border-bottom:2px solid var(--line)!important;
++  font-weight:700; color:var(--label); background:var(--surface-2);
++  border-bottom:2px solid var(--line) !important;
+ }
+-table.dataTable tbody tr:hover{ background:var(--glow-green)!important; }
+-table.dataTable td,table.dataTable th{ border-color:var(--line)!important; }
++table.dataTable tbody tr{ background:transparent; }
++table.dataTable tbody td{ color:var(--ink); border-color:var(--line) !important; }
++table.dataTable.stripe tbody tr.odd{ background:rgba(31,141,73,.035); }
++table.dataTable tbody tr:hover{ background:var(--tintg) !important; }
+ .dataTables_wrapper .dataTables_info,
+ .dataTables_wrapper .dataTables_length label,
+ .dataTables_wrapper .dataTables_filter label{ color:var(--muted); }
+-.dataTables_wrapper .dataTables_filter input{ border-radius:.5rem; border:1px solid var(--line); background:var(--surface); color:var(--ink); }
+-.dataTables_wrapper .dataTables_paginate .paginate_button{ color:var(--ink)!important; }
+-.dataTables_wrapper .dataTables_paginate .paginate_button.current{
+-  background:var(--green)!important; color:#fff!important; border:0!important; border-radius:.5rem!important;
++.dataTables_wrapper .dataTables_filter input,
++.dataTables_wrapper .dataTables_length select{
++  border-radius:9px; border:1px solid var(--line); background:var(--surface); color:var(--ink);
+ }
+-
+-/* ---------- leaflet: controles e legenda (chrome acompanha o tema) ---------- */
+-.leaflet-control-layers,.leaflet-bar{
+-  background:var(--surface)!important; color:var(--ink)!important;
+-  border:1px solid var(--line)!important; border-radius:.7rem!important;
+-  box-shadow:0 6px 18px -10px rgba(0,0,0,.5)!important;
++.dataTables_wrapper .dataTables_paginate .paginate_button{ color:var(--ink) !important; border-radius:8px !important; }
++.dataTables_wrapper .dataTables_paginate .paginate_button.current,
++.dataTables_wrapper .dataTables_paginate .paginate_button.current:hover{
++  background:var(--green) !important; color:#fff !important; border:0 !important;
+ }
+-.leaflet-bar a{ background:var(--surface)!important; color:var(--ink)!important; border-bottom:1px solid var(--line)!important; }
+-.leaflet-control-layers label{ color:var(--ink); }
+-.info.legend{
+-  background:var(--legend-bg)!important; color:var(--ink)!important;
+-  border:1px solid var(--line)!important; border-radius:.7rem!important;
+-  box-shadow:0 6px 18px -10px rgba(0,0,0,.5)!important;
++.dataTables_wrapper .dataTables_paginate .paginate_button:hover{
++  background:var(--tintg) !important; color:var(--green-deep) !important; border:0 !important;
+ }
++table.dataTable caption{ color:var(--muted); font-size:.85rem; caption-side:top; }
+ 
+-/* ---------- texto auxiliar ---------- */
+-.help-block,.form-text,.shiny-input-container .help-block{ color:var(--muted); }
++/* ---------- plotly + map wrappers ---------- */
++.plotly.html-widget, .leaflet-container{ border-radius:12px; }
++.leaflet-container{ background:var(--surface-2); }
+ 
+-/* Sombras sutis para os cartões (cards) */
+-.bslib-card {
+-  border: none !important;
+-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+-  border-radius: 12px !important;
++/* ---------- leaflet chrome follows the theme ---------- */
++.leaflet-control-layers, .leaflet-bar{
++  background:var(--surface) !important; color:var(--ink) !important;
++  border:1px solid var(--line) !important; border-radius:12px !important;
++  box-shadow:0 8px 22px -12px rgba(16,40,28,.55) !important;
+ }
+-
+-/* Deixar o mapa preencher bem o espaço */
+-#map {
+-  border-radius: 0 0 12px 12px;
+-}
+-
+-/* Customizar botão principal */
+-.btn-primary {
+-  background-color: #2E7D32 !important;
+-  border-color: #1B5E20 !important;
+-  border-radius: 6px;
+-  width: 100%;
++.leaflet-bar a{
++  background:var(--surface) !important; color:var(--ink) !important;
++  border-bottom:1px solid var(--line) !important;
+ }
++.leaflet-bar a:hover{ background:var(--tintg) !important; }
++.leaflet-control-layers label{ color:var(--ink); }
++.info.legend{
++  background:var(--legend-bg) !important; color:var(--ink) !important;
++  border:1px solid var(--line) !important; border-radius:12px !important;
++  box-shadow:0 8px 22px -12px rgba(16,40,28,.55) !important;
++}
++
++/* ---------- helper text + misc ---------- */
++.help-block, .form-text, .shiny-input-container .help-block{ color:var(--muted); font-size:.85rem; }
++.shiny-notification{
++  border-radius:12px; border:1px solid var(--line);
++  background:var(--surface); color:var(--ink); box-shadow:var(--shadow);
++}
++.progress{ border-radius:8px; background:var(--surface-2); }
++.progress-bar{ background:var(--green); }
++
++/* ---------- inline stat cards adapt to the theme (light + dark) ---------- */
++/* The Results/Map/UC panels use hard-coded light backgrounds inline; remap
++   them to theme surfaces so they read correctly in both modes and pick up the
++   clean, flat look. */
++[style*="#fffdf8"], [style*="#fff3e0"], [style*="#f6f6f6"]{
++  background:var(--surface) !important;
++  border-color:var(--line) !important;
++  border-radius:12px !important;
++}
++[style*="#fffdf8"]:hover{ box-shadow:var(--shadow); }
++[style*="background:#eee"]{ background:var(--surface-2) !important; }
++
++/* subtle fade-in for tab content so switching feels smooth */
++.tab-content>.tab-pane.active{ animation:masFade .22s ease; }
++@keyframes masFade{ from{ opacity:0; transform:translateY(4px); } to{ opacity:1; transform:none; } }
