@@ -7,6 +7,14 @@
   returns HTML, plain text, or a Word `.docx` (via \pkg{officer}). A new
   **Report** tab in the Shiny app (after *Fire*) previews the text and downloads
   the `.docx`.
+* The report is now **interpretive**, not just a restatement of numbers: it
+  discusses the EOO/AOO composition divergence, the *effectiveness* of the
+  protected-area overlap (strict-protection vs sustainable-use units and the
+  concentration of occurrences in few units), and frames continuing decline
+  (subcriterion b) honestly at the level of habitat quality. New
+  `cover_series`/`fire_series` arguments add a temporal-trend analysis of
+  conversion and of the fire regime; the app passes these automatically when
+  the matching Time series / Fire series have been calculated.
 * **Interactive charts.** The conversion, protection, land-cover and fire
   time-series charts are now interactive in the Shiny app (hover tooltips,
   zoom, pan) via a new exported helper `mas_plotly()`, which wraps any
