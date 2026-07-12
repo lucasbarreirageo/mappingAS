@@ -227,16 +227,10 @@ ui <- bslib::page_sidebar(
     bslib::nav_panel(
       "Report", icon = icon("file-word"),
       selectInput("report_species", "Species", choices = NULL),
-      helpText("An interpretive, referenced assessment of this species. The EOO and AOO snapshot analysis (metrics, conversion, fire, protection) is always included. For the temporal trend of both EOO and AOO, click 'Add temporal analysis' below - it computes the land-cover (and fire) series for both extents; the .docx also embeds the support figures."),
-      fluidRow(
-        column(4, numericInput("report_step", "Series step (years)", value = 5,
-                               min = 1, max = 10, step = 1)),
-        column(8, div(class = "mt-4 d-flex gap-2",
-          actionButton("report_prep", "Add temporal analysis (EOO + AOO)",
-                       class = "btn-outline-primary", icon = icon("chart-line")),
+      helpText("An interpretive, referenced assessment of this species. The EOO/AOO snapshot (metrics, conversion, fire, protection) is always included. The temporal trend accumulates automatically: every Time series and Fire series you calculate for this species (EOO or AOO) is added to the report - no extra step here. The .docx also embeds the support figures."),
+      div(class = "mb-3",
           downloadButton("dl_report", "Download report (.docx)",
-                         class = "btn-primary")))
-      ),
+                         class = "btn-primary")),
       uiOutput("report_status"),
       bslib::card(
         class = "p-3",
@@ -828,57 +822,47 @@ server <- function(input, output, session) {
   )
 
   # --- Report tab: narrative assessment + Word download ---
-  # EOO + AOO temporal series computed on demand for the report (both extents),
-  # so the temporal analysis does not depend on visiting the other tabs.
-  report_bundle <- reactiveVal(NULL)   # list(species, cover = list(df), fire = list(df))
-  observeEvent(input$report_species, report_bundle(NULL))  # invalidate on change
+  # The report accumulates whatever temporal series the user computes in the
+  # Time series and Fire tabs: each calculated series (per species and per
+  # EOO/AOO extent) is stored and fed into the report, so the analysis "adds up"
+  # without any extra computation on this tab.
+  report_cover_store <- reactiveVal(list())
+  report_fire_store  <- reactiveVal(list())
 
-  observeEvent(input$report_prep, {
-    req(result(), input$report_species)
-    sp  <- input$report_species
-    yrs <- .year_grid(input$report_step %||% 5)
-    covers <- list(); fires <- list()
-    withProgress(message = "Computing EOO + AOO series...", value = 0, {
-      for (rg in c("eoo", "aoo")) {
-        ts <- tryCatch(mappingAS::timeseries_for_species(
-          result(), species = sp, range = rg, years = yrs, by = "group",
-          verbose = FALSE), error = function(e) NULL)
-        if (!is.null(ts)) covers[[length(covers) + 1L]] <- ts
-        incProgress(0.25)
-        if (isTRUE(input$do_fire)) {
-          ft <- tryCatch(mappingAS::fire_timeseries_for_species(
-            result(), species = sp, range = rg, years = yrs,
-            verbose = FALSE), error = function(e) NULL)
-          if (!is.null(ft)) fires[[length(fires) + 1L]] <- ft
-        }
-        incProgress(0.25)
-      }
-    })
-    report_bundle(list(species = sp, cover = covers, fire = fires))
-    showNotification("Temporal analysis added to the report.", type = "message")
-  })
+  observeEvent(ts_data(), {
+    ts <- ts_data()
+    if (is.null(ts) || !is.data.frame(ts)) return()
+    key <- paste(attr(ts, "species") %||% "", attr(ts, "range") %||% "", sep = "||")
+    st <- report_cover_store(); st[[key]] <- ts; report_cover_store(st)
+  }, ignoreInit = TRUE)
 
-  # Series to feed the report: the on-demand EOO+AOO bundle when available,
-  # otherwise whatever single series is cached for this species (fallback).
+  observeEvent(fire_ts_data(), {
+    ts <- fire_ts_data()
+    if (is.null(ts) || !is.data.frame(ts)) return()
+    key <- paste(attr(ts, "species") %||% "", attr(ts, "range") %||% "", sep = "||")
+    st <- report_fire_store(); st[[key]] <- ts; report_fire_store(st)
+  }, ignoreInit = TRUE)
+
   .report_cover <- function(sp) {
-    b <- report_bundle()
-    if (!is.null(b) && identical(b$species, sp) && length(b$cover)) return(b$cover)
-    ts <- tryCatch(ts_data(), error = function(e) NULL)
-    if (!is.null(ts) && is.data.frame(ts) && identical(attr(ts, "species"), sp)) ts else NULL
+    keep <- Filter(function(ts) identical(attr(ts, "species"), sp), report_cover_store())
+    if (length(keep)) unname(keep) else NULL
   }
   .report_fire <- function(sp) {
-    b <- report_bundle()
-    if (!is.null(b) && identical(b$species, sp) && length(b$fire)) return(b$fire)
-    ts <- tryCatch(fire_ts_data(), error = function(e) NULL)
-    if (!is.null(ts) && is.data.frame(ts) && identical(attr(ts, "species"), sp)) ts else NULL
+    keep <- Filter(function(ts) identical(attr(ts, "species"), sp), report_fire_store())
+    if (length(keep)) unname(keep) else NULL
   }
 
   output$report_status <- renderUI({
     req(input$report_species)
-    b <- report_bundle()
-    if (!is.null(b) && identical(b$species, input$report_species))
-      helpText(sprintf("Temporal analysis ready (%d cover, %d fire series). It is included in the preview and the .docx.",
-                       length(b$cover), length(b$fire)))
+    sp <- input$report_species
+    ranges <- function(x) if (is.null(x)) "none" else
+      paste(toupper(vapply(x, function(t) attr(t, "range") %||% "?", character(1))),
+            collapse = ", ")
+    cv <- .report_cover(sp); fr <- .report_fire(sp)
+    if (is.null(cv) && is.null(fr))
+      return(helpText("No temporal series loaded yet for this species. Calculate the Time series and/or Fire series (EOO and/or AOO) in their tabs to add the trend analysis to this report."))
+    helpText(sprintf("Temporal analysis loaded - cover: %s | fire: %s. Included in the preview and the .docx.",
+                     ranges(cv), ranges(fr)))
   })
 
   output$report_preview <- renderUI({

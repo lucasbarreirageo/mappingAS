@@ -15,13 +15,19 @@
   `cover_series`/`fire_series` arguments add a temporal-trend analysis of
   conversion and of the fire regime; the app passes these automatically when
   the matching Time series / Fire series have been calculated.
-* The temporal analysis now covers **both the EOO and the AOO**:
-  `cover_series`/`fire_series` accept a list of per-range series (each reported
-  separately, not summed), and the app's Report tab has an **"Add temporal
-  analysis (EOO + AOO)"** button that computes both extents on demand — no need
-  to visit the Time series / Fire tabs first. With `figures = TRUE` (used by the
-  app's `.docx` download), the report also **embeds the support figures**
-  (composition, protection, and the land-cover/fire time series) via \pkg{officer}.
+* The temporal analysis covers **both the EOO and the AOO** and is now
+  **accumulated passively**: `cover_series`/`fire_series` accept a list of
+  per-range series (each reported separately, not summed), and the app's Report
+  tab collects every Time series / Fire series you calculate for the species
+  (EOO or AOO) — no dedicated button and no extra computation on the Report tab.
+  With `figures = TRUE` (used by the app's `.docx` download), the report also
+  **embeds the support figures** (composition, protection, and the
+  land-cover/fire time series) via \pkg{officer}.
+* **Faster map overlay.** The MapBiomas layer drawn on the interactive map is
+  now read *decimated* via GDAL (`-outsize`, using the raster overviews) instead
+  of streaming the full 30 m window, which markedly speeds up the map for
+  large-range species. It falls back to the previous native read on any error,
+  and area/conversion statistics are unaffected (they still use the native read).
 * **Interactive charts.** The conversion, protection, land-cover and fire
   time-series charts are now interactive in the Shiny app (hover tooltips,
   zoom, pan) via a new exported helper `mas_plotly()`, which wraps any

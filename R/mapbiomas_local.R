@@ -110,20 +110,64 @@ mb_raster_local <- function(aoi, year = 2024, collection = 10,
 }
 
 # Downsampled, optionally reprojected raster for *display* (not area calc).
+# Tries a fast decimated read first (GDAL -outsize uses the COG overviews, so a
+# large window is not streamed at native 30 m); on any failure it falls back to
+# the native windowed read + aggregate, so behaviour is never lost.
 #' @keywords internal
 #' @noRd
 .mb_raster_display <- function(aoi, year, collection, src, max_pixels = 600,
                                crs = NULL, cache = TRUE) {
-  r <- mb_raster_local(aoi, year = year, collection = collection, src = src,
-                       mask = TRUE, cache = cache)
-  d <- max(dim(r)[1:2])
-  if (d > max_pixels) {
-    r <- terra::aggregate(r, fact = ceiling(d / max_pixels),
-                          fun = "modal", na.rm = TRUE)
+  r <- tryCatch(
+    .mb_display_read(aoi, year, collection, src, max_pixels),
+    error = function(e) NULL)
+  if (is.null(r)) {
+    r <- mb_raster_local(aoi, year = year, collection = collection, src = src,
+                         mask = TRUE, cache = cache)
+    d <- max(dim(r)[1:2])
+    if (d > max_pixels)
+      r <- terra::aggregate(r, fact = ceiling(d / max_pixels),
+                            fun = "modal", na.rm = TRUE)
   }
   if (!is.null(crs)) r <- terra::project(r, crs, method = "near")
   names(r) <- "mapbiomas_class"
   r
+}
+
+# Fast, display-only read: GDAL decimates on read via `-outsize` (using the
+# raster overviews when present), avoiding a native-resolution stream over a
+# large window. Used only for the map overlay - never for area statistics.
+#' @keywords internal
+#' @noRd
+.mb_display_read <- function(aoi, year, collection, src, max_pixels = 600) {
+  if (!requireNamespace("terra", quietly = TRUE) ||
+      !requireNamespace("sf", quietly = TRUE))
+    stop("Packages 'terra' and 'sf' are required.", call. = FALSE)
+  aoi <- sf::st_geometry(aoi)
+  if (is.na(sf::st_crs(aoi))) sf::st_crs(aoi) <- 4326
+  if (is.null(src)) src <- mb_source_url(year, collection)
+  path <- if (grepl("^https?://", src)) paste0("/vsicurl/", src) else src
+
+  old <- .mb_set_gdal()
+  on.exit(for (k in names(old)) terra::setGDALconfig(k, old[[k]]), add = TRUE)
+
+  r0    <- terra::rast(path)                       # metadata only (no pixels)
+  aoi_r <- sf::st_transform(aoi, terra::crs(r0))
+  bb    <- as.numeric(sf::st_bbox(aoi_r))          # xmin ymin xmax ymax
+  # cap the output width at the window's native width to avoid upsampling
+  win_w <- max(1L, as.integer(ceiling((bb[3] - bb[1]) / terra::xres(r0))))
+  out_w <- min(as.integer(max_pixels), win_w)
+
+  tmp <- tempfile(fileext = ".tif")
+  on.exit(unlink(tmp), add = TRUE)
+  sf::gdal_utils(
+    "translate", source = path, destination = tmp,
+    options = c("-projwin", sprintf("%.10f", bb[1]), sprintf("%.10f", bb[4]),
+                sprintf("%.10f", bb[3]), sprintf("%.10f", bb[2]),
+                "-outsize", as.character(out_w), "0", "-r", "nearest"))
+  rc <- terra::rast(tmp)
+  rc <- terra::mask(rc, terra::vect(aoi_r)) + 0L   # detach from the temp file
+  names(rc) <- "mapbiomas_class"
+  rc
 }
 
 #' Tabulate area per MapBiomas class from a cropped raster
