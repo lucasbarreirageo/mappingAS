@@ -1,0 +1,395 @@
+diff --git a/NEWS.md b/NEWS.md
+index 8c5b386..0c7ed8e 100644
+--- a/NEWS.md
++++ b/NEWS.md
+@@ -15,6 +15,13 @@
+   `cover_series`/`fire_series` arguments add a temporal-trend analysis of
+   conversion and of the fire regime; the app passes these automatically when
+   the matching Time series / Fire series have been calculated.
++* The temporal analysis now covers **both the EOO and the AOO**:
++  `cover_series`/`fire_series` accept a list of per-range series (each reported
++  separately, not summed), and the app's Report tab has an **"Add temporal
++  analysis (EOO + AOO)"** button that computes both extents on demand — no need
++  to visit the Time series / Fire tabs first. With `figures = TRUE` (used by the
++  app's `.docx` download), the report also **embeds the support figures**
++  (composition, protection, and the land-cover/fire time series) via \pkg{officer}.
+ * **Interactive charts.** The conversion, protection, land-cover and fire
+   time-series charts are now interactive in the Shiny app (hover tooltips,
+   zoom, pan) via a new exported helper `mas_plotly()`, which wraps any
+diff --git a/R/report.R b/R/report.R
+index 4765421..e82ae71 100644
+--- a/R/report.R
++++ b/R/report.R
+@@ -38,7 +38,8 @@ assessment_report <- function(assessment, species = NULL,
+                               lang = c("en", "pt"),
+                               output = c("html", "text", "docx"),
+                               file = NULL,
+-                              cover_series = NULL, fire_series = NULL) {
++                              cover_series = NULL, fire_series = NULL,
++                              figures = FALSE) {
+   lang <- match.arg(lang)
+   output <- match.arg(output)
+   stopifnot(inherits(assessment, "geoconv_assessment"))
+@@ -46,7 +47,8 @@ assessment_report <- function(assessment, species = NULL,
+     stop("The assessment has no results to report.", call. = FALSE)
+   if (is.null(species)) species <- assessment$summary$species[1]
+ 
+-  b <- .report_build(assessment, species, lang, cover_series, fire_series)
++  b <- .report_build(assessment, species, lang, cover_series, fire_series,
++                     figures = isTRUE(figures) && output == "docx")
+ 
+   switch(output,
+          html = .report_to_html(b),
+@@ -54,6 +56,15 @@ assessment_report <- function(assessment, species = NULL,
+          docx = .report_to_docx(b, file))
+ }
+ 
++# Normalise a series argument (a single data frame, or a list of them for
++# several ranges) to a plain list of data frames.
++.as_series_list <- function(x) {
++  if (is.null(x)) return(list())
++  if (is.data.frame(x)) return(list(x))
++  if (is.list(x)) return(Filter(is.data.frame, x))
++  list()
++}
++
+ # Per-year terrestrial converted % and trend summary from a cover time series.
+ .cover_trend <- function(ts) {
+   if (is.null(ts) || !is.data.frame(ts) || !nrow(ts)) return(NULL)
+@@ -97,7 +108,8 @@ assessment_report <- function(assessment, species = NULL,
+ # Assemble the report content (language-aware) as a plain list, so the HTML,
+ # text and docx renderers all draw from one source.
+ .report_build <- function(assessment, species, lang,
+-                          cover_series = NULL, fire_series = NULL) {
++                          cover_series = NULL, fire_series = NULL,
++                          figures = FALSE) {
+   L <- function(en, pt) if (lang == "en") en else pt
+   s <- assessment$summary
+   r <- s[s$species == species, , drop = FALSE]
+@@ -107,8 +119,16 @@ assessment_report <- function(assessment, species = NULL,
+   st  <- assessment$settings
+   det <- assessment$detail[[species]]
+   pa  <- if (!is.null(det)) det$pa else NULL
+-  cover_tr <- .cover_trend(cover_series)
+-  fire_tr  <- .fire_trend(fire_series)
++  # cover_series / fire_series may be a single data frame (one range) or a list
++  # of them (e.g. EOO and AOO): normalise to a list of per-range trends.
++  cover_list <- .as_series_list(cover_series)
++  fire_list  <- .as_series_list(fire_series)
++  cover_trs  <- Filter(Negate(is.null), lapply(cover_list, .cover_trend))
++  fire_trs   <- Filter(Negate(is.null), lapply(fire_list,  .fire_trend))
++  pick_eoo   <- function(trs) {
++    e <- Find(function(t) identical(tolower(t$range %||% ""), "eoo"), trs)
++    if (!is.null(e)) e else if (length(trs)) trs[[1]] else NULL
++  }
+ 
+   fmt_km  <- function(x) if (is.null(x) || is.na(x))
+     L("not available", "nao disponivel") else
+@@ -179,30 +199,33 @@ assessment_report <- function(assessment, species = NULL,
+       st$collection, st$year,
+       fmt_pct(r$eoo_converted_pct), fmt_pct(r$aoo_converted_pct),
+       fmt_pct(r$eoo_natural_pct), fmt_pct(r$aoo_natural_pct))
+-    if (!is.null(cover_tr)) {
+-      rlab <- if (is.null(cover_tr$range)) L("range", "distribuicao") else toupper(cover_tr$range)
+-      conv_p <- c(conv_p, sprintf(L(
+-        "Over %d-%d, the terrestrial converted fraction of the %s moved from %s to %s (a change of %+.1f percentage points).",
+-        "Entre %d e %d, a fracao convertida (terrestre) da %s passou de %s para %s (variacao de %+.1f pontos percentuais)."),
+-        cover_tr$y0, cover_tr$y1, rlab, fmt_pct(cover_tr$c0), fmt_pct(cover_tr$c1), cover_tr$delta))
+-      if (is.finite(cover_tr$delta) && cover_tr$delta < -1) {
++    if (length(cover_trs)) {
++      for (ct in cover_trs) {
++        rlab <- if (is.null(ct$range)) L("range", "distribuicao") else toupper(ct$range)
++        conv_p <- c(conv_p, sprintf(L(
++          "Over %d-%d, the terrestrial converted fraction of the %s moved from %s to %s (a change of %+.1f percentage points).",
++          "Entre %d e %d, a fracao convertida (terrestre) da %s passou de %s para %s (variacao de %+.1f pontos percentuais)."),
++          ct$y0, ct$y1, rlab, fmt_pct(ct$c0), fmt_pct(ct$c1), ct$delta))
++      }
++      main_ct <- pick_eoo(cover_trs)
++      if (is.finite(main_ct$delta) && main_ct$delta < -1) {
+         conv_p <- c(conv_p, L(
+           "This net reduction is consistent with the Atlantic Forest 'forest transition' (pasture abandonment and secondary-forest regrowth). Aggregate natural-cover gain can, however, mask decline in the specific, often azonal habitat on which a narrow endemic depends (for example high-altitude grassland or rocky outcrops), which secondary forest does not recreate; continuing decline should therefore be assessed at the level of habitat quality rather than gross natural area.",
+           "Essa reducao liquida e consistente com a 'transicao florestal' da Mata Atlantica (abandono de pastagens e regeneracao de floresta secundaria). O ganho agregado de vegetacao natural pode, contudo, mascarar declinio no habitat especifico, muitas vezes azonal, do qual um endemismo restrito depende (por exemplo, campos de altitude ou afloramentos rochosos), que a floresta secundaria nao recria; o declinio continuo deve, portanto, ser avaliado no nivel da qualidade do habitat, e nao da area natural bruta."))
+-      } else if (is.finite(cover_tr$delta) && cover_tr$delta > 1) {
++      } else if (is.finite(main_ct$delta) && main_ct$delta > 1) {
+         conv_p <- c(conv_p, L(
+-          "This net increase indicates ongoing habitat loss over the period, consistent with a continuing decline in the area and quality of habitat (subcriterion b).",
+-          "Esse aumento liquido indica perda continua de habitat no periodo, consistente com declinio continuo na area e qualidade do habitat (subcriterio b)."))
++          "The net increase indicates ongoing habitat loss over the period, consistent with a continuing decline in the area and quality of habitat (subcriterion b).",
++          "O aumento liquido indica perda continua de habitat no periodo, consistente com declinio continuo na area e qualidade do habitat (subcriterio b)."))
+       } else {
+         conv_p <- c(conv_p, L(
+           "The converted fraction was broadly stable over the period; any continuing decline is better evaluated at the level of specific habitat quality than of aggregate natural area.",
+           "A fracao convertida manteve-se aproximadamente estavel no periodo; eventual declinio continuo deve ser avaliado no nivel da qualidade do habitat especifico, e nao da area natural agregada."))
+       }
+-      if (!is.null(cover_tr$urban) && (cover_tr$urban$u1 - cover_tr$urban$u0) > 0.1) {
++      if (!is.null(main_ct$urban) && (main_ct$urban$u1 - main_ct$urban$u0) > 0.1) {
+         conv_p <- c(conv_p, sprintf(L(
+           "In the same window, urbanized cover rose from %s to %s of the extent - an effectively irreversible form of conversion concentrated near occupied areas.",
+           "Na mesma janela, a area urbanizada aumentou de %s para %s da distribuicao - forma de conversao praticamente irreversivel e concentrada proximo as areas ocupadas."),
+-          fmt_pct(cover_tr$urban$u0), fmt_pct(cover_tr$urban$u1)))
++          fmt_pct(main_ct$urban$u0), fmt_pct(main_ct$urban$u1)))
+       }
+     } else {
+       conv_p <- c(conv_p, L(
+@@ -220,12 +243,18 @@ assessment_report <- function(assessment, species = NULL,
+       "O MapBiomas Fogo (Colecao %s) indica que %s da EOO e %s da AOO queimaram ao menos uma vez entre 1985 e 2024."),
+       r$fire_collection %||% st$fire_collection,
+       fmt_pct(r$eoo_burned_pct), fmt_pct(r$aoo_burned_pct))
+-    if (!is.null(fire_tr)) {
+-      fire_p <- c(fire_p, sprintf(L(
+-        "Across %d annual layers (%d-%d) the burned fraction averaged %.2f%% per year, with the largest events in %s (up to %.2f%%). The regime is episodic rather than monotonic, typically clustered in severe-drought years, and it reaches the occupied core; recurrent fire on a narrow, slow-recovering habitat is a plausible driver of continuing decline in habitat quality (subcriterion b(iii)).",
+-        "Ao longo de %d camadas anuais (%d-%d) a fracao queimada teve media de %.2f%% ao ano, com os maiores eventos em %s (ate %.2f%%). O regime e episodico, e nao monotonico, tipicamente concentrado em anos de seca severa, e alcanca o nucleo ocupado; o fogo recorrente sobre habitat estreito e de recuperacao lenta e vetor plausivel de declinio continuo na qualidade do habitat (subcriterio b(iii))."),
+-        fire_tr$n, fire_tr$y0, fire_tr$y1, fire_tr$mean,
+-        paste(fire_tr$peak_years, collapse = ", "), max(fire_tr$peak_vals, na.rm = TRUE)))
++    if (length(fire_trs)) {
++      for (ft in fire_trs) {
++        rlab <- if (is.null(ft$range)) L("range", "distribuicao") else toupper(ft$range)
++        fire_p <- c(fire_p, sprintf(L(
++          "For the %s, across %d annual layers (%d-%d) the burned fraction averaged %.2f%% per year, with the largest events in %s (up to %.2f%%).",
++          "Para a %s, ao longo de %d camadas anuais (%d-%d) a fracao queimada teve media de %.2f%% ao ano, com os maiores eventos em %s (ate %.2f%%)."),
++          rlab, ft$n, ft$y0, ft$y1, ft$mean,
++          paste(ft$peak_years, collapse = ", "), max(ft$peak_vals, na.rm = TRUE)))
++      }
++      fire_p <- c(fire_p, L(
++        "The regime is episodic rather than monotonic, typically clustered in severe-drought years, and it reaches the occupied core; recurrent fire on a narrow, slow-recovering habitat is a plausible driver of continuing decline in habitat quality (subcriterion b(iii)).",
++        "O regime e episodico, e nao monotonico, tipicamente concentrado em anos de seca severa, e alcanca o nucleo ocupado; o fogo recorrente sobre habitat estreito e de recuperacao lenta e vetor plausivel de declinio continuo na qualidade do habitat (subcriterio b(iii))."))
+     } else {
+       fire_p <- c(fire_p, L(
+         "An annual fire series was not supplied; computing it would characterise the temporal regime and its recurrence.",
+@@ -334,6 +363,35 @@ assessment_report <- function(assessment, species = NULL,
+     refs <- c(refs,
+       "ICMBio - Instituto Chico Mendes de Conservacao da Biodiversidade. Federal Conservation Units geoservice, Infraestrutura Nacional de Dados Espaciais (INDE). https://www.gov.br/icmbio/pt-br/assuntos/dados_geoespaciais")
+ 
++  # --- Support figures (only for docx; static ggplots embedded via officer) ---
++  figs <- NULL
++  if (isTRUE(figures) && requireNamespace("ggplot2", quietly = TRUE)) {
++    figs <- list()
++    add_fig <- function(cap, expr) {
++      g <- tryCatch(expr, error = function(e) NULL)
++      if (inherits(g, "ggplot")) figs[[length(figs) + 1L]] <<- list(cap = cap, gg = g)
++    }
++    if (isTRUE(st$mapbiomas))
++      add_fig(L("Habitat composition of the EOO and AOO (MapBiomas).",
++                "Composicao do habitat na EOO e na AOO (MapBiomas)."),
++              plot_conversion(assessment, species = species, lang = lang))
++    if (isTRUE(st$protected) && !is.null(pa))
++      add_fig(L("Range protection by protected areas (EOO and AOO).",
++                "Protecao da distribuicao por areas protegidas (EOO e AOO)."),
++              plot_protection(assessment, species = species, lang = lang))
++    for (ts in cover_list)
++      add_fig(sprintf(L("Land-cover composition over time - %s.",
++                        "Composicao da cobertura ao longo do tempo - %s."),
++                      toupper(attr(ts, "range") %||% "")),
++              plot_timeseries(ts, lang = lang))
++    for (ts in fire_list)
++      add_fig(sprintf(L("Burned area per year - %s.",
++                        "Area queimada por ano - %s."),
++                      toupper(attr(ts, "range") %||% "")),
++              plot_fire_timeseries(ts, lang = lang))
++    if (!length(figs)) figs <- NULL
++  }
++
+   list(
+     species = species,
+     title = L("Preliminary Conservation Assessment", "Avaliacao Preliminar de Conservacao"),
+@@ -342,6 +400,8 @@ assessment_report <- function(assessment, species = NULL,
+       "Triagem pelo Criterio B da Lista Vermelha da IUCN (provisoria) - gerada em %s com o pacote R mappingAS."),
+       format(Sys.Date())),
+     refs_heading = L("References", "Referencias"),
++    figures_heading = L("Support figures", "Figuras de apoio"),
++    figures = figs,
+     references = refs,
+     sections = sections
+   )
+@@ -415,6 +475,16 @@ assessment_report <- function(assessment, species = NULL,
+     for (para in s$p)
+       doc <- officer::body_add_par(doc, strip(para), style = "Normal")
+   }
++  if (!is.null(b$figures) && length(b$figures)) {
++    doc <- officer::body_add_par(doc, b$figures_heading %||% "Figures", style = "heading 2")
++    for (f in b$figures) {
++      doc <- tryCatch({
++        d <- officer::body_add_gg(doc, value = f$gg, width = 6.3, height = 3.6,
++                                  res = 200, style = "Normal")
++        officer::body_add_par(d, strip(f$cap), style = "Normal")
++      }, error = function(e) doc)
++    }
++  }
+   doc <- officer::body_add_par(doc, b$refs_heading, style = "heading 2")
+   for (ref in b$references)
+     doc <- officer::body_add_par(doc, strip(ref), style = "Normal")
+diff --git a/inst/shiny/app.R b/inst/shiny/app.R
+index a723377..3347324 100644
+--- a/inst/shiny/app.R
++++ b/inst/shiny/app.R
+@@ -227,10 +227,17 @@ ui <- bslib::page_sidebar(
+     bslib::nav_panel(
+       "Report", icon = icon("file-word"),
+       selectInput("report_species", "Species", choices = NULL),
+-      helpText("An interpretive, referenced assessment of this species. The text follows the modules you calculated (conversion, fire, protected areas) and can be downloaded as a Word document. Tip: calculate the Time series and Fire series (for this species) first to enrich the report with the temporal trend analysis."),
+-      div(class = "mb-3",
++      helpText("An interpretive, referenced assessment of this species. The EOO and AOO snapshot analysis (metrics, conversion, fire, protection) is always included. For the temporal trend of both EOO and AOO, click 'Add temporal analysis' below - it computes the land-cover (and fire) series for both extents; the .docx also embeds the support figures."),
++      fluidRow(
++        column(4, numericInput("report_step", "Series step (years)", value = 5,
++                               min = 1, max = 10, step = 1)),
++        column(8, div(class = "mt-4 d-flex gap-2",
++          actionButton("report_prep", "Add temporal analysis (EOO + AOO)",
++                       class = "btn-outline-primary", icon = icon("chart-line")),
+           downloadButton("dl_report", "Download report (.docx)",
+-                         class = "btn-primary")),
++                         class = "btn-primary")))
++      ),
++      uiOutput("report_status"),
+       bslib::card(
+         class = "p-3",
+         uiOutput("report_preview")
+@@ -821,14 +828,58 @@ server <- function(input, output, session) {
+   )
+ 
+   # --- Report tab: narrative assessment + Word download ---
+-  # Reuse a computed time series for the interpretive trend only when it belongs
+-  # to the species being reported (and has actually been calculated).
+-  .report_series <- function(fn, sp) {
+-    ts <- tryCatch(fn(), error = function(e) NULL)
+-    if (is.null(ts) || !is.data.frame(ts) || !identical(attr(ts, "species"), sp))
+-      return(NULL)
+-    ts
++  # EOO + AOO temporal series computed on demand for the report (both extents),
++  # so the temporal analysis does not depend on visiting the other tabs.
++  report_bundle <- reactiveVal(NULL)   # list(species, cover = list(df), fire = list(df))
++  observeEvent(input$report_species, report_bundle(NULL))  # invalidate on change
++
++  observeEvent(input$report_prep, {
++    req(result(), input$report_species)
++    sp  <- input$report_species
++    yrs <- .year_grid(input$report_step %||% 5)
++    covers <- list(); fires <- list()
++    withProgress(message = "Computing EOO + AOO series...", value = 0, {
++      for (rg in c("eoo", "aoo")) {
++        ts <- tryCatch(mappingAS::timeseries_for_species(
++          result(), species = sp, range = rg, years = yrs, by = "group",
++          verbose = FALSE), error = function(e) NULL)
++        if (!is.null(ts)) covers[[length(covers) + 1L]] <- ts
++        incProgress(0.25)
++        if (isTRUE(input$do_fire)) {
++          ft <- tryCatch(mappingAS::fire_timeseries_for_species(
++            result(), species = sp, range = rg, years = yrs,
++            verbose = FALSE), error = function(e) NULL)
++          if (!is.null(ft)) fires[[length(fires) + 1L]] <- ft
++        }
++        incProgress(0.25)
++      }
++    })
++    report_bundle(list(species = sp, cover = covers, fire = fires))
++    showNotification("Temporal analysis added to the report.", type = "message")
++  })
++
++  # Series to feed the report: the on-demand EOO+AOO bundle when available,
++  # otherwise whatever single series is cached for this species (fallback).
++  .report_cover <- function(sp) {
++    b <- report_bundle()
++    if (!is.null(b) && identical(b$species, sp) && length(b$cover)) return(b$cover)
++    ts <- tryCatch(ts_data(), error = function(e) NULL)
++    if (!is.null(ts) && is.data.frame(ts) && identical(attr(ts, "species"), sp)) ts else NULL
+   }
++  .report_fire <- function(sp) {
++    b <- report_bundle()
++    if (!is.null(b) && identical(b$species, sp) && length(b$fire)) return(b$fire)
++    ts <- tryCatch(fire_ts_data(), error = function(e) NULL)
++    if (!is.null(ts) && is.data.frame(ts) && identical(attr(ts, "species"), sp)) ts else NULL
++  }
++
++  output$report_status <- renderUI({
++    req(input$report_species)
++    b <- report_bundle()
++    if (!is.null(b) && identical(b$species, input$report_species))
++      helpText(sprintf("Temporal analysis ready (%d cover, %d fire series). It is included in the preview and the .docx.",
++                       length(b$cover), length(b$fire)))
++  })
+ 
+   output$report_preview <- renderUI({
+     req(result(), input$report_species)
+@@ -836,8 +887,7 @@ server <- function(input, output, session) {
+     htmltools::HTML(
+       mappingAS::assessment_report(
+         result(), species = sp, lang = input$lang %||% "en", output = "html",
+-        cover_series = .report_series(ts_data, sp),
+-        fire_series  = .report_series(fire_ts_data, sp)))
++        cover_series = .report_cover(sp), fire_series = .report_fire(sp)))
+   })
+ 
+   output$dl_report <- downloadHandler(
+@@ -855,9 +905,8 @@ server <- function(input, output, session) {
+       sp <- input$report_species
+       mappingAS::assessment_report(
+         result(), species = sp, lang = input$lang %||% "en", output = "docx",
+-        file = file,
+-        cover_series = .report_series(ts_data, sp),
+-        fire_series  = .report_series(fire_ts_data, sp))
++        file = file, figures = TRUE,
++        cover_series = .report_cover(sp), fire_series = .report_fire(sp))
+     })
+   )
+ }
+diff --git a/man/assessment_report.Rd b/man/assessment_report.Rd
+index fb81e97..75f0dc4 100644
+--- a/man/assessment_report.Rd
++++ b/man/assessment_report.Rd
+@@ -11,7 +11,8 @@ assessment_report(
+   output = c("html", "text", "docx"),
+   file = NULL,
+   cover_series = NULL,
+-  fire_series = NULL
++  fire_series = NULL,
++  figures = FALSE
+ )
+ }
+ \arguments{
+@@ -27,13 +28,18 @@ assessment_report(
+ 
+ \item{cover_series}{Optional land-cover time series for this species (as from
+ \code{\link{timeseries_for_species}} / \code{\link{cover_timeseries}}, with
+-\code{year}, \code{pct} and \code{group} columns). When supplied, a temporal
+-trend of habitat conversion is added.}
++\code{year}, \code{pct} and \code{group} columns). May be a single data frame
++or a list of them (e.g. one for the EOO and one for the AOO), each carrying a
++\code{"range"} attribute; a temporal trend is then reported per range.}
+ 
+ \item{fire_series}{Optional burned-area time series (as from
+ \code{\link{fire_timeseries_for_species}} / \code{\link{fire_timeseries}},
+ with \code{year} and \code{burned_pct}). When supplied, the fire regime is
+ characterised over time.}
++
++\item{figures}{Logical; when \code{TRUE} and \code{output = "docx"}, embed
++support figures (composition, protection and any supplied time series) in the
++Word document via \pkg{officer}. Ignored for HTML/text output.}
+ }
+ \value{
+ For \code{"html"}/\code{"text"}, a length-one character string. For
+diff --git a/tests/testthat/test-report.R b/tests/testthat/test-report.R
+index c79c6b3..fafa951 100644
+--- a/tests/testthat/test-report.R
++++ b/tests/testthat/test-report.R
+@@ -98,6 +98,22 @@ test_that("assessment_report reports protection effectiveness from the UC list",
+   expect_match(txt, "number of locations")             # concentration interpretation
+ })
+ 
++test_that("assessment_report reports EOO and AOO trends from a list of series", {
++  a <- .mk_report_assessment(fire = FALSE, protected = FALSE)
++  mk <- function(rng, p1985, p2024) {
++    d <- data.frame(year = rep(c(1985, 2024), each = 2),
++                    group = rep(c("natural", "anthropic"), 2),
++                    pct = c(100 - p1985, p1985, 100 - p2024, p2024))
++    attr(d, "range") <- rng; d
++  }
++  covers <- list(mk("eoo", 57, 52), mk("aoo", 30, 25))
++  txt <- assessment_report(a, output = "text", cover_series = covers)
++  expect_match(txt, "EOO")
++  expect_match(txt, "AOO")
++  # both per-range trend sentences present (two distinct windows described)
++  expect_gt(lengths(regmatches(txt, gregexpr("terrestrial converted fraction", txt)))[1], 1)
++})
++
+ test_that("assessment_report includes recommendations and threat synthesis", {
+   a <- .mk_report_assessment(fire = TRUE, protected = TRUE)
+   txt <- assessment_report(a, output = "text")
