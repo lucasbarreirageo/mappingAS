@@ -1,5 +1,17 @@
 # mappingAS 1.8.0 (development)
 
+* **Results tab redesign.** Beyond the table, the Results tab now shows a
+  visual overview for the selected species — stat cards with in-cell bars for
+  EOO/AOO, provisional category badges, converted/natural, burned and
+  protected-area percentages — plus a collapsible **column glossary** explaining
+  every field (bilingual EN/PT).
+* **Export MapBiomas rasters.** The Map tab can now download the MapBiomas
+  **land-use** and/or **fire (accumulated)** GeoTIFF rasters, clipped to the
+  selected species' EOO or AOO, bundled as a `.zip`.
+* **Faster remote reads.** Tuned the GDAL `/vsicurl/` configuration (bigger
+  block cache, HTTP/2 multiplexing, larger chunked range requests, threaded
+  decompression) to speed up the MapBiomas streaming reads during assessment.
+  This only affects I/O speed — pixel values and area statistics are unchanged.
 * **Written assessment report.** New `assessment_report()` builds a narrative,
   referenced summary of a species' Criterion B screening (range metrics,
   provisional category, and — when computed — habitat conversion, fire and
