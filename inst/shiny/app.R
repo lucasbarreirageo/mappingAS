@@ -227,7 +227,7 @@ ui <- bslib::page_sidebar(
     bslib::nav_panel(
       "Report", icon = icon("file-word"),
       selectInput("report_species", "Species", choices = NULL),
-      helpText("A written, referenced summary of this species' assessment. The text follows the modules you calculated (conversion, fire, protected areas) and can be downloaded as a Word document."),
+      helpText("An interpretive, referenced assessment of this species. The text follows the modules you calculated (conversion, fire, protected areas) and can be downloaded as a Word document. Tip: calculate the Time series and Fire series (for this species) first to enrich the report with the temporal trend analysis."),
       div(class = "mb-3",
           downloadButton("dl_report", "Download report (.docx)",
                          class = "btn-primary")),
@@ -821,12 +821,23 @@ server <- function(input, output, session) {
   )
 
   # --- Report tab: narrative assessment + Word download ---
+  # Reuse a computed time series for the interpretive trend only when it belongs
+  # to the species being reported (and has actually been calculated).
+  .report_series <- function(fn, sp) {
+    ts <- tryCatch(fn(), error = function(e) NULL)
+    if (is.null(ts) || !is.data.frame(ts) || !identical(attr(ts, "species"), sp))
+      return(NULL)
+    ts
+  }
+
   output$report_preview <- renderUI({
     req(result(), input$report_species)
+    sp <- input$report_species
     htmltools::HTML(
       mappingAS::assessment_report(
-        result(), species = input$report_species,
-        lang = input$lang %||% "en", output = "html"))
+        result(), species = sp, lang = input$lang %||% "en", output = "html",
+        cover_series = .report_series(ts_data, sp),
+        fire_series  = .report_series(fire_ts_data, sp)))
   })
 
   output$dl_report <- downloadHandler(
@@ -841,9 +852,12 @@ server <- function(input, output, session) {
           type = "error", duration = NULL)
         req(FALSE)
       }
+      sp <- input$report_species
       mappingAS::assessment_report(
-        result(), species = input$report_species,
-        lang = input$lang %||% "en", output = "docx", file = file)
+        result(), species = sp, lang = input$lang %||% "en", output = "docx",
+        file = file,
+        cover_series = .report_series(ts_data, sp),
+        fire_series  = .report_series(fire_ts_data, sp))
     })
   )
 }

@@ -9,7 +9,9 @@ assessment_report(
   species = NULL,
   lang = c("en", "pt"),
   output = c("html", "text", "docx"),
-  file = NULL
+  file = NULL,
+  cover_series = NULL,
+  fire_series = NULL
 )
 }
 \arguments{
@@ -22,24 +24,38 @@ assessment_report(
 \item{output}{One of \code{"html"} (default), \code{"text"} or \code{"docx"}.}
 
 \item{file}{Target path for \code{output = "docx"} (required in that case).}
+
+\item{cover_series}{Optional land-cover time series for this species (as from
+\code{\link{timeseries_for_species}} / \code{\link{cover_timeseries}}, with
+\code{year}, \code{pct} and \code{group} columns). When supplied, a temporal
+trend of habitat conversion is added.}
+
+\item{fire_series}{Optional burned-area time series (as from
+\code{\link{fire_timeseries_for_species}} / \code{\link{fire_timeseries}},
+with \code{year} and \code{burned_pct}). When supplied, the fire regime is
+characterised over time.}
 }
 \value{
 For \code{"html"}/\code{"text"}, a length-one character string. For
 \code{"docx"}, the \code{file} path (written as a side effect), invisibly.
 }
 \description{
-Builds a written, referenced summary of a species' preliminary Criterion B
-screening from an \code{\link{assess_species}} result. The text adapts to
-what was actually computed (habitat conversion, fire and protected-area
-overlap are only described when those modules were run) and always cites the
-IUCN guidelines and the underlying data sources. It can be returned as HTML
-(for on-screen preview), as plain text, or written to a Word \code{.docx}
-file (via \pkg{officer}) - the format used by the Shiny app's Report tab.
+Builds a written, interpretive summary of a species' preliminary Criterion B
+screening from an \code{\link{assess_species}} result. Beyond restating the
+headline numbers, the text \emph{interprets} them: the EOO/AOO composition
+divergence, the effectiveness (not just the extent) of protected-area
+overlap, and an honest framing of continuing decline (subcriterion b). When
+the land-cover and/or fire time series are supplied it also analyses their
+temporal trend. Habitat conversion, fire and protected-area passages appear
+only when those modules were run. It can be returned as HTML (on-screen
+preview), plain text, or a Word \code{.docx} file (via \pkg{officer}) - the
+format used by the Shiny app's Report tab.
 }
 \examples{
 \dontrun{
 res <- assess_species(read_occurrences("occ.csv"), fire = TRUE, protected = TRUE)
 cat(assessment_report(res, output = "text"))
-assessment_report(res, output = "docx", file = "report.docx")
+ts <- timeseries_for_species(res, range = "eoo", by = "group")
+assessment_report(res, output = "docx", file = "report.docx", cover_series = ts)
 }
 }

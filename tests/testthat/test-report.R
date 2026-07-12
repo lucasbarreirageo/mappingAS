@@ -67,6 +67,44 @@ test_that("assessment_report writes a .docx when officer is available", {
   expect_gt(file.info(f)$size, 0)
 })
 
+test_that("assessment_report weaves in cover and fire trends when supplied", {
+  a <- .mk_report_assessment(fire = TRUE, protected = TRUE)
+  cover <- data.frame(
+    year  = rep(c(1985, 2024), each = 2),
+    group = rep(c("natural", "anthropic"), 2),
+    pct   = c(45, 55, 55, 45))          # converted (terrestrial) falls 55% -> 45%
+  attr(cover, "range") <- "eoo"
+  fire <- data.frame(year = 2010:2014, burned_pct = c(0.1, 2.6, 0.2, 0.3, 1.0))
+  attr(fire, "range") <- "eoo"
+  txt <- assessment_report(a, output = "text",
+                           cover_series = cover, fire_series = fire)
+  expect_match(txt, "1985-2024")                       # trend window
+  expect_match(txt, "forest transition")               # net decline interpretation
+  expect_match(txt, "2012")                             # fire peak year listed
+})
+
+test_that("assessment_report reports protection effectiveness from the UC list", {
+  a <- .mk_report_assessment(protected = TRUE)
+  a$detail <- list(`Testus specus` = list(pa = list(
+    list = data.frame(
+      pa_name     = c("Parque X", "APA Y", "RPPN Z"),
+      pa_category = c("Parque", "Area de Protecao Ambiental", "RPPN"),
+      pa_group    = c("Protecao Integral", "Uso Sustentavel", "Uso Sustentavel"),
+      n_occ       = c(8L, 1L, 0L),
+      overlap_eoo_km2 = c(50, 30, 5),
+      stringsAsFactors = FALSE))))
+  txt <- assessment_report(a, output = "text")
+  expect_match(txt, "Parque X")                        # dominant UC named
+  expect_match(txt, "number of locations")             # concentration interpretation
+})
+
+test_that("assessment_report includes recommendations and threat synthesis", {
+  a <- .mk_report_assessment(fire = TRUE, protected = TRUE)
+  txt <- assessment_report(a, output = "text")
+  expect_match(txt, "RECOMMENDATIONS FOR FORMAL ASSESSMENT")
+  expect_match(txt, "continuing decline", ignore.case = TRUE)
+})
+
 test_that("assessment_report validates its inputs", {
   a <- .mk_report_assessment()
   expect_error(assessment_report(a, output = "docx"), "file")
