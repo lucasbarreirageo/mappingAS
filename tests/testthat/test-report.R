@@ -98,6 +98,22 @@ test_that("assessment_report reports protection effectiveness from the UC list",
   expect_match(txt, "number of locations")             # concentration interpretation
 })
 
+test_that("assessment_report reports EOO and AOO trends from a list of series", {
+  a <- .mk_report_assessment(fire = FALSE, protected = FALSE)
+  mk <- function(rng, p1985, p2024) {
+    d <- data.frame(year = rep(c(1985, 2024), each = 2),
+                    group = rep(c("natural", "anthropic"), 2),
+                    pct = c(100 - p1985, p1985, 100 - p2024, p2024))
+    attr(d, "range") <- rng; d
+  }
+  covers <- list(mk("eoo", 57, 52), mk("aoo", 30, 25))
+  txt <- assessment_report(a, output = "text", cover_series = covers)
+  expect_match(txt, "EOO")
+  expect_match(txt, "AOO")
+  # both per-range trend sentences present (two distinct windows described)
+  expect_gt(lengths(regmatches(txt, gregexpr("terrestrial converted fraction", txt)))[1], 1)
+})
+
 test_that("assessment_report includes recommendations and threat synthesis", {
   a <- .mk_report_assessment(fire = TRUE, protected = TRUE)
   txt <- assessment_report(a, output = "text")

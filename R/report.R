@@ -38,7 +38,8 @@ assessment_report <- function(assessment, species = NULL,
                               lang = c("en", "pt"),
                               output = c("html", "text", "docx"),
                               file = NULL,
-                              cover_series = NULL, fire_series = NULL) {
+                              cover_series = NULL, fire_series = NULL,
+                              figures = FALSE) {
   lang <- match.arg(lang)
   output <- match.arg(output)
   stopifnot(inherits(assessment, "geoconv_assessment"))
@@ -46,12 +47,22 @@ assessment_report <- function(assessment, species = NULL,
     stop("The assessment has no results to report.", call. = FALSE)
   if (is.null(species)) species <- assessment$summary$species[1]
 
-  b <- .report_build(assessment, species, lang, cover_series, fire_series)
+  b <- .report_build(assessment, species, lang, cover_series, fire_series,
+                     figures = isTRUE(figures) && output == "docx")
 
   switch(output,
          html = .report_to_html(b),
          text = .report_to_text(b),
          docx = .report_to_docx(b, file))
+}
+
+# Normalise a series argument (a single data frame, or a list of them for
+# several ranges) to a plain list of data frames.
+.as_series_list <- function(x) {
+  if (is.null(x)) return(list())
+  if (is.data.frame(x)) return(list(x))
+  if (is.list(x)) return(Filter(is.data.frame, x))
+  list()
 }
 
 # Per-year terrestrial converted % and trend summary from a cover time series.
@@ -97,7 +108,8 @@ assessment_report <- function(assessment, species = NULL,
 # Assemble the report content (language-aware) as a plain list, so the HTML,
 # text and docx renderers all draw from one source.
 .report_build <- function(assessment, species, lang,
-                          cover_series = NULL, fire_series = NULL) {
+                          cover_series = NULL, fire_series = NULL,
+                          figures = FALSE) {
   L <- function(en, pt) if (lang == "en") en else pt
   s <- assessment$summary
   r <- s[s$species == species, , drop = FALSE]
@@ -107,8 +119,16 @@ assessment_report <- function(assessment, species = NULL,
   st  <- assessment$settings
   det <- assessment$detail[[species]]
   pa  <- if (!is.null(det)) det$pa else NULL
-  cover_tr <- .cover_trend(cover_series)
-  fire_tr  <- .fire_trend(fire_series)
+  # cover_series / fire_series may be a single data frame (one range) or a list
+  # of them (e.g. EOO and AOO): normalise to a list of per-range trends.
+  cover_list <- .as_series_list(cover_series)
+  fire_list  <- .as_series_list(fire_series)
+  cover_trs  <- Filter(Negate(is.null), lapply(cover_list, .cover_trend))
+  fire_trs   <- Filter(Negate(is.null), lapply(fire_list,  .fire_trend))
+  pick_eoo   <- function(trs) {
+    e <- Find(function(t) identical(tolower(t$range %||% ""), "eoo"), trs)
+    if (!is.null(e)) e else if (length(trs)) trs[[1]] else NULL
+  }
 
   fmt_km  <- function(x) if (is.null(x) || is.na(x))
     L("not available", "nao disponivel") else
@@ -179,30 +199,33 @@ assessment_report <- function(assessment, species = NULL,
       st$collection, st$year,
       fmt_pct(r$eoo_converted_pct), fmt_pct(r$aoo_converted_pct),
       fmt_pct(r$eoo_natural_pct), fmt_pct(r$aoo_natural_pct))
-    if (!is.null(cover_tr)) {
-      rlab <- if (is.null(cover_tr$range)) L("range", "distribuicao") else toupper(cover_tr$range)
-      conv_p <- c(conv_p, sprintf(L(
-        "Over %d-%d, the terrestrial converted fraction of the %s moved from %s to %s (a change of %+.1f percentage points).",
-        "Entre %d e %d, a fracao convertida (terrestre) da %s passou de %s para %s (variacao de %+.1f pontos percentuais)."),
-        cover_tr$y0, cover_tr$y1, rlab, fmt_pct(cover_tr$c0), fmt_pct(cover_tr$c1), cover_tr$delta))
-      if (is.finite(cover_tr$delta) && cover_tr$delta < -1) {
+    if (length(cover_trs)) {
+      for (ct in cover_trs) {
+        rlab <- if (is.null(ct$range)) L("range", "distribuicao") else toupper(ct$range)
+        conv_p <- c(conv_p, sprintf(L(
+          "Over %d-%d, the terrestrial converted fraction of the %s moved from %s to %s (a change of %+.1f percentage points).",
+          "Entre %d e %d, a fracao convertida (terrestre) da %s passou de %s para %s (variacao de %+.1f pontos percentuais)."),
+          ct$y0, ct$y1, rlab, fmt_pct(ct$c0), fmt_pct(ct$c1), ct$delta))
+      }
+      main_ct <- pick_eoo(cover_trs)
+      if (is.finite(main_ct$delta) && main_ct$delta < -1) {
         conv_p <- c(conv_p, L(
           "This net reduction is consistent with the Atlantic Forest 'forest transition' (pasture abandonment and secondary-forest regrowth). Aggregate natural-cover gain can, however, mask decline in the specific, often azonal habitat on which a narrow endemic depends (for example high-altitude grassland or rocky outcrops), which secondary forest does not recreate; continuing decline should therefore be assessed at the level of habitat quality rather than gross natural area.",
           "Essa reducao liquida e consistente com a 'transicao florestal' da Mata Atlantica (abandono de pastagens e regeneracao de floresta secundaria). O ganho agregado de vegetacao natural pode, contudo, mascarar declinio no habitat especifico, muitas vezes azonal, do qual um endemismo restrito depende (por exemplo, campos de altitude ou afloramentos rochosos), que a floresta secundaria nao recria; o declinio continuo deve, portanto, ser avaliado no nivel da qualidade do habitat, e nao da area natural bruta."))
-      } else if (is.finite(cover_tr$delta) && cover_tr$delta > 1) {
+      } else if (is.finite(main_ct$delta) && main_ct$delta > 1) {
         conv_p <- c(conv_p, L(
-          "This net increase indicates ongoing habitat loss over the period, consistent with a continuing decline in the area and quality of habitat (subcriterion b).",
-          "Esse aumento liquido indica perda continua de habitat no periodo, consistente com declinio continuo na area e qualidade do habitat (subcriterio b)."))
+          "The net increase indicates ongoing habitat loss over the period, consistent with a continuing decline in the area and quality of habitat (subcriterion b).",
+          "O aumento liquido indica perda continua de habitat no periodo, consistente com declinio continuo na area e qualidade do habitat (subcriterio b)."))
       } else {
         conv_p <- c(conv_p, L(
           "The converted fraction was broadly stable over the period; any continuing decline is better evaluated at the level of specific habitat quality than of aggregate natural area.",
           "A fracao convertida manteve-se aproximadamente estavel no periodo; eventual declinio continuo deve ser avaliado no nivel da qualidade do habitat especifico, e nao da area natural agregada."))
       }
-      if (!is.null(cover_tr$urban) && (cover_tr$urban$u1 - cover_tr$urban$u0) > 0.1) {
+      if (!is.null(main_ct$urban) && (main_ct$urban$u1 - main_ct$urban$u0) > 0.1) {
         conv_p <- c(conv_p, sprintf(L(
           "In the same window, urbanized cover rose from %s to %s of the extent - an effectively irreversible form of conversion concentrated near occupied areas.",
           "Na mesma janela, a area urbanizada aumentou de %s para %s da distribuicao - forma de conversao praticamente irreversivel e concentrada proximo as areas ocupadas."),
-          fmt_pct(cover_tr$urban$u0), fmt_pct(cover_tr$urban$u1)))
+          fmt_pct(main_ct$urban$u0), fmt_pct(main_ct$urban$u1)))
       }
     } else {
       conv_p <- c(conv_p, L(
@@ -220,12 +243,18 @@ assessment_report <- function(assessment, species = NULL,
       "O MapBiomas Fogo (Colecao %s) indica que %s da EOO e %s da AOO queimaram ao menos uma vez entre 1985 e 2024."),
       r$fire_collection %||% st$fire_collection,
       fmt_pct(r$eoo_burned_pct), fmt_pct(r$aoo_burned_pct))
-    if (!is.null(fire_tr)) {
-      fire_p <- c(fire_p, sprintf(L(
-        "Across %d annual layers (%d-%d) the burned fraction averaged %.2f%% per year, with the largest events in %s (up to %.2f%%). The regime is episodic rather than monotonic, typically clustered in severe-drought years, and it reaches the occupied core; recurrent fire on a narrow, slow-recovering habitat is a plausible driver of continuing decline in habitat quality (subcriterion b(iii)).",
-        "Ao longo de %d camadas anuais (%d-%d) a fracao queimada teve media de %.2f%% ao ano, com os maiores eventos em %s (ate %.2f%%). O regime e episodico, e nao monotonico, tipicamente concentrado em anos de seca severa, e alcanca o nucleo ocupado; o fogo recorrente sobre habitat estreito e de recuperacao lenta e vetor plausivel de declinio continuo na qualidade do habitat (subcriterio b(iii))."),
-        fire_tr$n, fire_tr$y0, fire_tr$y1, fire_tr$mean,
-        paste(fire_tr$peak_years, collapse = ", "), max(fire_tr$peak_vals, na.rm = TRUE)))
+    if (length(fire_trs)) {
+      for (ft in fire_trs) {
+        rlab <- if (is.null(ft$range)) L("range", "distribuicao") else toupper(ft$range)
+        fire_p <- c(fire_p, sprintf(L(
+          "For the %s, across %d annual layers (%d-%d) the burned fraction averaged %.2f%% per year, with the largest events in %s (up to %.2f%%).",
+          "Para a %s, ao longo de %d camadas anuais (%d-%d) a fracao queimada teve media de %.2f%% ao ano, com os maiores eventos em %s (ate %.2f%%)."),
+          rlab, ft$n, ft$y0, ft$y1, ft$mean,
+          paste(ft$peak_years, collapse = ", "), max(ft$peak_vals, na.rm = TRUE)))
+      }
+      fire_p <- c(fire_p, L(
+        "The regime is episodic rather than monotonic, typically clustered in severe-drought years, and it reaches the occupied core; recurrent fire on a narrow, slow-recovering habitat is a plausible driver of continuing decline in habitat quality (subcriterion b(iii)).",
+        "O regime e episodico, e nao monotonico, tipicamente concentrado em anos de seca severa, e alcanca o nucleo ocupado; o fogo recorrente sobre habitat estreito e de recuperacao lenta e vetor plausivel de declinio continuo na qualidade do habitat (subcriterio b(iii))."))
     } else {
       fire_p <- c(fire_p, L(
         "An annual fire series was not supplied; computing it would characterise the temporal regime and its recurrence.",
@@ -319,9 +348,7 @@ assessment_report <- function(assessment, species = NULL,
   # --- References ---
   refs <- c(
     "IUCN Standards and Petitions Committee (2024). Guidelines for Using the IUCN Red List Categories and Criteria, Version 16. Prepared by the Standards and Petitions Committee. https://www.iucnredlist.org/documents/RedListGuidelines.pdf",
-    "IUCN (2012). IUCN Red List Categories and Criteria: Version 3.1, Second edition. IUCN, Gland, Switzerland and Cambridge, UK.",
-    "Bachman, S., Moat, J., Hill, A.W., de la Torre, J. & Scott, B. (2011). Supporting Red List threat assessments with GeoCAT: geospatial conservation assessment tool. ZooKeys 150: 117-126. doi:10.3897/zookeys.150.2109",
-    "Dauby, G. et al. (2017). ConR: An R package to assist large-scale multispecies preliminary conservation assessments using distribution data. Ecology and Evolution 7(24): 11292-11303. doi:10.1002/ece3.3704"
+    "IUCN (2012). IUCN Red List Categories and Criteria: Version 3.1, Second edition. IUCN, Gland, Switzerland and Cambridge, UK."
   )
   if (isTRUE(st$mapbiomas))
     refs <- c(refs,
@@ -334,6 +361,35 @@ assessment_report <- function(assessment, species = NULL,
     refs <- c(refs,
       "ICMBio - Instituto Chico Mendes de Conservacao da Biodiversidade. Federal Conservation Units geoservice, Infraestrutura Nacional de Dados Espaciais (INDE). https://www.gov.br/icmbio/pt-br/assuntos/dados_geoespaciais")
 
+  # --- Support figures (only for docx; static ggplots embedded via officer) ---
+  figs <- NULL
+  if (isTRUE(figures) && requireNamespace("ggplot2", quietly = TRUE)) {
+    figs <- list()
+    add_fig <- function(cap, expr) {
+      g <- tryCatch(expr, error = function(e) NULL)
+      if (inherits(g, "ggplot")) figs[[length(figs) + 1L]] <<- list(cap = cap, gg = g)
+    }
+    if (isTRUE(st$mapbiomas))
+      add_fig(L("Habitat composition of the EOO and AOO (MapBiomas).",
+                "Composicao do habitat na EOO e na AOO (MapBiomas)."),
+              plot_conversion(assessment, species = species, lang = lang))
+    if (isTRUE(st$protected) && !is.null(pa))
+      add_fig(L("Range protection by protected areas (EOO and AOO).",
+                "Protecao da distribuicao por areas protegidas (EOO e AOO)."),
+              plot_protection(assessment, species = species, lang = lang))
+    for (ts in cover_list)
+      add_fig(sprintf(L("Land-cover composition over time - %s.",
+                        "Composicao da cobertura ao longo do tempo - %s."),
+                      toupper(attr(ts, "range") %||% "")),
+              plot_timeseries(ts, lang = lang))
+    for (ts in fire_list)
+      add_fig(sprintf(L("Burned area per year - %s.",
+                        "Area queimada por ano - %s."),
+                      toupper(attr(ts, "range") %||% "")),
+              plot_fire_timeseries(ts, lang = lang))
+    if (!length(figs)) figs <- NULL
+  }
+
   list(
     species = species,
     title = L("Preliminary Conservation Assessment", "Avaliacao Preliminar de Conservacao"),
@@ -342,6 +398,8 @@ assessment_report <- function(assessment, species = NULL,
       "Triagem pelo Criterio B da Lista Vermelha da IUCN (provisoria) - gerada em %s com o pacote R mappingAS."),
       format(Sys.Date())),
     refs_heading = L("References", "Referencias"),
+    figures_heading = L("Support figures", "Figuras de apoio"),
+    figures = figs,
     references = refs,
     sections = sections
   )
@@ -414,6 +472,16 @@ assessment_report <- function(assessment, species = NULL,
     doc <- officer::body_add_par(doc, s$h, style = "heading 2")
     for (para in s$p)
       doc <- officer::body_add_par(doc, strip(para), style = "Normal")
+  }
+  if (!is.null(b$figures) && length(b$figures)) {
+    doc <- officer::body_add_par(doc, b$figures_heading %||% "Figures", style = "heading 2")
+    for (f in b$figures) {
+      doc <- tryCatch({
+        d <- officer::body_add_gg(doc, value = f$gg, width = 6.3, height = 3.6,
+                                  res = 200, style = "Normal")
+        officer::body_add_par(d, strip(f$cap), style = "Normal")
+      }, error = function(e) doc)
+    }
   }
   doc <- officer::body_add_par(doc, b$refs_heading, style = "heading 2")
   for (ref in b$references)

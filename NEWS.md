@@ -15,6 +15,13 @@
   `cover_series`/`fire_series` arguments add a temporal-trend analysis of
   conversion and of the fire regime; the app passes these automatically when
   the matching Time series / Fire series have been calculated.
+* The temporal analysis now covers **both the EOO and the AOO**:
+  `cover_series`/`fire_series` accept a list of per-range series (each reported
+  separately, not summed), and the app's Report tab has an **"Add temporal
+  analysis (EOO + AOO)"** button that computes both extents on demand — no need
+  to visit the Time series / Fire tabs first. With `figures = TRUE` (used by the
+  app's `.docx` download), the report also **embeds the support figures**
+  (composition, protection, and the land-cover/fire time series) via \pkg{officer}.
 * **Interactive charts.** The conversion, protection, land-cover and fire
   time-series charts are now interactive in the Shiny app (hover tooltips,
   zoom, pan) via a new exported helper `mas_plotly()`, which wraps any

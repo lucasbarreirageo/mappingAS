@@ -227,10 +227,17 @@ ui <- bslib::page_sidebar(
     bslib::nav_panel(
       "Report", icon = icon("file-word"),
       selectInput("report_species", "Species", choices = NULL),
-      helpText("An interpretive, referenced assessment of this species. The text follows the modules you calculated (conversion, fire, protected areas) and can be downloaded as a Word document. Tip: calculate the Time series and Fire series (for this species) first to enrich the report with the temporal trend analysis."),
-      div(class = "mb-3",
+      helpText("An interpretive, referenced assessment of this species. The EOO and AOO snapshot analysis (metrics, conversion, fire, protection) is always included. For the temporal trend of both EOO and AOO, click 'Add temporal analysis' below - it computes the land-cover (and fire) series for both extents; the .docx also embeds the support figures."),
+      fluidRow(
+        column(4, numericInput("report_step", "Series step (years)", value = 5,
+                               min = 1, max = 10, step = 1)),
+        column(8, div(class = "mt-4 d-flex gap-2",
+          actionButton("report_prep", "Add temporal analysis (EOO + AOO)",
+                       class = "btn-outline-primary", icon = icon("chart-line")),
           downloadButton("dl_report", "Download report (.docx)",
-                         class = "btn-primary")),
+                         class = "btn-primary")))
+      ),
+      uiOutput("report_status"),
       bslib::card(
         class = "p-3",
         uiOutput("report_preview")
@@ -821,14 +828,58 @@ server <- function(input, output, session) {
   )
 
   # --- Report tab: narrative assessment + Word download ---
-  # Reuse a computed time series for the interpretive trend only when it belongs
-  # to the species being reported (and has actually been calculated).
-  .report_series <- function(fn, sp) {
-    ts <- tryCatch(fn(), error = function(e) NULL)
-    if (is.null(ts) || !is.data.frame(ts) || !identical(attr(ts, "species"), sp))
-      return(NULL)
-    ts
+  # EOO + AOO temporal series computed on demand for the report (both extents),
+  # so the temporal analysis does not depend on visiting the other tabs.
+  report_bundle <- reactiveVal(NULL)   # list(species, cover = list(df), fire = list(df))
+  observeEvent(input$report_species, report_bundle(NULL))  # invalidate on change
+
+  observeEvent(input$report_prep, {
+    req(result(), input$report_species)
+    sp  <- input$report_species
+    yrs <- .year_grid(input$report_step %||% 5)
+    covers <- list(); fires <- list()
+    withProgress(message = "Computing EOO + AOO series...", value = 0, {
+      for (rg in c("eoo", "aoo")) {
+        ts <- tryCatch(mappingAS::timeseries_for_species(
+          result(), species = sp, range = rg, years = yrs, by = "group",
+          verbose = FALSE), error = function(e) NULL)
+        if (!is.null(ts)) covers[[length(covers) + 1L]] <- ts
+        incProgress(0.25)
+        if (isTRUE(input$do_fire)) {
+          ft <- tryCatch(mappingAS::fire_timeseries_for_species(
+            result(), species = sp, range = rg, years = yrs,
+            verbose = FALSE), error = function(e) NULL)
+          if (!is.null(ft)) fires[[length(fires) + 1L]] <- ft
+        }
+        incProgress(0.25)
+      }
+    })
+    report_bundle(list(species = sp, cover = covers, fire = fires))
+    showNotification("Temporal analysis added to the report.", type = "message")
+  })
+
+  # Series to feed the report: the on-demand EOO+AOO bundle when available,
+  # otherwise whatever single series is cached for this species (fallback).
+  .report_cover <- function(sp) {
+    b <- report_bundle()
+    if (!is.null(b) && identical(b$species, sp) && length(b$cover)) return(b$cover)
+    ts <- tryCatch(ts_data(), error = function(e) NULL)
+    if (!is.null(ts) && is.data.frame(ts) && identical(attr(ts, "species"), sp)) ts else NULL
   }
+  .report_fire <- function(sp) {
+    b <- report_bundle()
+    if (!is.null(b) && identical(b$species, sp) && length(b$fire)) return(b$fire)
+    ts <- tryCatch(fire_ts_data(), error = function(e) NULL)
+    if (!is.null(ts) && is.data.frame(ts) && identical(attr(ts, "species"), sp)) ts else NULL
+  }
+
+  output$report_status <- renderUI({
+    req(input$report_species)
+    b <- report_bundle()
+    if (!is.null(b) && identical(b$species, input$report_species))
+      helpText(sprintf("Temporal analysis ready (%d cover, %d fire series). It is included in the preview and the .docx.",
+                       length(b$cover), length(b$fire)))
+  })
 
   output$report_preview <- renderUI({
     req(result(), input$report_species)
@@ -836,8 +887,7 @@ server <- function(input, output, session) {
     htmltools::HTML(
       mappingAS::assessment_report(
         result(), species = sp, lang = input$lang %||% "en", output = "html",
-        cover_series = .report_series(ts_data, sp),
-        fire_series  = .report_series(fire_ts_data, sp)))
+        cover_series = .report_cover(sp), fire_series = .report_fire(sp)))
   })
 
   output$dl_report <- downloadHandler(
@@ -855,9 +905,8 @@ server <- function(input, output, session) {
       sp <- input$report_species
       mappingAS::assessment_report(
         result(), species = sp, lang = input$lang %||% "en", output = "docx",
-        file = file,
-        cover_series = .report_series(ts_data, sp),
-        fire_series  = .report_series(fire_ts_data, sp))
+        file = file, figures = TRUE,
+        cover_series = .report_cover(sp), fire_series = .report_fire(sp))
     })
   )
 }
