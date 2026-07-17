@@ -142,6 +142,24 @@ code, .font-monospace, [style*="monospace"]{ font-family:"IBM Plex Mono", ui-mon
 .form-check-input:checked{ background-color:var(--green); border-color:var(--green); }
 .form-range::-webkit-slider-thumb{ background:var(--green); }
 
+/* ---------- file input (Browse... + filename) ---------- */
+/* join the button and the filename field into one aligned control */
+.shiny-input-container .input-group{ flex-wrap:nowrap; align-items:stretch; }
+.input-group .btn-file, .input-group .input-group-btn>.btn{
+  display:inline-flex; align-items:center; margin:0;
+  border:1px solid var(--line); border-right:0;
+  border-radius:10px 0 0 10px;
+  background:var(--surface-2); color:var(--label); font-weight:600;
+  padding:.5rem .95rem;
+}
+.input-group .btn-file:hover, .input-group .input-group-btn>.btn:hover{
+  background:var(--tintg); color:var(--green-deep); transform:none;
+}
+.input-group>.form-control{
+  display:flex; align-items:center; border-left:0;
+  border-radius:0 10px 10px 0;
+}
+
 /* ---------- accordion (glossary etc.) ---------- */
 .accordion{ --bs-accordion-border-color:var(--line); border-radius:12px; overflow:hidden; }
 .accordion-item{ background:var(--surface); border-color:var(--line); }
