@@ -143,21 +143,43 @@ code, .font-monospace, [style*="monospace"]{ font-family:"IBM Plex Mono", ui-mon
 .form-range::-webkit-slider-thumb{ background:var(--green); }
 
 /* ---------- file input (Browse... + filename) ---------- */
-/* join the button and the filename field into one aligned control */
-.shiny-input-container .input-group{ flex-wrap:nowrap; align-items:stretch; }
-.input-group .btn-file, .input-group .input-group-btn>.btn{
-  display:inline-flex; align-items:center; margin:0;
-  border:1px solid var(--line); border-right:0;
-  border-radius:10px 0 0 10px;
-  background:var(--surface-2); color:var(--label); font-weight:600;
-  padding:.5rem .95rem;
+
+.shiny-input-container .input-group{
+    display:flex;
+    flex-wrap:nowrap;
+    align-items:stretch;
 }
-.input-group .btn-file:hover, .input-group .input-group-btn>.btn:hover{
-  background:var(--tintg); color:var(--green-deep); transform:none;
+
+.shiny-input-container .input-group-btn{
+    display:flex;
 }
-.input-group>.form-control{
-  display:flex; align-items:center; border-left:0;
-  border-radius:0 10px 10px 0;
+
+.shiny-input-container .input-group-btn > .btn{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    height:38px;
+    padding:0 14px;
+
+    border:1px solid var(--line);
+    border-right:0;
+
+    border-radius:10px 0 0 10px;
+
+    background:var(--surface-2);
+    color:var(--label);
+    font-weight:600;
+}
+
+.shiny-input-container .input-group > .form-control{
+    height:38px;
+
+    display:flex;
+    align-items:center;
+
+    border-left:0;
+    border-radius:0 10px 10px 0;
 }
 
 /* ---------- accordion (glossary etc.) ---------- */
