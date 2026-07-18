@@ -10,3 +10,5 @@
 ^release_notes\.md$
 ^\.lintr$
 ^\.gitattributes$
+^\.zenodo\.json$
+^CITATION\.cff$

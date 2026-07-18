@@ -1,0 +1,39 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "mappingAS: Spatial Range Metrics, MapBiomas Habitat Conversion and Fire, and Protected-Area Overlap for IUCN Criterion B Screening"
+abstract: >-
+  An R package, with an accompanying Shiny application, for preliminary
+  species extinction-risk screening under Criterion B of the IUCN Red List.
+  From occurrence points it computes the Extent of Occurrence (EOO) and Area
+  of Occupancy (AOO) on an equal-area projection, quantifies MapBiomas
+  habitat conversion and fire within the range, and measures the overlap with
+  Brazilian federal Conservation Units. Outputs include interactive and
+  publication-ready maps and charts, spatial and raster exports, and a written
+  assessment report.
+type: software
+authors:
+  - given-names: "Antônio Lucas"
+    family-names: "Barreira"
+    email: barreira_rodrigues@hotmail.com
+version: "1.8.0"
+date-released: "2026-07-18"
+license: MIT
+repository-code: "https://github.com/lucasbarreirageo/mappingAS"
+url: "https://github.com/lucasbarreirageo/mappingAS"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.20570406"
+    description: "Concept DOI for all versions (Zenodo)."
+keywords:
+  - "IUCN Red List"
+  - "Criterion B"
+  - "Extent of Occurrence"
+  - "Area of Occupancy"
+  - "extinction risk"
+  - "MapBiomas"
+  - "land use and land cover"
+  - "fire"
+  - "protected areas"
+  - "Brazil"
+  - "R"
+  - "Shiny"
