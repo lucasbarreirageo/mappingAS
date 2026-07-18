@@ -235,4 +235,4 @@ When using this package, please also cite the underlying data and methods:
 ---
 
 ## Licence
-MIT © Antônio Lucas Barreira Rodrigues. See the [`LICENSE`](LICENSE) file.
+MIT © Antônio Lucas Barreira. See the [`LICENSE`](LICENSE) file.

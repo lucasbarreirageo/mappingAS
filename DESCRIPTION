@@ -1,11 +1,11 @@
 Package: mappingAS
 Type: Package
 Title: Spatial Metrics and Habitat Conversion for Extinction Risk Assessment
-Version: 1.7.0
+Version: 1.8.0
 Authors@R:
-    person("Antônio Lucas Barreira Rodrigues", email = "barreira_rodrigues@hotmail.com", role = c("aut", "cre"))
-Author: Antônio Lucas Barreira Rodrigues [aut, cre]
-Maintainer: Antônio Lucas Barreira Rodrigues <barreira_rodrigues@hotmail.com>
+    person("Antônio Lucas Barreira", email = "barreira_rodrigues@hotmail.com", role = c("aut", "cre"))
+Author: Antônio Lucas Barreira [aut, cre]
+Maintainer: Antônio Lucas Barreira <barreira_rodrigues@hotmail.com>
 Description: A spatial analytical framework for preliminary species
     extinction-risk screening following the IUCN Red List Criterion B
     guidelines. From occurrence points it computes the Extent of Occurrence

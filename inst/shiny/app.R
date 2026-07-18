@@ -130,7 +130,7 @@ ui <- bslib::page_sidebar(
                        choices = c("EOO" = "eoo", "AOO" = "aoo"),
                        selected = "eoo", inline = TRUE),
           hr(),
-          radioButtons("static_layer", "Publishable map layer (PNG)",
+          radioButtons("static_layer", "Downloaded map layer (PNG & HTML)",
                        choices = c("Land use"  = "lulc",
                                    "Fire"      = "fire",
                                    "Both"      = "both"),
@@ -920,9 +920,10 @@ server <- function(input, output, session) {
     filename = function() paste0("mappingAS_map_", input$map_species, "_", Sys.Date(), ".html"),
     content = .safe_download(function(file) {
       req(result(), input$map_species)
+      lyr <- input$static_layer %||% "lulc"
       m <- mappingAS::map_species(result(), species = input$map_species,
-                           mapbiomas = isTRUE(input$do_mb),
-                           fire = isTRUE(input$do_fire),
+                           mapbiomas = lyr %in% c("lulc", "both"),
+                           fire      = lyr %in% c("fire", "both"),
                            lang = input$lang %||% "en",
                            clip = input$map_clip %||% "eoo",
                            protected = isTRUE(input$do_pa))

@@ -1,4 +1,4 @@
-# mappingAS 1.8.0 (development)
+# mappingAS 1.8.0
 
 * **Results tab redesign.** Beyond the table, the Results tab now shows a
   visual overview for the selected species — stat cards with in-cell bars for
