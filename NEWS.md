@@ -1,5 +1,12 @@
 # mappingAS 1.8.0
 
+* **MapBiomas composition donut charts.** The Conversion tab now shows, below
+  the natural/altered bar, twin donut (ring) charts of the MapBiomas
+  composition inside the EOO and AOO - switchable between the full per-class
+  breakdown (`By class`) and the conservation-group summary (`By group`) - in
+  the official MapBiomas colours. New exported `plot_conversion_donut()`
+  function; both the interactive (plotly) view and the `Save donut` button
+  export a transparent-background PNG.
 * **Results tab redesign.** Beyond the table, the Results tab now shows a
   visual overview for the selected species — stat cards with in-cell bars for
   EOO/AOO, provisional category badges, converted/natural, burned and

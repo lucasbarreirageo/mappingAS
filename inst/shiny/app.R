@@ -169,7 +169,21 @@ ui <- bslib::page_sidebar(
       selectInput("chart_species", "Species", choices = NULL),
       downloadButton("dl_chart_png", "Save image (PNG)", class = "mb-2"),
       div(style = "height:460px; min-height:460px;",
-          plotly::plotlyOutput("chart", height = "100%"))
+          plotly::plotlyOutput("chart", height = "100%")),
+      tags$hr(),
+      h5("MapBiomas composition (donut)"),
+      helpText("Share of each MapBiomas class (or conservation group) inside the",
+               "EOO and AOO, in the official MapBiomas colours."),
+      fluidRow(
+        column(6, radioButtons(
+          "donut_by", "Breakdown",
+          choices = c("By class" = "class", "By group" = "group"),
+          selected = "class", inline = TRUE)),
+        column(6, div(class = "text-md-end pt-4",
+          downloadButton("dl_donut_png", "Save donut (transparent PNG)")))
+      ),
+      div(style = "height:470px; min-height:470px;",
+          plotly::plotlyOutput("donut", height = "100%"))
     ),
     bslib::nav_panel(
       "Classes", icon = icon("list"),
@@ -717,6 +731,32 @@ server <- function(input, output, session) {
       mappingAS::plot_conversion(result(), species = input$chart_species,
                                  lang = input$lang %||% "en"))
   })
+
+  output$donut <- plotly::renderPlotly({
+    req(result(), input$chart_species)
+    p <- tryCatch(
+      mappingAS::plot_conversion_donut(
+        result(), species = input$chart_species,
+        by = input$donut_by %||% "class", lang = input$lang %||% "en"),
+      error = function(e) e)
+    validate(need(!inherits(p, "error"),
+                  "No class data available. Enable 'Calculate MapBiomas conversion' and reassess."))
+    mappingAS::mas_plotly(p)
+  })
+
+  output$dl_donut_png <- downloadHandler(
+    filename = function() paste0("mappingAS_donut_", input$donut_by %||% "class",
+                                 "_", input$chart_species, "_", Sys.Date(), ".png"),
+    content = .safe_download(function(file) {
+      req(result(), input$chart_species)
+      p <- mappingAS::plot_conversion_donut(
+        result(), species = input$chart_species,
+        by = input$donut_by %||% "class", lang = input$lang %||% "en")
+      req(inherits(p, "ggplot"))
+      ggplot2::ggsave(file, plot = p, width = 10, height = 5.5, dpi = 200,
+                      bg = "transparent")
+    })
+  )
 
   output$dl_csv <- downloadHandler(
     filename = function() paste0("mappingAS_results_", Sys.Date(), ".csv"),
