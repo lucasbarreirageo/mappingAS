@@ -144,6 +144,54 @@
   .mas_finish(p, m$title, NULL)
 }
 
+# Native plotly twin donut charts (EOO + AOO) for MapBiomas composition (used by
+# plot_conversion_donut). One `add_pie` trace per range placed in its own domain,
+# with outside labels + leader lines, MapBiomas slice colours and a fully
+# transparent background so the PNG export has no backdrop.
+.mas_plotly_donut <- function(m) {
+  df <- m$df
+  ranges  <- levels(df$range)
+  domains <- list(c(0, 0.48), c(0.52, 1))
+  p <- plotly::plot_ly()
+  anns <- list()
+  for (i in seq_along(ranges)) {
+    rg  <- ranges[i]
+    sub <- df[as.character(df$range) == rg, , drop = FALSE]
+    sub <- sub[is.finite(sub$pct) & sub$pct > 0, , drop = FALSE]
+    if (!nrow(sub)) next
+    dom <- domains[[i]]
+    p <- plotly::add_pie(
+      p, data = sub, labels = ~label, values = ~pct,
+      name = rg, sort = FALSE, direction = "clockwise", hole = 0.55,
+      domain = list(x = dom, y = c(0.03, 0.80)),
+      marker = list(colors = sub$hex, line = list(color = "white", width = 1.5)),
+      textposition = "outside", textinfo = "label+percent",
+      insidetextorientation = "radial",
+      hovertemplate = "<b>%{label}</b><br>%{percent}<extra></extra>")
+    anns[[length(anns) + 1L]] <- list(
+      text = paste0("<b>", rg, "</b>"), showarrow = FALSE,
+      x = mean(dom), y = 0.5, xref = "paper", yref = "paper",
+      font = list(size = 15, color = "#233d2c"))
+  }
+  p <- plotly::layout(
+    p,
+    title = list(text = paste0("<b>", m$title %||% "", "</b>"),
+                 x = 0.02, xanchor = "left", y = 0.99, yanchor = "top",
+                 font = list(size = 15)),
+    showlegend = FALSE, annotations = anns,
+    margin = list(t = 96, r = 70, l = 70, b = 40),
+    paper_bgcolor = "rgba(0,0,0,0)", plot_bgcolor = "rgba(0,0,0,0)",
+    hoverlabel = list(bgcolor = "#233d2c", bordercolor = "#233d2c",
+                      font = list(color = "white", size = 13)))
+  plotly::config(
+    p, displaylogo = FALSE, responsive = TRUE,
+    toImageButtonOptions = list(format = "png", filename = "mappingAS_donut",
+                                scale = 2),
+    modeBarButtonsToRemove = c("select2d", "lasso2d", "autoScale2d",
+                               "hoverClosestCartesian", "hoverCompareCartesian",
+                               "toggleSpikelines"))
+}
+
 #' Turn a mappingAS chart into an interactive plotly widget
 #'
 #' Converts a \pkg{ggplot2} object produced by the mappingAS \code{plot_*}
@@ -180,9 +228,10 @@ mas_plotly <- function(p, tooltip = c("fill", "x", "y"), ...) {
   meta <- attr(p, "mas")
   if (!is.null(meta) && !is.null(meta$kind)) {
     out <- switch(meta$kind,
-                  bar  = .mas_plotly_bar(meta),
-                  area = .mas_plotly_area(meta),
-                  fire = .mas_plotly_fire(meta),
+                  bar   = .mas_plotly_bar(meta),
+                  area  = .mas_plotly_area(meta),
+                  fire  = .mas_plotly_fire(meta),
+                  donut = .mas_plotly_donut(meta),
                   NULL)
     if (!is.null(out)) return(out)
   }
