@@ -1,0 +1,568 @@
+diff --git a/.Rbuildignore b/.Rbuildignore
+index cdaa42a..d4cceb0 100644
+--- a/.Rbuildignore
++++ b/.Rbuildignore
+@@ -10,3 +10,5 @@
+ ^release_notes\.md$
+ ^\.lintr$
+ ^\.gitattributes$
++^\.zenodo\.json$
++^CITATION\.cff$
+diff --git a/.zenodo.json b/.zenodo.json
+new file mode 100644
+index 0000000..bf651d2
+--- /dev/null
++++ b/.zenodo.json
+@@ -0,0 +1,37 @@
++{
++  "title": "mappingAS: Spatial Range Metrics, MapBiomas Habitat Conversion and Fire, and Protected-Area Overlap for IUCN Criterion B Screening",
++  "upload_type": "software",
++  "access_right": "open",
++  "license": "MIT",
++  "version": "1.8.0",
++  "language": "eng",
++  "creators": [
++    { "name": "Barreira, Antonio Lucas" }
++  ],
++  "keywords": [
++    "IUCN Red List",
++    "Criterion B",
++    "Extent of Occurrence",
++    "Area of Occupancy",
++    "extinction risk",
++    "preliminary conservation assessment",
++    "MapBiomas",
++    "land use and land cover",
++    "habitat conversion",
++    "fire",
++    "protected areas",
++    "Conservation Units",
++    "Brazil",
++    "R",
++    "Shiny",
++    "spatial ecology"
++  ],
++  "related_identifiers": [
++    {
++      "identifier": "https://github.com/lucasbarreirageo/mappingAS",
++      "relation": "isSupplementTo",
++      "scheme": "url"
++    }
++  ],
++  "description": "<p><strong>mappingAS</strong> (<em>Mapping Area of Species</em>) is an R package, with an accompanying Shiny application, for preliminary species extinction-risk screening under Criterion B of the IUCN Red List. Starting from a set of occurrence points, it estimates each species' geographic range and quantifies the pressures acting on it using Brazil's national datasets, in a workflow familiar to users of GeoCAT.</p><p>For every species it computes:</p><ul><li><strong>Range metrics</strong> - the Extent of Occurrence (EOO, minimum convex polygon) and the Area of Occupancy (AOO, 2 km grid) on a data-centred equal-area projection, with provisional Criterion B size categories (screening only).</li><li><strong>Habitat conversion</strong> - the percentage of converted (anthropic) versus remaining natural land cover within the EOO and AOO from MapBiomas, with a full per-class breakdown and land-cover time series (1985-2024).</li><li><strong>Fire</strong> - the share of the range burned at least once and burned-area time series, from MapBiomas Fire.</li><li><strong>Protected-area overlap</strong> - the overlap of occurrences, EOO and AOO with Brazilian federal Conservation Units (ICMBio / INDE), including the habitat that is both natural and protected.</li></ul><p>MapBiomas data are read locally over the network via GDAL '/vsicurl/' (no Google Earth Engine account required) or server-side through Google Earth Engine for large-scale assessments. Outputs include interactive Leaflet maps, publication-ready static maps, interactive charts, spatial (shapefile / GeoPackage) and raster (GeoTIFF) exports, and a written, referenced assessment report (HTML, plain text or Word). The bundled Shiny application ties the whole workflow together, with no code required.</p><p><strong>Note.</strong> The categories produced are provisional and intended for screening only; they do not replace a formal IUCN Red List assessment, which also requires the sub-conditions of fragmentation or few locations, continuing decline and extreme fluctuation.</p><p>Source code and documentation: <a href=\"https://github.com/lucasbarreirageo/mappingAS\">https://github.com/lucasbarreirageo/mappingAS</a></p>"
++}
+diff --git a/CITATION.cff b/CITATION.cff
+new file mode 100644
+index 0000000..10dca94
+--- /dev/null
++++ b/CITATION.cff
+@@ -0,0 +1,39 @@
++cff-version: 1.2.0
++message: "If you use this software, please cite it as below."
++title: "mappingAS: Spatial Range Metrics, MapBiomas Habitat Conversion and Fire, and Protected-Area Overlap for IUCN Criterion B Screening"
++abstract: >-
++  An R package, with an accompanying Shiny application, for preliminary
++  species extinction-risk screening under Criterion B of the IUCN Red List.
++  From occurrence points it computes the Extent of Occurrence (EOO) and Area
++  of Occupancy (AOO) on an equal-area projection, quantifies MapBiomas
++  habitat conversion and fire within the range, and measures the overlap with
++  Brazilian federal Conservation Units. Outputs include interactive and
++  publication-ready maps and charts, spatial and raster exports, and a written
++  assessment report.
++type: software
++authors:
++  - given-names: "Antônio Lucas"
++    family-names: "Barreira"
++    email: barreira_rodrigues@hotmail.com
++version: "1.8.0"
++date-released: "2026-07-18"
++license: MIT
++repository-code: "https://github.com/lucasbarreirageo/mappingAS"
++url: "https://github.com/lucasbarreirageo/mappingAS"
++identifiers:
++  - type: doi
++    value: "10.5281/zenodo.20570406"
++    description: "Concept DOI for all versions (Zenodo)."
++keywords:
++  - "IUCN Red List"
++  - "Criterion B"
++  - "Extent of Occurrence"
++  - "Area of Occupancy"
++  - "extinction risk"
++  - "MapBiomas"
++  - "land use and land cover"
++  - "fire"
++  - "protected areas"
++  - "Brazil"
++  - "R"
++  - "Shiny"
+diff --git a/DESCRIPTION b/DESCRIPTION
+index 4bb0a90..b301d62 100644
+--- a/DESCRIPTION
++++ b/DESCRIPTION
+@@ -1,11 +1,11 @@
+ Package: mappingAS
+ Type: Package
+ Title: Spatial Metrics and Habitat Conversion for Extinction Risk Assessment
+-Version: 1.7.0
++Version: 1.8.0
+ Authors@R:
+-    person("Antônio Lucas Barreira Rodrigues", email = "barreira_rodrigues@hotmail.com", role = c("aut", "cre"))
+-Author: Antônio Lucas Barreira Rodrigues [aut, cre]
+-Maintainer: Antônio Lucas Barreira Rodrigues <barreira_rodrigues@hotmail.com>
++    person("Antônio Lucas Barreira", email = "barreira_rodrigues@hotmail.com", role = c("aut", "cre"))
++Author: Antônio Lucas Barreira [aut, cre]
++Maintainer: Antônio Lucas Barreira <barreira_rodrigues@hotmail.com>
+ Description: A spatial analytical framework for preliminary species
+     extinction-risk screening following the IUCN Red List Criterion B
+     guidelines. From occurrence points it computes the Extent of Occurrence
+diff --git a/NAMESPACE b/NAMESPACE
+index 6f89a3a..21dc5fc 100644
+--- a/NAMESPACE
++++ b/NAMESPACE
+@@ -30,6 +30,7 @@ export(mb_source_url)
+ export(mb_years)
+ export(pa_table)
+ export(plot_conversion)
++export(plot_conversion_donut)
+ export(plot_fire_timeseries)
+ export(plot_protection)
+ export(plot_timeseries)
+diff --git a/NEWS.md b/NEWS.md
+index 4af16da..9e764e8 100644
+--- a/NEWS.md
++++ b/NEWS.md
+@@ -1,5 +1,12 @@
+-# mappingAS 1.8.0 (development)
+-
++# mappingAS 1.8.0
++
++* **MapBiomas composition donut charts.** The Conversion tab now shows, below
++  the natural/altered bar, twin donut (ring) charts of the MapBiomas
++  composition inside the EOO and AOO — switchable between the full per-class
++  breakdown (`By class`) and the conservation-group summary (`By group`) — in
++  the official MapBiomas colours. New exported `plot_conversion_donut()`
++  function; both the interactive (plotly) view and the `Save donut` button
++  export a transparent-background PNG.
+ * **Results tab redesign.** Beyond the table, the Results tab now shows a
+   visual overview for the selected species — stat cards with in-cell bars for
+   EOO/AOO, provisional category badges, converted/natural, burned and
+diff --git a/R/donut.R b/R/donut.R
+new file mode 100644
+index 0000000..073c50d
+--- /dev/null
++++ b/R/donut.R
+@@ -0,0 +1,139 @@
++#' Tidy MapBiomas composition for donut charts
++#'
++#' Builds the per-range composition used by \code{\link{plot_conversion_donut}},
++#' either by individual MapBiomas class or by conservation group, with the
++#' official MapBiomas colour attached to every slice.
++#'
++#' @param assessment A \code{geoconv_assessment} from \code{\link{assess_species}}.
++#' @param species Optional species name. \code{NULL} uses the first species.
++#' @param by \code{"class"} (default, one slice per MapBiomas class) or
++#'   \code{"group"} (Natural / Altered / Water / Other).
++#' @param lang \code{"en"} (default) or \code{"pt"}.
++#' @return A \code{data.frame} with columns \code{range} (factor
++#'   \code{"EOO"}/\code{"AOO"}), \code{label} (factor, ordered by descending
++#'   total percentage), \code{pct} and \code{hex}. Empty if no class data.
++#' @keywords internal
++#' @noRd
++.donut_data <- function(assessment, species = NULL,
++                        by = c("class", "group"), lang = c("en", "pt")) {
++  by   <- match.arg(by)
++  lang <- match.arg(lang)
++  if (is.null(species)) species <- names(assessment$detail)[1]
++
++  ct <- tryCatch(
++    class_table(assessment, species = species, range = "both"),
++    error = function(e) data.frame())
++  if (!nrow(ct)) return(data.frame())
++
++  leg <- mb_legend()
++  ct$hex <- leg$hex[match(ct$code, leg$code)]
++  ct$hex[is.na(ct$hex)] <- "#bdbdbd"
++
++  if (by == "group") {
++    gl <- .mb_group_labels(lang)
++    ct$label <- gl$labels[ct$group]
++    ct$label[is.na(ct$label)] <- gl$labels[["other"]]
++    ct$hex   <- unname(gl$hex[ct$group])
++    ct$hex[is.na(ct$hex)] <- gl$hex[["other"]]
++    agg <- stats::aggregate(pct ~ range + label + hex, data = ct, FUN = sum)
++  } else {
++    ct$label <- if (lang == "en") ct$class_en else ct$class_pt
++    agg <- ct[, c("range", "label", "pct", "hex"), drop = FALSE]
++  }
++
++  # keep one colour per label (first wins) and order labels by total share
++  pal <- tapply(agg$hex, agg$label, function(v) v[1])
++  tot <- tapply(agg$pct, agg$label, function(v) sum(v, na.rm = TRUE))
++  ord <- names(sort(tot, decreasing = TRUE))
++
++  agg$range <- factor(agg$range, levels = c("EOO", "AOO"))
++  agg$label <- factor(agg$label, levels = ord)
++  agg$hex   <- unname(pal[as.character(agg$label)])
++  agg <- agg[order(agg$range, agg$label), , drop = FALSE]
++  rownames(agg) <- NULL
++  agg
++}
++
++#' MapBiomas composition donut charts (EOO and AOO)
++#'
++#' Two side-by-side donut (ring) charts summarising the MapBiomas composition of
++#' the Extent of Occurrence (EOO) and Area of Occupancy (AOO) of a species, in
++#' the official MapBiomas colours. Slices can be individual land-cover classes
++#' (\code{by = "class"}) or the four conservation groups
++#' (\code{by = "group"}). Designed to be exported as a transparent-background
++#' PNG (all panel/plot/legend backgrounds are transparent), and the interactive
++#' \pkg{plotly} version (via \code{\link{mas_plotly}}) adds outside labels with
++#' leader lines and a transparent export.
++#'
++#' @param assessment A \code{geoconv_assessment} from \code{\link{assess_species}}
++#'   (run with \code{mapbiomas = TRUE}).
++#' @param species Optional species name. \code{NULL} (default) uses the first
++#'   assessed species.
++#' @param by \code{"class"} (default) for one ring slice per MapBiomas class, or
++#'   \code{"group"} for the Natural / Altered / Water / Other summary.
++#' @param lang \code{"en"} (default) or \code{"pt"} for slice labels.
++#' @return A \pkg{ggplot} object (with mappingAS metadata attached in attribute
++#'   \code{"mas"} so \code{\link{mas_plotly}} can build the interactive donut).
++#'   Stops with an informative message if no class data are available.
++#' @examples
++#' \dontrun{
++#' res <- assess_species(read_occurrences("occ.csv"))
++#' plot_conversion_donut(res, by = "class")
++#' mas_plotly(plot_conversion_donut(res, by = "group"))
++#' }
++#' @export
++plot_conversion_donut <- function(assessment, species = NULL,
++                                  by = c("class", "group"),
++                                  lang = c("en", "pt")) {
++  by   <- match.arg(by)
++  lang <- match.arg(lang)
++  stopifnot(inherits(assessment, "geoconv_assessment"))
++  if (is.null(species)) species <- names(assessment$detail)[1]
++
++  df <- .donut_data(assessment, species = species, by = by, lang = lang)
++  if (!nrow(df)) {
++    stop("No MapBiomas class data available (run assess_species(mapbiomas = TRUE)).",
++         call. = FALSE)
++  }
++
++  ttl <- if (lang == "en")
++    sprintf("%s - MapBiomas composition by %s",
++            species, if (by == "group") "group" else "class")
++  else
++    sprintf("%s - composicao MapBiomas por %s",
++            species, if (by == "group") "grupo" else "classe")
++
++  pal <- tapply(df$hex, df$label, function(v) v[1])
++  pal <- stats::setNames(as.character(pal), names(pal))
++
++  # --- ggplot2 donut (transparent, for PNG export) ---
++  df$lab <- ifelse(is.finite(df$pct) & df$pct >= 3,
++                   sprintf("%.0f%%", df$pct), "")
++  p <- ggplot2::ggplot(
++    df, ggplot2::aes(x = 2, y = .data[["pct"]], fill = .data[["label"]])) +
++    ggplot2::geom_col(width = 1, colour = "white", linewidth = 0.4) +
++    ggplot2::coord_polar(theta = "y") +
++    ggplot2::xlim(c(0.4, 2.5)) +
++    ggplot2::facet_wrap(~ range) +
++    ggplot2::geom_text(
++      ggplot2::aes(label = .data[["lab"]]),
++      position = ggplot2::position_stack(vjust = 0.5),
++      size = 3, colour = "#1a1a1a") +
++    ggplot2::scale_fill_manual(values = pal, name = NULL) +
++    ggplot2::labs(title = ttl) +
++    ggplot2::theme_void(base_size = 12) +
++    ggplot2::theme(
++      plot.title      = ggplot2::element_text(face = "bold", size = 14),
++      strip.text      = ggplot2::element_text(face = "bold", size = 12),
++      legend.position = "right",
++      legend.text     = ggplot2::element_text(size = 9),
++      plot.background   = ggplot2::element_rect(fill = "transparent", colour = NA),
++      panel.background  = ggplot2::element_rect(fill = "transparent", colour = NA),
++      legend.background = ggplot2::element_rect(fill = "transparent", colour = NA),
++      legend.key        = ggplot2::element_rect(fill = "transparent", colour = NA))
++
++  attr(p, "mas") <- list(kind = "donut",
++                         df = df[, c("range", "label", "pct", "hex")],
++                         title = ttl)
++  p
++}
+diff --git a/R/interactive.R b/R/interactive.R
+index c4c212e..b5424ea 100644
+--- a/R/interactive.R
++++ b/R/interactive.R
+@@ -144,6 +144,53 @@
+   .mas_finish(p, m$title, NULL)
+ }
+ 
++# Native plotly twin donut charts (EOO + AOO) for MapBiomas composition (used by
++# plot_conversion_donut). One `add_pie` trace per range placed in its own domain,
++# with outside labels + leader lines, MapBiomas slice colours and a fully
++# transparent background so the PNG export has no backdrop.
++.mas_plotly_donut <- function(m) {
++  df <- m$df
++  ranges  <- levels(df$range)
++  domains <- list(c(0, 0.48), c(0.52, 1))
++  p <- plotly::plot_ly()
++  anns <- list()
++  for (i in seq_along(ranges)) {
++    rg  <- ranges[i]
++    sub <- df[as.character(df$range) == rg, , drop = FALSE]
++    sub <- sub[is.finite(sub$pct) & sub$pct > 0, , drop = FALSE]
++    if (!nrow(sub)) next
++    dom <- domains[[i]]
++    p <- plotly::add_pie(
++      p, data = sub, labels = ~label, values = ~pct,
++      name = rg, sort = FALSE, direction = "clockwise", hole = 0.55,
++      domain = list(x = dom, y = c(0.06, 0.94)),
++      marker = list(colors = sub$hex, line = list(color = "white", width = 1.5)),
++      textposition = "outside", textinfo = "label+percent",
++      insidetextorientation = "radial",
++      hovertemplate = "<b>%{label}</b><br>%{percent}<extra></extra>")
++    anns[[length(anns) + 1L]] <- list(
++      text = paste0("<b>", rg, "</b>"), showarrow = FALSE,
++      x = mean(dom), y = 0.5, xref = "paper", yref = "paper",
++      font = list(size = 15, color = "#233d2c"))
++  }
++  p <- plotly::layout(
++    p,
++    title = list(text = paste0("<b>", m$title %||% "", "</b>"),
++                 x = 0.02, xanchor = "left", font = list(size = 15)),
++    showlegend = FALSE, annotations = anns,
++    margin = list(t = 70, r = 40, l = 40, b = 30),
++    paper_bgcolor = "rgba(0,0,0,0)", plot_bgcolor = "rgba(0,0,0,0)",
++    hoverlabel = list(bgcolor = "#233d2c", bordercolor = "#233d2c",
++                      font = list(color = "white", size = 13)))
++  plotly::config(
++    p, displaylogo = FALSE, responsive = TRUE,
++    toImageButtonOptions = list(format = "png", filename = "mappingAS_donut",
++                                scale = 2),
++    modeBarButtonsToRemove = c("select2d", "lasso2d", "autoScale2d",
++                               "hoverClosestCartesian", "hoverCompareCartesian",
++                               "toggleSpikelines"))
++}
++
+ #' Turn a mappingAS chart into an interactive plotly widget
+ #'
+ #' Converts a \pkg{ggplot2} object produced by the mappingAS \code{plot_*}
+@@ -180,9 +227,10 @@ mas_plotly <- function(p, tooltip = c("fill", "x", "y"), ...) {
+   meta <- attr(p, "mas")
+   if (!is.null(meta) && !is.null(meta$kind)) {
+     out <- switch(meta$kind,
+-                  bar  = .mas_plotly_bar(meta),
+-                  area = .mas_plotly_area(meta),
+-                  fire = .mas_plotly_fire(meta),
++                  bar   = .mas_plotly_bar(meta),
++                  area  = .mas_plotly_area(meta),
++                  fire  = .mas_plotly_fire(meta),
++                  donut = .mas_plotly_donut(meta),
+                   NULL)
+     if (!is.null(out)) return(out)
+   }
+diff --git a/README.md b/README.md
+index f801222..6364588 100644
+--- a/README.md
++++ b/README.md
+@@ -235,4 +235,4 @@ When using this package, please also cite the underlying data and methods:
+ ---
+ 
+ ## Licence
+-MIT © Antônio Lucas Barreira Rodrigues. See the [`LICENSE`](LICENSE) file.
++MIT © Antônio Lucas Barreira. See the [`LICENSE`](LICENSE) file.
+diff --git a/inst/shiny/app.R b/inst/shiny/app.R
+index cff61b3..17157ca 100644
+--- a/inst/shiny/app.R
++++ b/inst/shiny/app.R
+@@ -130,7 +130,7 @@ ui <- bslib::page_sidebar(
+                        choices = c("EOO" = "eoo", "AOO" = "aoo"),
+                        selected = "eoo", inline = TRUE),
+           hr(),
+-          radioButtons("static_layer", "Publishable map layer (PNG)",
++          radioButtons("static_layer", "Downloaded map layer (PNG & HTML)",
+                        choices = c("Land use"  = "lulc",
+                                    "Fire"      = "fire",
+                                    "Both"      = "both"),
+@@ -169,7 +169,21 @@ ui <- bslib::page_sidebar(
+       selectInput("chart_species", "Species", choices = NULL),
+       downloadButton("dl_chart_png", "Save image (PNG)", class = "mb-2"),
+       div(style = "height:460px; min-height:460px;",
+-          plotly::plotlyOutput("chart", height = "100%"))
++          plotly::plotlyOutput("chart", height = "100%")),
++      tags$hr(),
++      h5("MapBiomas composition (donut)"),
++      helpText("Share of each MapBiomas class (or conservation group) inside the",
++               "EOO and AOO, in the official MapBiomas colours."),
++      fluidRow(
++        column(6, radioButtons(
++          "donut_by", "Breakdown",
++          choices = c("By class" = "class", "By group" = "group"),
++          selected = "class", inline = TRUE)),
++        column(6, div(class = "text-md-end pt-4",
++          downloadButton("dl_donut_png", "Save donut (transparent PNG)")))
++      ),
++      div(style = "height:470px; min-height:470px;",
++          plotly::plotlyOutput("donut", height = "100%"))
+     ),
+     bslib::nav_panel(
+       "Classes", icon = icon("list"),
+@@ -718,6 +732,32 @@ server <- function(input, output, session) {
+                                  lang = input$lang %||% "en"))
+   })
+ 
++  output$donut <- plotly::renderPlotly({
++    req(result(), input$chart_species)
++    p <- tryCatch(
++      mappingAS::plot_conversion_donut(
++        result(), species = input$chart_species,
++        by = input$donut_by %||% "class", lang = input$lang %||% "en"),
++      error = function(e) e)
++    validate(need(!inherits(p, "error"),
++                  "No class data available. Enable 'Calculate MapBiomas conversion' and reassess."))
++    mappingAS::mas_plotly(p)
++  })
++
++  output$dl_donut_png <- downloadHandler(
++    filename = function() paste0("mappingAS_donut_", input$donut_by %||% "class",
++                                 "_", input$chart_species, "_", Sys.Date(), ".png"),
++    content = .safe_download(function(file) {
++      req(result(), input$chart_species)
++      p <- mappingAS::plot_conversion_donut(
++        result(), species = input$chart_species,
++        by = input$donut_by %||% "class", lang = input$lang %||% "en")
++      req(inherits(p, "ggplot"))
++      ggplot2::ggsave(file, plot = p, width = 10, height = 5.5, dpi = 200,
++                      bg = "transparent")
++    })
++  )
++
+   output$dl_csv <- downloadHandler(
+     filename = function() paste0("mappingAS_results_", Sys.Date(), ".csv"),
+     content = .safe_download(function(file) {
+@@ -920,9 +960,10 @@ server <- function(input, output, session) {
+     filename = function() paste0("mappingAS_map_", input$map_species, "_", Sys.Date(), ".html"),
+     content = .safe_download(function(file) {
+       req(result(), input$map_species)
++      lyr <- input$static_layer %||% "lulc"
+       m <- mappingAS::map_species(result(), species = input$map_species,
+-                           mapbiomas = isTRUE(input$do_mb),
+-                           fire = isTRUE(input$do_fire),
++                           mapbiomas = lyr %in% c("lulc", "both"),
++                           fire      = lyr %in% c("fire", "both"),
+                            lang = input$lang %||% "en",
+                            clip = input$map_clip %||% "eoo",
+                            protected = isTRUE(input$do_pa))
+diff --git a/inst/shiny/www/styles.css b/inst/shiny/www/styles.css
+index ddc502f..d6c508c 100644
+--- a/inst/shiny/www/styles.css
++++ b/inst/shiny/www/styles.css
+@@ -143,21 +143,37 @@ code, .font-monospace, [style*="monospace"]{ font-family:"IBM Plex Mono", ui-mon
+ .form-range::-webkit-slider-thumb{ background:var(--green); }
+ 
+ /* ---------- file input (Browse... + filename) ---------- */
+-/* join the button and the filename field into one aligned control */
+-.shiny-input-container .input-group{ flex-wrap:nowrap; align-items:stretch; }
+-.input-group .btn-file, .input-group .input-group-btn>.btn{
+-  display:inline-flex; align-items:center; margin:0;
+-  border:1px solid var(--line); border-right:0;
+-  border-radius:10px 0 0 10px;
++/* Version-agnostic: force equal height + vertical alignment and join the two
++   parts into one control, whatever DOM shiny/bootstrap emits. */
++.shiny-input-container .input-group{
++  display:flex !important; flex-wrap:nowrap; align-items:stretch;
++}
++.shiny-input-container .input-group > *{ margin:0 !important; }
++/* every control in the group: one row, same height, centred text */
++.shiny-input-container .input-group .btn,
++.shiny-input-container .input-group .btn-file,
++.shiny-input-container .input-group .input-group-text,
++.shiny-input-container .input-group .input-group-btn,
++.shiny-input-container .input-group > .form-control{
++  display:flex !important; align-items:center;
++  min-height:42px; margin:0 !important;
++}
++/* the Browse control (left) */
++.shiny-input-container .input-group .btn,
++.shiny-input-container .input-group .btn-file,
++.shiny-input-container .input-group .input-group-text{
+   background:var(--surface-2); color:var(--label); font-weight:600;
+-  padding:.5rem .95rem;
++  border:1px solid var(--line); border-right:0 !important;
++  border-radius:10px 0 0 10px !important;
+ }
+-.input-group .btn-file:hover, .input-group .input-group-btn>.btn:hover{
++.shiny-input-container .input-group .input-group-btn{ padding:0 !important; border:0 !important; }
++.shiny-input-container .input-group .btn-file:hover,
++.shiny-input-container .input-group .btn:hover{
+   background:var(--tintg); color:var(--green-deep); transform:none;
+ }
+-.input-group>.form-control{
+-  display:flex; align-items:center; border-left:0;
+-  border-radius:0 10px 10px 0;
++/* the filename field (right) */
++.shiny-input-container .input-group > .form-control{
++  border-left:0 !important; border-radius:0 10px 10px 0 !important;
+ }
+ 
+ /* ---------- accordion (glossary etc.) ---------- */
+diff --git a/man/plot_conversion_donut.Rd b/man/plot_conversion_donut.Rd
+new file mode 100644
+index 0000000..0afcc3d
+--- /dev/null
++++ b/man/plot_conversion_donut.Rd
+@@ -0,0 +1,51 @@
++% Generated by roxygen2: do not edit by hand
++% Please edit documentation in R/donut.R
++\name{plot_conversion_donut}
++\alias{plot_conversion_donut}
++\title{MapBiomas composition donut charts (EOO and AOO)}
++\usage{
++plot_conversion_donut(
++  assessment,
++  species = NULL,
++  by = c("class", "group"),
++  lang = c("en", "pt")
++)
++}
++\arguments{
++\item{assessment}{A \code{geoconv_assessment} from \code{\link{assess_species}}
++(run with \code{mapbiomas = TRUE}).}
++
++\item{species}{Optional species name. \code{NULL} (default) uses the first
++assessed species.}
++
++\item{by}{\code{"class"} (default) for one ring slice per MapBiomas class, or
++\code{"group"} for the Natural / Altered / Water / Other summary.}
++
++\item{lang}{\code{"en"} (default) or \code{"pt"} for slice labels.}
++}
++\value{
++A \pkg{ggplot} object (with mappingAS metadata attached in attribute
++\code{"mas"} so \code{\link{mas_plotly}} can build the interactive donut).
++Stops with an informative message if no class data are available.
++}
++\description{
++Two side-by-side donut (ring) charts summarising the MapBiomas composition of
++the Extent of Occurrence (EOO) and Area of Occupancy (AOO) of a species, in
++the official MapBiomas colours. Slices can be individual land-cover classes
++(\code{by = "class"}) or the four conservation groups
++(\code{by = "group"}). Designed to be exported as a transparent-background
++PNG (all panel/plot/legend backgrounds are transparent), and the interactive
++\pkg{plotly} version (via \code{\link{mas_plotly}}) adds outside labels with
++leader lines and a transparent export.
++}
++\examples{
++\dontrun{
++res <- assess_species(read_occurrences("occ.csv"))
++plot_conversion_donut(res, by = "class")
++mas_plotly(plot_conversion_donut(res, by = "group"))
++}
++}
++\seealso{
++\code{\link{mas_plotly}} for the interactive version;
++\code{\link{plot_conversion}} for the stacked-bar summary.
++}
