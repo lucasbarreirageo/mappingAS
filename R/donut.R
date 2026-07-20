@@ -39,6 +39,15 @@
   } else {
     ct$label <- if (lang == "en") ct$class_en else ct$class_pt
     agg <- ct[, c("range", "label", "pct", "hex"), drop = FALSE]
+    # lump tiny classes (<1% within a range) into a single grey "Other"
+    # slice so the ring stays readable; exact per-class values remain in
+    # the Classes tab.
+    small <- is.finite(agg$pct) & agg$pct < 1
+    if (any(small)) {
+      agg$label[small] <- if (lang == "en") "Other (<1%)" else "Outros (<1%)"
+      agg$hex[small]   <- "#9e9e9e"
+      agg <- stats::aggregate(pct ~ range + label + hex, data = agg, FUN = sum)
+    }
   }
 
   # keep one colour per label (first wins) and order labels by total share

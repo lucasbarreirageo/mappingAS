@@ -163,23 +163,23 @@
     p <- plotly::add_pie(
       p, data = sub, labels = ~label, values = ~pct,
       name = rg, sort = FALSE, direction = "clockwise", hole = 0.55,
-      domain = list(x = dom, y = c(0.03, 0.80)),
+      domain = list(x = dom, y = c(0.02, 0.72)),
       marker = list(colors = sub$hex, line = list(color = "white", width = 1.5)),
       textposition = "outside", textinfo = "label+percent",
       insidetextorientation = "radial",
       hovertemplate = "<b>%{label}</b><br>%{percent}<extra></extra>")
     anns[[length(anns) + 1L]] <- list(
       text = paste0("<b>", rg, "</b>"), showarrow = FALSE,
-      x = mean(dom), y = 0.5, xref = "paper", yref = "paper",
+      x = mean(dom), y = 0.37, xref = "paper", yref = "paper",
       font = list(size = 15, color = "#233d2c"))
   }
   p <- plotly::layout(
     p,
     title = list(text = paste0("<b>", m$title %||% "", "</b>"),
-                 x = 0.02, xanchor = "left", y = 0.99, yanchor = "top",
+                 x = 0.5, xanchor = "center", y = 0.99, yanchor = "top",
                  font = list(size = 15)),
     showlegend = FALSE, annotations = anns,
-    margin = list(t = 96, r = 70, l = 70, b = 40),
+    margin = list(t = 110, r = 75, l = 75, b = 30),
     paper_bgcolor = "rgba(0,0,0,0)", plot_bgcolor = "rgba(0,0,0,0)",
     hoverlabel = list(bgcolor = "#233d2c", bordercolor = "#233d2c",
                       font = list(color = "white", size = 13)))
