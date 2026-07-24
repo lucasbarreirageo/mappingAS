@@ -56,9 +56,9 @@ MapBiomas Fire (accumulated layer, read locally). Default \code{FALSE}.}
 \code{4}) and the initiative folder hosting it (default \code{9}).}
 
 \item{protected}{Logical; if \code{TRUE}, also compute the overlap of the
-range with protected areas: the share of occurrences inside them and the
-\\% of the EOO/AOO within them. Default \code{FALSE}. Requires internet
-unless \code{pa_src} is given.}
+range with federal Conservation Units (UCs) from the ICMBio WFS: the share
+of occurrences inside UCs and the \\% of the EOO/AOO within UCs. Default
+\code{FALSE}. Requires internet unless \code{pa_src} is given.}
 
 \item{pa_src}{Optional local UC vector file (\code{.shp}/\code{.gpkg}/
 \code{.geojson}) used instead of the WFS (offline).}

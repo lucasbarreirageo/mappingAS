@@ -16,7 +16,7 @@ wdpa_areas(
 \arguments{
 \item{aoi}{An \code{sf}/\code{sfc} polygon or point set (any CRS).}
 
-\item{url}{WDPA query endpoint (default \code{\link{wdpa_query_url}}).}
+\item{url}{WDPA query endpoint (default \code{\link[=wdpa_query_url]{wdpa_query_url()}}).}
 
 \item{marine}{One of \code{"all"} (default), \code{"terrestrial"} (drop purely
 marine PAs, \code{MARINE = 2}) - useful for terrestrial species screening.}
@@ -24,7 +24,7 @@ marine PAs, \code{MARINE = 2}) - useful for terrestrial species screening.}
 \item{cache, cache_dir}{Cache the result on disk (default \code{TRUE}; folder
 \code{mappingAS_pa_cache} under \code{tempdir()}).}
 
-\item{quiet}{Passed to \code{\link[sf]{st_read}} (default \code{TRUE}).}
+\item{quiet}{Passed to \code{\link[sf:st_read]{sf::st_read()}} (default \code{TRUE}).}
 }
 \value{
 An \code{sf} of WDPA polygons in EPSG:4326 (possibly zero rows), or
@@ -34,10 +34,10 @@ An \code{sf} of WDPA polygons in EPSG:4326 (possibly zero rows), or
 Queries the public WDPA ArcGIS \code{FeatureServer} for the protected-area
 polygons whose envelope intersects the bounding box of \code{aoi} and returns
 them as an \code{sf} in WGS84 with the same three standardised columns used by
-\code{\link{protected_areas}}: \code{pa_name} (WDPA \code{NAME}),
-\code{pa_category} (designation / IUCN category) and \code{pa_group}
-(\emph{Strict protection} for IUCN Ia-III, \emph{Sustainable use} for IUCN
-IV-VI, else the reported status), plus all original WDPA attributes.
+\code{\link[=protected_areas]{protected_areas()}}: \code{pa_name} (WDPA \code{NAME}), \code{pa_category}
+(designation / IUCN category) and \code{pa_group} (\emph{Strict protection}
+for IUCN Ia-III, \emph{Sustainable use} for IUCN IV-VI, else the reported
+status), plus all original WDPA attributes.
 }
 \details{
 Only the AOI's bounding box is requested (server-side envelope filter) and the

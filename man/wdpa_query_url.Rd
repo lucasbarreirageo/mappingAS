@@ -11,11 +11,11 @@ A length-1 character URL (the \code{/query} endpoint).
 }
 \description{
 The public ArcGIS \code{FeatureServer} layer that serves the World Database
-on Protected Areas (WDPA) polygons, used by \code{\link{wdpa_areas}} as a
-global alternative to the Brazil-only ICMBio Conservation Units. This is the
-layer behind the ArcGIS Living Atlas "WDPA" item and returns GeoJSON on
-demand, so no Google Earth Engine or bulk download is required.
+on Protected Areas (WDPA) polygons, used by \code{\link[=wdpa_areas]{wdpa_areas()}} as a global
+alternative to the Brazil-only ICMBio Conservation Units. This is the layer
+behind the ArcGIS Living Atlas "WDPA" item and returns GeoJSON on demand, so
+no Google Earth Engine or bulk download is required.
 }
 \seealso{
-\url{https://www.protectedplanet.net}, \code{\link{wdpa_areas}}
+\url{https://www.protectedplanet.net}, \code{\link[=wdpa_areas]{wdpa_areas()}}
 }

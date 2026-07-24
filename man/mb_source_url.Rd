@@ -26,9 +26,9 @@ supported initiatives publish annual single-year Cloud-Optimized GeoTIFFs on
 the same public bucket, so they can be streamed with GDAL's \code{/vsicurl/}
 driver (no Google Earth Engine, no Google Drive):
 \itemize{
-  \item \code{"brazil"}  - Collection 10, 1985-2024
-  \item \code{"amazonia"} - Pan-Amazon Collection 6, 1986-2023
-  \item \code{"colombia"} - Collection 3, 1985-2024
+\item \code{"brazil"}  - Collection 10, 1985-2024
+\item \code{"amazonia"} - Pan-Amazon Collection 6, 1986-2023
+\item \code{"colombia"} - Collection 3, 1985-2024
 }
 }
 \examples{

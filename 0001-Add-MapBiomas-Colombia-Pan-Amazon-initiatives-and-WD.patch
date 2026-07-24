@@ -1,0 +1,1998 @@
+From 52c3f77a428d43a4458557fd735d94012cb91768 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 24 Jul 2026 17:41:13 +0000
+Subject: [PATCH] Add MapBiomas Colombia & Pan-Amazon initiatives and WDPA
+ (v1.8.1)
+
+Introduce an `initiative` concept so species outside Brazil can be
+screened with the same no-GEE workflow:
+
+* brazil   - Collection 10 (1985-2024)  [default, unchanged]
+* amazonia - Pan-Amazon / RAISG Collection 6 (1986-2023)
+* colombia - Collection 3 (1985-2024)
+
+All three stream per-year Cloud-Optimized GeoTIFFs from the public
+MapBiomas bucket via GDAL /vsicurl/ (no Google Earth Engine, no Google
+Drive). Colombia is served per-year on the same bucket
+(initiatives/colombia/collection_3/coverage/), so it reads exactly like
+Brazil rather than through the multi-band Drive archive.
+
+* New `mb_initiatives()`; `initiative` threaded through `mb_source_url()`,
+  `mb_raster_local()`, `mb_years()`, `mb_legend()`, `mb_groups()`,
+  `mb_palette()`, `summarise_conversion()`, `cover_timeseries()`,
+  `timeseries_for_species()`, `assess_species()`, the map overlay, static
+  map, report and Shiny app. `year`/`collection` default to the
+  initiative's latest year and native collection.
+* `mb_legend()` becomes a single standardised pan-MapBiomas legend built
+  from the cross-product harmonisation table (adds codes 81/82 Andinean,
+  34 Glacier, 68 Other natural non-vegetated, 74 Banana). Existing Brazil
+  codes, names, colours and groups are unchanged.
+* Global protected areas: new `wdpa_areas()` / `wdpa_query_url()` read the
+  WDPA ArcGIS FeatureServer (bbox query, GeoJSON, cached), standardised to
+  the ICMBio pa_name/pa_category/pa_group columns with IUCN categories
+  mapped to strict/sustainable groups. `assess_species(pa_source=)`
+  defaults to ICMBio for Brazil and WDPA otherwise.
+* Assessment summary gains `mapbiomas_initiative`; settings record
+  `initiative` and `pa_source`. MapBiomas Fire stays Brazil-only and is
+  skipped with a warning for the other initiatives.
+* Docs, NEWS, README, DESCRIPTION, man pages, metadata bumped to 1.8.1;
+  new tests in test-initiatives.R.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01UhMijX1G6bXAnHMxknSK8u
+---
+ .zenodo.json                      |   2 +-
+ CITATION.cff                      |   4 +-
+ DESCRIPTION                       |  19 ++--
+ NAMESPACE                         |   3 +
+ NEWS.md                           |  39 ++++++++
+ R/assess.R                        |  85 +++++++++++++----
+ R/conversion.R                    |   6 +-
+ R/initiatives.R                   |  81 ++++++++++++++++
+ R/legend.R                        | 133 +++++++++++++++-----------
+ R/mapbiomas_local.R               |  76 +++++++++++----
+ R/plotting.R                      |   5 +-
+ R/plotting_static.R               |   9 +-
+ R/protected_areas.R               |  23 +++--
+ R/report.R                        |  10 +-
+ R/timeseries.R                    |  24 +++--
+ R/wdpa.R                          | 149 ++++++++++++++++++++++++++++++
+ README.md                         |  42 ++++++++-
+ inst/shiny/app.R                  |  37 ++++++--
+ man/assess_species.Rd             |  34 +++++--
+ man/cover_timeseries.Rd           |  13 ++-
+ man/mb_groups.Rd                  |  11 ++-
+ man/mb_initiatives.Rd             |  40 ++++++++
+ man/mb_legend.Rd                  |  43 +++++----
+ man/mb_palette.Rd                 |  10 +-
+ man/mb_raster_local.Rd            |  13 ++-
+ man/mb_source_url.Rd              |  27 ++++--
+ man/mb_years.Rd                   |  22 +++--
+ man/summarise_conversion.Rd       |   5 +
+ man/wdpa_areas.Rd                 |  58 ++++++++++++
+ man/wdpa_query_url.Rd             |  21 +++++
+ tests/testthat/test-initiatives.R |  79 ++++++++++++++++
+ 31 files changed, 935 insertions(+), 188 deletions(-)
+ create mode 100644 R/initiatives.R
+ create mode 100644 R/wdpa.R
+ create mode 100644 man/mb_initiatives.Rd
+ create mode 100644 man/wdpa_areas.Rd
+ create mode 100644 man/wdpa_query_url.Rd
+ create mode 100644 tests/testthat/test-initiatives.R
+
+diff --git a/.zenodo.json b/.zenodo.json
+index bf651d2..59e6ca8 100644
+--- a/.zenodo.json
++++ b/.zenodo.json
+@@ -3,7 +3,7 @@
+   "upload_type": "software",
+   "access_right": "open",
+   "license": "MIT",
+-  "version": "1.8.0",
++  "version": "1.8.1",
+   "language": "eng",
+   "creators": [
+     { "name": "Barreira, Antonio Lucas" }
+diff --git a/CITATION.cff b/CITATION.cff
+index 10dca94..b3a744c 100644
+--- a/CITATION.cff
++++ b/CITATION.cff
+@@ -15,8 +15,8 @@ authors:
+   - given-names: "Antônio Lucas"
+     family-names: "Barreira"
+     email: barreira_rodrigues@hotmail.com
+-version: "1.8.0"
+-date-released: "2026-07-18"
++version: "1.8.1"
++date-released: "2026-07-24"
+ license: MIT
+ repository-code: "https://github.com/lucasbarreirageo/mappingAS"
+ url: "https://github.com/lucasbarreirageo/mappingAS"
+diff --git a/DESCRIPTION b/DESCRIPTION
+index b301d62..cb29653 100644
+--- a/DESCRIPTION
++++ b/DESCRIPTION
+@@ -1,7 +1,7 @@
+ Package: mappingAS
+ Type: Package
+ Title: Spatial Metrics and Habitat Conversion for Extinction Risk Assessment
+-Version: 1.8.0
++Version: 1.8.1
+ Authors@R:
+     person("Antônio Lucas Barreira", email = "barreira_rodrigues@hotmail.com", role = c("aut", "cre"))
+ Author: Antônio Lucas Barreira [aut, cre]
+@@ -13,12 +13,17 @@ Description: A spatial analytical framework for preliminary species
+     assigns provisional Criterion B categories, and integrates MapBiomas
+     land-use/land-cover data to quantify the proportion of anthropic
+     conversion versus remaining natural habitat within each range metric, with
+-    per-class breakdowns and land-cover time series. It also integrates
+-    MapBiomas Fire to compute burned-area metrics and fire time series, and
+-    quantifies the overlap of the range with Brazilian federal Conservation
+-    Units (Unidades de Conservacao) read from the ICMBio geoservice on the
+-    Infraestrutura Nacional de Dados Espaciais (INDE). MapBiomas data are read
+-    either locally over the network via GDAL '/vsicurl/' (no Google Earth
++    per-class breakdowns and land-cover time series. Three MapBiomas
++    initiatives are supported through one standardised legend - MapBiomas
++    Brazil (Collection 10), the Pan-Amazon / Amazonia collection (RAISG,
++    Collection 6) and MapBiomas Colombia (Collection 3) - so species in the
++    Amazon basin or Colombia can be screened as readily as Brazilian ones. It
++    also integrates MapBiomas Fire to compute burned-area metrics and fire
++    time series, and quantifies the overlap of the range with protected areas:
++    Brazilian federal Conservation Units (Unidades de Conservacao) from the
++    ICMBio geoservice on the Infraestrutura Nacional de Dados Espaciais (INDE),
++    or the global World Database on Protected Areas (WDPA). MapBiomas data are
++    read either locally over the network via GDAL '/vsicurl/' (no Google Earth
+     Engine account required) or server-side through Google Earth Engine (GEE)
+     for large-scale assessments. Outputs include interactive and publication
+     ready maps and charts, spatial (shapefile/GeoPackage) and raster exports,
+diff --git a/NAMESPACE b/NAMESPACE
+index 21dc5fc..9628e6f 100644
+--- a/NAMESPACE
++++ b/NAMESPACE
+@@ -23,6 +23,7 @@ export(mb_class_areas_gee)
+ export(mb_class_areas_raster)
+ export(mb_fire_url)
+ export(mb_groups)
++export(mb_initiatives)
+ export(mb_legend)
+ export(mb_palette)
+ export(mb_raster_local)
+@@ -42,6 +43,8 @@ export(summarise_conversion)
+ export(summarise_fire)
+ export(summarise_protected)
+ export(timeseries_for_species)
++export(wdpa_areas)
++export(wdpa_query_url)
+ importFrom(DT,datatable)
+ importFrom(bslib,page_sidebar)
+ importFrom(htmltools,HTML)
+diff --git a/NEWS.md b/NEWS.md
+index 31b04f5..4929ae3 100644
+--- a/NEWS.md
++++ b/NEWS.md
+@@ -1,3 +1,42 @@
++# mappingAS 1.8.1
++
++* **MapBiomas beyond Brazil: Pan-Amazon and Colombia.** `assess_species()` (and
++  the whole pipeline) gains an `initiative` argument - `"brazil"` (default),
++  `"amazonia"` (Pan-Amazon / RAISG, Collection 6, 1986-2023) or `"colombia"`
++  (Collection 3, 1985-2024). All three products are streamed as annual
++  Cloud-Optimized GeoTIFFs from the public MapBiomas bucket via GDAL
++  `/vsicurl/` - **no Google Earth Engine and no Google Drive download**. Colombia
++  is served per-year on the same public bucket
++  (`initiatives/colombia/collection_3/coverage/`), so it reads exactly like
++  Brazil (windowed, cached) rather than through the multi-band Drive archive. A
++  new exported `mb_initiatives()` lists the products, their default collections
++  and year spans; `mb_source_url()`, `mb_raster_local()`, `mb_years()`,
++  `mb_legend()`, `summarise_conversion()` and `cover_timeseries()` all take the
++  `initiative` argument. `year`/`collection` now default to the initiative's
++  latest year and native collection when left `NULL`.
++* **Standardised pan-MapBiomas legend.** `mb_legend()` now returns a single
++  standardised legend that labels the Brazil, Amazonia and Colombia rasters
++  consistently (same class names, colours and conservation groups), built from
++  the cross-product harmonisation table. The Colombia/Amazonia-specific classes
++  are added - Andinean herbaceous/shrubby formations (81, 82), Glacier (34),
++  Other natural non-vegetated area (68) and Banana (74) - so a species whose
++  range spans more than one country is assessed on one coherent legend. Existing
++  Brazil codes, names, colours and groups are unchanged.
++* **Global protected areas via WDPA.** New `wdpa_areas()` reads the World
++  Database on Protected Areas from its public ArcGIS FeatureServer (bounding-box
++  query, GeoJSON, on-disk cached), standardised to the same
++  `pa_name`/`pa_category`/`pa_group` columns as the ICMBio layer, with IUCN
++  categories mapped to strict-protection (Ia-III) vs sustainable-use (IV-VI).
++  `assess_species()` gains `pa_source` (`"icmbio"` or `"wdpa"`); it defaults to
++  ICMBio for Brazil and WDPA for the Amazonia/Colombia initiatives, so
++  protected-area overlap now works outside Brazil.
++* The assessment `summary` gains a `mapbiomas_initiative` column and the stored
++  `settings` record the `initiative` and `pa_source`; the Shiny app adds an
++  **initiative** selector (with the Year list auto-updating to the product's
++  span) and a **protected-area source** selector, and threads both through the
++  map overlay, static map, time series and raster export. MapBiomas Fire remains
++  Brazil-only and is skipped with a warning for the other initiatives.
++
+ # mappingAS 1.8.0
+ 
+ * **MapBiomas composition donut charts.** The Conversion tab now shows, below
+diff --git a/R/assess.R b/R/assess.R
+index df82156..7475371 100644
+--- a/R/assess.R
++++ b/R/assess.R
+@@ -8,9 +8,18 @@
+ #' recurrence, from the MapBiomas Fire accumulated layer.
+ #'
+ #' @param occ An \code{sf} of POINT geometries from \code{\link{read_occurrences}}.
+-#' @param year Integer MapBiomas year (default \code{2024}).
+-#' @param collection Integer MapBiomas collection number (default \code{10}).
++#' @param initiative MapBiomas initiative: \code{"brazil"} (default),
++#'   \code{"amazonia"} (Pan-Amazon / RAISG) or \code{"colombia"}. Selects the
++#'   land-cover product, its default collection and the standardised legend, so a
++#'   species in the Amazon basin or Colombia can be assessed without Google Earth
++#'   Engine (see \code{\link{mb_initiatives}}).
++#' @param year Integer MapBiomas year. \code{NULL} (default) uses the most recent
++#'   year available for the initiative (2024 for Brazil/Colombia, 2023 for
++#'   Amazonia).
++#' @param collection Integer MapBiomas collection number. \code{NULL} (default)
++#'   uses the initiative default (10/6/3 for Brazil/Amazonia/Colombia).
+ #' @param backend Habitat backend: \code{"local"} (default) or \code{"gee"}.
++#'   The \code{"gee"} backend is only wired for \code{initiative = "brazil"}.
+ #' @param cell_km AOO grid cell size in km (default \code{2}).
+ #' @param mapbiomas Logical; if \code{FALSE}, only EOO/AOO are computed.
+ #' @param fire Logical; if \code{TRUE}, also compute burned-area metrics from
+@@ -23,6 +32,11 @@
+ #'   \code{FALSE}. Requires internet unless \code{pa_src} is given.
+ #' @param pa_src Optional local UC vector file (\code{.shp}/\code{.gpkg}/
+ #'   \code{.geojson}) used instead of the WFS (offline).
++#' @param pa_source Protected-area source: \code{"icmbio"} (Brazilian federal
++#'   Conservation Units, INDE WFS) or \code{"wdpa"} (World Database on Protected
++#'   Areas, global). \code{NULL} (default) picks \code{"icmbio"} for
++#'   \code{initiative = "brazil"} and \code{"wdpa"} otherwise (see
++#'   \code{\link{wdpa_areas}}).
+ #' @param pa_typename Optional ICMBio WFS layer name; \code{NULL} (default)
+ #'   auto-detects it (see \code{\link{protected_layers}}).
+ #' @param src Optional MapBiomas LULC GeoTIFF for the local backend.
+@@ -43,17 +57,44 @@
+ #' res$summary
+ #' }
+ #' @export
+-assess_species <- function(occ, year = 2024, collection = 10,
++assess_species <- function(occ, initiative = "brazil",
++                           year = NULL, collection = NULL,
+                            backend = c("local", "gee"),
+                            cell_km = 2, mapbiomas = TRUE,
+                            fire = FALSE, fire_collection = 4,
+                            fire_host_collection = 9,
+-                           protected = FALSE, pa_src = NULL, pa_typename = NULL,
++                           protected = FALSE, pa_src = NULL, pa_source = NULL,
++                           pa_typename = NULL,
+                            src = NULL, fire_src = NULL,
+                            water_in_denominator = FALSE,
+                            min_records = 1, verbose = TRUE) {
+   .assert_points(occ, "occ")
+   backend <- match.arg(backend)
++  ini <- .mb_resolve_initiative(initiative)
++  initiative <- ini$key
++  if (is.null(collection)) collection <- ini$collection
++  if (is.null(year)) year <- max(ini$years)
++  year <- as.integer(year)
++  collection <- as.integer(collection)
++  if (is.null(pa_source))
++    pa_source <- if (initiative == "brazil") "icmbio" else "wdpa"
++  pa_source <- match.arg(tolower(pa_source), c("icmbio", "wdpa"))
++  if (backend == "gee" && initiative != "brazil") {
++    warning("The GEE backend is only wired for initiative = 'brazil'; ",
++            "using the local (/vsicurl/) backend for ", initiative, ".",
++            call. = FALSE)
++    backend <- "local"
++  }
++  if (isTRUE(fire) && initiative != "brazil") {
++    warning("MapBiomas Fire is only published for Brazil; skipping fire ",
++            "metrics for initiative = '", initiative, "'.", call. = FALSE)
++    fire <- FALSE
++  }
++  if (!year %in% ini$years) {
++    warning(sprintf("Year %d is outside the %s range (%d-%d); reading it anyway.",
++                    year, ini$label, min(ini$years), max(ini$years)),
++            call. = FALSE)
++  }
+   if (is.null(occ$species)) occ$species <- "sp1"
+   sp_list <- unique(occ$species)
+   
+@@ -78,10 +119,11 @@ assess_species <- function(occ, year = 2024, collection = 10,
+     
+     eoo_conv <- aoo_conv <- NULL
+     if (mapbiomas) {
+-      eoo_conv <- .conversion_for(eoo$hull, year, collection, backend, src,
+-                                  water_in_denominator, verbose, "EOO")
++      eoo_conv <- .conversion_for(eoo$hull, year, collection, initiative, backend,
++                                  src, water_in_denominator, verbose, "EOO")
+       aoo_conv <- .conversion_for(.st_union_quiet(aoo$cells), year, collection,
+-                            backend, src, water_in_denominator, verbose, "AOO")
++                            initiative, backend, src, water_in_denominator,
++                            verbose, "AOO")
+     }
+     
+     eoo_fire <- aoo_fire <- NULL
+@@ -95,16 +137,16 @@ assess_species <- function(occ, year = 2024, collection = 10,
+ 
+     pa <- NULL
+     if (protected) {
+-      pa <- .protected_for(pts, eoo, aoo, src = pa_src,
++      pa <- .protected_for(pts, eoo, aoo, src = pa_src, source = pa_source,
+                            typename = pa_typename, verbose = verbose)
+     }
+     if (protected && mapbiomas && !is.null(pa) && !is.null(pa$layer)) {
+       uc_u <- .st_union_quiet(sf::st_geometry(pa$layer))
+-      e_nat <- .nat_in_uc(eoo$hull, uc_u, eoo_conv, year, collection, backend,
+-                          src, water_in_denominator, verbose, "EOO")
++      e_nat <- .nat_in_uc(eoo$hull, uc_u, eoo_conv, year, collection, initiative,
++                          backend, src, water_in_denominator, verbose, "EOO")
+       a_nat <- .nat_in_uc(.st_union_quiet(aoo$cells), uc_u, aoo_conv, year,
+-                          collection, backend, src, water_in_denominator,
+-                          verbose, "AOO")
++                          collection, initiative, backend, src,
++                          water_in_denominator, verbose, "AOO")
+       pa$eoo_nat_uc_pct <- e_nat$nat_pct_total
+       pa$eoo_alt_uc_pct <- e_nat$alt_pct_total
+       pa$eoo_nat_uc_pct_in <- e_nat$nat_pct_uc
+@@ -127,6 +169,7 @@ assess_species <- function(occ, year = 2024, collection = 10,
+       eoo_cat_B1 = cats$eoo_category,
+       aoo_cat_B2 = cats$aoo_category,
+       provisional_cat = cats$combined,
++      mapbiomas_initiative = initiative,
+       mapbiomas_year = year,
+       mapbiomas_collection = collection,
+       stringsAsFactors = FALSE
+@@ -157,12 +200,13 @@ assess_species <- function(occ, year = 2024, collection = 10,
+   summary_df <- do.call(rbind, rows)
+   if (is.null(summary_df)) summary_df <- data.frame()
+   structure(list(summary = summary_df, detail = detail,
+-                 settings = list(year = year, collection = collection,
++                 settings = list(initiative = initiative, year = year,
++                                 collection = collection,
+                                  backend = backend, cell_km = cell_km,
+                                  mapbiomas = mapbiomas, fire = fire,
+                                  fire_collection = fire_collection,
+                                  fire_host_collection = fire_host_collection,
+-                                 protected = protected,
++                                 protected = protected, pa_source = pa_source,
+                                  water_in_denominator = water_in_denominator)),
+             class = "geoconv_assessment")
+ }
+@@ -173,7 +217,7 @@ assess_species <- function(occ, year = 2024, collection = 10,
+ 
+ #' @keywords internal
+ #' @noRd
+-.conversion_for <- function(geom, year, collection, backend, src,
++.conversion_for <- function(geom, year, collection, initiative, backend, src,
+                             water_in_denominator, verbose, label) {
+   if (is.null(geom) || length(geom) == 0 || all(sf::st_is_empty(geom))) {
+     if (verbose) message(sprintf("  %s: no polygon (need >= 3 points); ",
+@@ -184,10 +228,11 @@ assess_species <- function(occ, year = 2024, collection = 10,
+     if (backend == "gee") {
+       ca <- mb_class_areas_gee(geom, year = year, collection = collection)
+     } else {
+-      r <- mb_raster_local(geom, year = year, collection = collection, src = src)
++      r <- mb_raster_local(geom, year = year, collection = collection,
++                           initiative = initiative, src = src)
+       ca <- mb_class_areas_raster(r)
+     }
+-    summarise_conversion(ca, collection = collection,
++    summarise_conversion(ca, collection = collection, initiative = initiative,
+                          water_in_denominator = water_in_denominator)
+   }, error = function(e) {
+     warning(sprintf("%s conversion failed: %s", label, conditionMessage(e)),
+@@ -201,8 +246,10 @@ assess_species <- function(occ, year = 2024, collection = 10,
+ print.geoconv_assessment <- function(x, ...) {
+   cat("<mappingAS assessment>\n")
+   s <- x$settings
+-  cat(sprintf("  MapBiomas Collection %s, year %s | backend: %s | AOO cell: %g km\n",
+-              s$collection, s$year, s$backend, s$cell_km))
++  ini <- tryCatch(.mb_resolve_initiative(s$initiative %||% "brazil")$label,
++                  error = function(e) s$initiative %||% "brazil")
++  cat(sprintf("  %s Collection %s, year %s | backend: %s | AOO cell: %g km\n",
++              ini, s$collection, s$year, s$backend, s$cell_km))
+   cat(sprintf("  %d species assessed\n", nrow(x$summary)))
+   if (nrow(x$summary)) print(utils::head(x$summary, 10), row.names = FALSE)
+   invisible(x)
+diff --git a/R/conversion.R b/R/conversion.R
+index 7a31e6d..ff790e3 100644
+--- a/R/conversion.R
++++ b/R/conversion.R
+@@ -14,6 +14,9 @@
+ #'   \pkg{terra} \code{SpatRaster} of MapBiomas codes (which is tabulated via
+ #'   \code{\link{mb_class_areas_raster}}).
+ #' @param collection Integer collection number (default \code{10}).
++#' @param initiative One of \code{"brazil"} (default), \code{"amazonia"} or
++#'   \code{"colombia"}; selects the standardised legend context (see
++#'   \code{\link{mb_legend}}).
+ #' @param water_in_denominator Logical; if \code{TRUE}, water is treated as
+ #'   natural and included in the terrestrial denominator (default \code{FALSE}).
+ #' @return A list with: \code{converted_pct}, \code{natural_pct} (terrestrial,
+@@ -26,13 +29,14 @@
+ #' summarise_conversion(ca)$converted_pct
+ #' @export
+ summarise_conversion <- function(class_areas, collection = 10,
++                                 initiative = "brazil",
+                                  water_in_denominator = FALSE) {
+   if (inherits(class_areas, "SpatRaster")) {
+     class_areas <- mb_class_areas_raster(class_areas)
+   }
+   stopifnot(all(c("code", "area_km2") %in% names(class_areas)))
+ 
+-  leg <- mb_legend(collection)
++  leg <- mb_legend(collection, initiative)
+   byc <- merge(class_areas, leg, by = "code", all.x = TRUE)
+   byc$group[is.na(byc$group)] <- "other"
+   byc <- byc[order(-byc$area_km2), , drop = FALSE]
+diff --git a/R/initiatives.R b/R/initiatives.R
+new file mode 100644
+index 0000000..4701941
+--- /dev/null
++++ b/R/initiatives.R
+@@ -0,0 +1,81 @@
++#' MapBiomas initiatives supported by mappingAS
++#'
++#' \pkg{mappingAS} can read land-use/land-cover from three public MapBiomas
++#' initiatives, all streamed as annual Cloud-Optimized GeoTIFFs from the public
++#' \code{storage.googleapis.com/mapbiomas-public} bucket via GDAL's
++#' \code{/vsicurl/} driver - no Google Earth Engine account and no Google Drive
++#' download required. Each initiative is one coherent product with its own
++#' default collection, year span and file layout, but all share the same
++#' \emph{standardised} legend (see \code{\link{mb_legend}}), so a species whose
++#' range spans more than one product can be assessed with consistent class
++#' names, colours and conservation groups.
++#'
++#' \describe{
++#'   \item{\code{"brazil"}}{MapBiomas Brazil, Collection 10 (1985-2024).}
++#'   \item{\code{"amazonia"}}{MapBiomas Amazonia / Pan-Amazon (RAISG),
++#'     Collection 6 (1986-2023). Covers the whole Amazon basin across countries.}
++#'   \item{\code{"colombia"}}{MapBiomas Colombia, Collection 3 (1985-2024).}
++#' }
++#'
++#' @return A named list, one element per initiative, each a list with
++#'   \code{label} (human-readable name), \code{collection} (default collection
++#'   number), \code{years} (integer vector of available years) and \code{key}.
++#' @examples
++#' names(mb_initiatives())
++#' mb_initiatives()$amazonia$years
++#' @seealso \code{\link{mb_source_url}}, \code{\link{mb_legend}},
++#'   \code{\link{assess_species}}
++#' @export
++mb_initiatives <- function() {
++  list(
++    brazil = list(
++      key = "brazil",
++      label = "MapBiomas Brazil",
++      collection = 10L,
++      years = 1985:2024
++    ),
++    amazonia = list(
++      key = "amazonia",
++      label = "MapBiomas Amazonia (Pan-Amazon / RAISG)",
++      collection = 6L,
++      years = 1986:2023
++    ),
++    colombia = list(
++      key = "colombia",
++      label = "MapBiomas Colombia",
++      collection = 3L,
++      years = 1985:2024
++    )
++  )
++}
++
++#' @keywords internal
++#' @noRd
++.mb_resolve_initiative <- function(initiative = "brazil") {
++  if (is.null(initiative) || length(initiative) != 1L || is.na(initiative)) {
++    initiative <- "brazil"
++  }
++  key <- tolower(trimws(as.character(initiative)))
++  # a few friendly aliases
++  key <- switch(key,
++                "brasil" = "brazil",
++                "amazon" = "amazonia",
++                "pan-amazonia" = "amazonia",
++                "panamazonia" = "amazonia",
++                "pan_amazonia" = "amazonia",
++                "amazônia" = "amazonia",
++                key)
++  ini <- mb_initiatives()
++  if (!key %in% names(ini)) {
++    stop("Unknown MapBiomas initiative: '", initiative,
++         "'. Use one of: ", paste(names(ini), collapse = ", "), ".",
++         call. = FALSE)
++  }
++  ini[[key]]
++}
++
++#' @keywords internal
++#' @noRd
++.mb_default_collection <- function(initiative = "brazil") {
++  .mb_resolve_initiative(initiative)$collection
++}
+diff --git a/R/legend.R b/R/legend.R
+index 8698c69..5a9ffcb 100644
+--- a/R/legend.R
++++ b/R/legend.R
+@@ -1,31 +1,44 @@
+-#' MapBiomas legend (Collection 10) with conservation groupings
++#' Standardised MapBiomas legend with conservation groupings
+ #'
+-#' Returns the official MapBiomas land-use/land-cover legend for Collection 10
+-#' (Brazil), with each pixel class assigned to a conservation-relevant group:
+-#' \code{"natural"}, \code{"anthropic"}, \code{"water"}, \code{"not_observed"} or
+-#' \code{"other"}. The \code{"anthropic"} classes are what counts as
+-#' \emph{converted} habitat; \code{"natural"} is the remaining (current) natural
+-#' habitat. By default \code{"water"}, \code{"not_observed"} and \code{"other"}
+-#' are excluded from the conversion denominator (see
++#' Returns the \emph{standardised} MapBiomas land-use/land-cover legend used
++#' across all three initiatives supported by \pkg{mappingAS} - MapBiomas Brazil
++#' (Collection 10), Pan-Amazon / Amazonia (Collection 6) and Colombia
++#' (Collection 3) - with each pixel class assigned to a conservation-relevant
++#' group: \code{"natural"}, \code{"anthropic"}, \code{"water"},
++#' \code{"not_observed"} or \code{"other"}. The \code{"anthropic"} classes are
++#' what counts as \emph{converted} habitat; \code{"natural"} is the remaining
++#' (current) natural habitat. By default \code{"water"}, \code{"not_observed"}
++#' and \code{"other"} are excluded from the conversion denominator (see
+ #' \code{\link{summarise_conversion}}).
+ #'
+-#' Codes follow "Códigos das classes da legenda da Coleção 10 do MapBiomas
+-#' Brasil". A handful of parent/aggregation codes (e.g. 10, 13, 14, 18, 19, 36)
+-#' and codes from neighbouring collections are included so the table also works
+-#' if applied to Collection 9 rasters; unused codes simply contribute zero area.
++#' MapBiomas harmonises pixel codes across its initiatives, so a single legend
++#' can label the Brazil, Amazonia and Colombia rasters consistently - this is
++#' what makes cross-border assessment possible for a species whose range spans
++#' more than one product. The table is the union of the classes that occur in
++#' any of the three products; a code that does not occur in a given raster
++#' simply contributes zero area. Codes 81, 82 (Andinean formations), 34
++#' (Glacier), 68 (Other natural non-vegetated) and 74 (Banana) are the
++#' Colombia/Amazonia additions to the Brazil Collection 10 set.
+ #'
+-#' @param collection Integer collection number. Only \code{10} (default) is
+-#'   currently shipped; other values emit a warning and fall back to 10.
++#' @param collection Integer collection number. Interpreted together with
++#'   \code{initiative}; a value that does not match the initiative's default
++#'   collection emits a warning and the standardised legend is still returned.
++#' @param initiative One of \code{"brazil"} (default), \code{"amazonia"} or
++#'   \code{"colombia"}. Kept for API symmetry and warning logic; the returned
++#'   legend is the same standardised table for every initiative.
+ #' @return A \code{data.frame} with columns \code{code}, \code{class_en},
+-#'   \code{class_pt}, \code{hex} (official MapBiomas colour), \code{level1} and
+-#'   \code{group}.
++#'   \code{class_pt}, \code{hex} (standardised MapBiomas colour), \code{level1}
++#'   and \code{group}.
+ #' @examples
+ #' head(mb_legend())
+ #' subset(mb_legend(), group == "anthropic")$class_en
+ #' @export
+-mb_legend <- function(collection = 10) {
+-  if (!identical(as.numeric(collection), 10)) {
+-    warning("Only the Collection 10 legend ships with mappingAS; using it.")
++mb_legend <- function(collection = 10, initiative = "brazil") {
++  ini <- .mb_resolve_initiative(initiative)
++  if (!identical(as.integer(collection), as.integer(ini$collection))) {
++    warning(sprintf(
++      "mappingAS ships the standardised legend for %s Collection %d; using it.",
++      ini$label, ini$collection))
+   }
+ 
+   leg <- data.frame(
+@@ -33,16 +46,16 @@ mb_legend <- function(collection = 10) {
+       # Forest (natural)
+       1, 3, 4, 5, 6, 49,
+       # Herbaceous & shrubby vegetation (natural)
+-      10, 11, 12, 32, 29, 50, 13, 23,
++      10, 11, 12, 32, 29, 50, 13, 23, 81, 82,
+       # Farming / anthropic
+       14, 9, 15, 18, 19, 39, 20, 40, 62, 41,
+-      36, 46, 47, 35, 48, 21,
++      36, 46, 47, 35, 48, 21, 74,
+       # Non-vegetated anthropic
+       24, 30, 75,
+-      # Ambiguous non-vegetated -> "other" (excluded by default)
+-      25,
++      # Ambiguous / natural non-vegetated -> "other" (excluded by default)
++      25, 68,
+       # Water
+-      26, 33, 31,
++      26, 33, 31, 34,
+       # Not observed
+       27
+     ),
+@@ -52,13 +65,15 @@ mb_legend <- function(collection = 10) {
+       "Herbaceous and Shrubby Vegetation", "Wetland", "Grassland",
+       "Hypersaline Tidal Flat", "Rocky Outcrop", "Herbaceous Sandbank Vegetation",
+       "Other Non Forest Formations", "Beach, Dune and Sand Spot",
++      "Andinean Herbaceous and Shrubby Vegetation",
++      "Flooded Andinean Herbaceous and Shrubby Vegetation",
+       "Farming", "Forest Plantation", "Pasture", "Agriculture", "Temporary Crop",
+       "Soybean", "Sugar cane", "Rice", "Cotton (beta)", "Other Temporary Crops",
+       "Perennial Crop", "Coffee", "Citrus", "Palm Oil", "Other Perennial Crops",
+-      "Mosaic of Uses",
++      "Mosaic of Uses", "Banana (beta)",
+       "Urban Area", "Mining", "Photovoltaic Power Plant (beta)",
+-      "Other non Vegetated Areas",
+-      "Water", "River, Lake and Ocean", "Aquaculture",
++      "Other non Vegetated Areas", "Other Natural Non Vegetated Area",
++      "Water", "River, Lake and Ocean", "Aquaculture", "Glacier",
+       "Not Observed"
+     ),
+     class_pt = c(
+@@ -67,50 +82,53 @@ mb_legend <- function(collection = 10) {
+       "Vegetacao Herbacea e Arbustiva", "Campo Alagado e Area Pantanosa",
+       "Formacao Campestre", "Apicum", "Afloramento Rochoso", "Restinga Herbacea",
+       "Outras Formacoes nao Florestais", "Praia, Duna e Areal",
++      "Vegetacao Herbacea e Arbustiva Andina",
++      "Vegetacao Herbacea e Arbustiva Andina Alagavel",
+       "Agropecuaria", "Silvicultura", "Pastagem", "Agricultura", "Lavoura Temporaria",
+       "Soja", "Cana", "Arroz", "Algodao (beta)", "Outras Lavouras Temporarias",
+       "Lavoura Perene", "Cafe", "Citrus", "Dende", "Outras Lavouras Perenes",
+-      "Mosaico de Usos",
++      "Mosaico de Usos", "Banana (beta)",
+       "Area Urbanizada", "Mineracao", "Usina Fotovoltaica (beta)",
+-      "Outras Areas nao Vegetadas",
+-      "Corpo D'agua", "Rio, Lago e Oceano", "Aquicultura",
++      "Outras Areas nao Vegetadas", "Outra Area Natural nao Vegetada",
++      "Corpo D'agua", "Rio, Lago e Oceano", "Aquicultura", "Geleira",
+       "Nao Observado"
+     ),
+     hex = c(
+       # forest
+       "#1f8d49", "#1f8d49", "#7dc975", "#04381d", "#007785", "#02d659",
+-      # herbaceous / shrubby (+ beach, rocky)
++      # herbaceous / shrubby (+ beach, rocky, Andinean)
+       "#d6bc74", "#519799", "#d6bc74", "#fc8114", "#ffaa5f", "#ad5100",
+-      "#d6bc74", "#ffa07a",
+-      # farming block
++      "#d6bc74", "#ffa07a", "#dfeb62", "#6fc179",
++      # farming block (+ banana)
+       "#ffefc3", "#7a5900", "#edde8e", "#E974ED", "#C27BA0", "#f5b3c8",
+       "#db7093", "#c71585", "#ff69b4", "#f54ca9",
+       "#d082de", "#d68fe2", "#9932cc", "#9065d0", "#e6ccff", "#ffefc3",
++      "#be83f7",
+       # non-vegetated anthropic
+       "#d4271e", "#9c0027", "#c12100",
+-      # other non-vegetated
+-      "#db4d4f",
+-      # water
+-      "#2532e4", "#2532e4", "#091077",
++      # other non-vegetated (anthropic-ambiguous + natural)
++      "#db4d4f", "#e97a7a",
++      # water (+ glacier)
++      "#2532e4", "#2532e4", "#091077", "#93dfe6",
+       # not observed
+       "#ffffff"
+     ),
+     level1 = c(
+       rep("Forest", 6),
+-      rep("Herbaceous/Shrubby", 8),
+-      rep("Farming", 16),
++      rep("Herbaceous/Shrubby", 10),
++      rep("Farming", 17),
+       rep("NonVegetated", 3),
+-      "NonVegetated",
+-      rep("Water", 3),
++      rep("NonVegetated", 2),
++      rep("Water", 4),
+       "NotObserved"
+     ),
+     group = c(
+-      rep("natural", 6),     # forest
+-      rep("natural", 8),     # herbaceous/shrubby + beach/dune + rocky outcrop
+-      rep("anthropic", 16),  # farming block
+-      rep("anthropic", 3),   # urban, mining, photovoltaic
+-      "other",               # other non-vegetated (ambiguous)
+-      "water", "water", "anthropic",  # water, river/lake/ocean, aquaculture
++      rep("natural", 6),      # forest
++      rep("natural", 10),     # herbaceous/shrubby + beach/dune + rocky + Andinean
++      rep("anthropic", 17),   # farming block + banana
++      rep("anthropic", 3),    # urban, mining, photovoltaic
++      "other", "other",       # other non-vegetated (ambiguous + natural bare)
++      "water", "water", "anthropic", "water",  # water, river/lake/ocean, aquaculture, glacier
+       "not_observed"
+     ),
+     stringsAsFactors = FALSE
+@@ -128,8 +146,8 @@ mb_legend <- function(collection = 10) {
+ #'   \code{water}, \code{other} and \code{not_observed}, each an integer vector
+ #'   of MapBiomas pixel codes.
+ #' @export
+-mb_groups <- function(collection = 10) {
+-  leg <- mb_legend(collection)
++mb_groups <- function(collection = 10, initiative = "brazil") {
++  leg <- mb_legend(collection, initiative)
+   split(leg$code, leg$group)
+ }
+ 
+@@ -144,9 +162,10 @@ mb_groups <- function(collection = 10) {
+ #' @examples
+ #' mb_palette(c(3, 15, 39, 33))
+ #' @export
+-mb_palette <- function(codes = NULL, collection = 10, by = c("code", "class_pt", "class_en")) {
++mb_palette <- function(codes = NULL, collection = 10, initiative = "brazil",
++                       by = c("code", "class_pt", "class_en")) {
+   by <- match.arg(by)
+-  leg <- mb_legend(collection)
++  leg <- mb_legend(collection, initiative)
+   if (!is.null(codes)) {
+     leg <- leg[match(as.integer(codes), leg$code), , drop = FALSE]
+     leg <- leg[!is.na(leg$code), , drop = FALSE]
+@@ -154,11 +173,15 @@ mb_palette <- function(codes = NULL, collection = 10, by = c("code", "class_pt",
+   stats::setNames(leg$hex, leg[[by]])
+ }
+ 
+-#' Years available for a MapBiomas collection
++#' Years available for a MapBiomas initiative/collection
+ #'
+ #' @inheritParams mb_legend
+-#' @return An integer vector of years (Collection 10 / 9 cover 1985-2024).
++#' @return An integer vector of years available for the initiative (Brazil
++#'   1985-2024, Amazonia 1986-2023, Colombia 1985-2024).
++#' @examples
++#' range(mb_years())
++#' range(mb_years(initiative = "amazonia"))
+ #' @export
+-mb_years <- function(collection = 10) {
+-  1985:2024
++mb_years <- function(collection = 10, initiative = "brazil") {
++  as.integer(.mb_resolve_initiative(initiative)$years)
+ }
+diff --git a/R/mapbiomas_local.R b/R/mapbiomas_local.R
+index 807dcff..570b562 100644
+--- a/R/mapbiomas_local.R
++++ b/R/mapbiomas_local.R
+@@ -1,18 +1,46 @@
+-#' Build the MapBiomas national GeoTIFF URL for a given year
++#' Build the MapBiomas land-use GeoTIFF URL for a given year and initiative
+ #'
+-#' Returns the public Google Cloud Storage URL of the MapBiomas Brazil
+-#' land-use/land-cover annual mosaic. Collection 10 covers 1985-2024.
++#' Returns the public Google Cloud Storage URL of the MapBiomas
++#' land-use/land-cover annual mosaic for the chosen initiative. All three
++#' supported initiatives publish annual single-year Cloud-Optimized GeoTIFFs on
++#' the same public bucket, so they can be streamed with GDAL's \code{/vsicurl/}
++#' driver (no Google Earth Engine, no Google Drive):
++#' \itemize{
++#'   \item \code{"brazil"}  - Collection 10, 1985-2024
++#'   \item \code{"amazonia"} - Pan-Amazon Collection 6, 1986-2023
++#'   \item \code{"colombia"} - Collection 3, 1985-2024
++#' }
+ #'
+-#' @param year Integer year (1985-2024 for Collection 10).
+-#' @param collection Integer collection number (default \code{10}).
++#' @param year Integer year.
++#' @param collection Integer collection number. \code{NULL} (default) uses the
++#'   initiative's default collection (10 for Brazil, 6 for Amazonia, 3 for
++#'   Colombia).
++#' @param initiative One of \code{"brazil"} (default), \code{"amazonia"} or
++#'   \code{"colombia"} (see \code{\link{mb_initiatives}}).
+ #' @return A length-1 character URL.
+ #' @examples
+ #' mb_source_url(2024)
++#' mb_source_url(2023, initiative = "amazonia")
++#' mb_source_url(2024, initiative = "colombia")
+ #' @export
+-mb_source_url <- function(year = 2024, collection = 10) {
+-  sprintf(
+-    "https://storage.googleapis.com/mapbiomas-public/initiatives/brasil/collection_%d/lulc/coverage/brazil_coverage_%d.tif",
+-    as.integer(collection), as.integer(year)
++mb_source_url <- function(year = 2024, collection = NULL, initiative = "brazil") {
++  ini <- .mb_resolve_initiative(initiative)
++  if (is.null(collection)) collection <- ini$collection
++  collection <- as.integer(collection)
++  year <- as.integer(year)
++  base <- "https://storage.googleapis.com/mapbiomas-public/initiatives"
++  switch(
++    ini$key,
++    brazil = sprintf(
++      "%s/brasil/collection_%d/lulc/coverage/brazil_coverage_%d.tif",
++      base, collection, year),
++    amazonia = sprintf(
++      paste0("%s/amazon/lulc/collection_%d/integration/",
++             "mapbiomas_collection%d0_integration_v1-classification_%d.tif"),
++      base, collection, collection, year),
++    colombia = sprintf(
++      "%s/colombia/collection_%d/coverage/colombia_coverage_%d.tif",
++      base, collection, year)
+   )
+ }
+ 
+@@ -51,10 +79,13 @@ mb_source_url <- function(year = 2024, collection = 10) {
+ #' @param aoi An \code{sf}/\code{sfc} polygon (any CRS) defining the area to
+ #'   extract, e.g. an EOO hull or the union of AOO cells.
+ #' @param year Integer year (default \code{2024}).
+-#' @param collection Integer collection number (default \code{10}).
++#' @param collection Integer collection number. \code{NULL} uses the
++#'   \code{initiative} default (10/6/3 for Brazil/Amazonia/Colombia).
++#' @param initiative One of \code{"brazil"} (default), \code{"amazonia"} or
++#'   \code{"colombia"} (see \code{\link{mb_initiatives}}).
+ #' @param src Optional path or URL to a MapBiomas GeoTIFF. If \code{NULL}
+-#'   (default) the public Collection \code{collection} URL for \code{year} is
+-#'   used through \code{/vsicurl/}.
++#'   (default) the public URL for \code{year}/\code{collection}/\code{initiative}
++#'   is used through \code{/vsicurl/}.
+ #' @param mask Logical; if \code{TRUE} (default) pixels outside the polygon are
+ #'   set to \code{NA}. If \code{FALSE} only a rectangular crop is returned.
+ #' @param cache Logical; if \code{TRUE} (default) the rectangular windowed crop
+@@ -67,12 +98,15 @@ mb_source_url <- function(year = 2024, collection = 10) {
+ #' @return A \pkg{terra} \code{SpatRaster} of MapBiomas pixel codes restricted to
+ #'   the AOI, in the raster's native CRS.
+ #' @export
+-mb_raster_local <- function(aoi, year = 2024, collection = 10,
++mb_raster_local <- function(aoi, year = 2024, collection = NULL,
++                            initiative = "brazil",
+                             src = NULL, mask = TRUE,
+                             cache = TRUE, cache_dir = NULL) {
+   if (!requireNamespace("terra", quietly = TRUE)) {
+     stop("Package 'terra' is required.", call. = FALSE)
+   }
++  ini <- .mb_resolve_initiative(initiative)
++  if (is.null(collection)) collection <- ini$collection
+   aoi <- sf::st_geometry(aoi)
+   if (is.na(sf::st_crs(aoi))) sf::st_crs(aoi) <- 4326
+ 
+@@ -80,7 +114,7 @@ mb_raster_local <- function(aoi, year = 2024, collection = 10,
+   old <- .mb_set_gdal()
+   on.exit(for (k in names(old)) terra::setGDALconfig(k, old[[k]]), add = TRUE)
+ 
+-  if (is.null(src)) src <- mb_source_url(year, collection)
++  if (is.null(src)) src <- mb_source_url(year, collection, ini$key)
+   path <- if (grepl("^https?://", src)) paste0("/vsicurl/", src) else src
+ 
+   r <- tryCatch(
+@@ -126,12 +160,13 @@ mb_raster_local <- function(aoi, year = 2024, collection = 10,
+ #' @keywords internal
+ #' @noRd
+ .mb_raster_display <- function(aoi, year, collection, src, max_pixels = 600,
+-                               crs = NULL, cache = TRUE) {
++                               crs = NULL, cache = TRUE, initiative = "brazil") {
+   r <- tryCatch(
+-    .mb_display_read(aoi, year, collection, src, max_pixels),
++    .mb_display_read(aoi, year, collection, src, max_pixels, initiative),
+     error = function(e) NULL)
+   if (is.null(r)) {
+-    r <- mb_raster_local(aoi, year = year, collection = collection, src = src,
++    r <- mb_raster_local(aoi, year = year, collection = collection,
++                         initiative = initiative, src = src,
+                          mask = TRUE, cache = cache)
+     d <- max(dim(r)[1:2])
+     if (d > max_pixels)
+@@ -148,13 +183,16 @@ mb_raster_local <- function(aoi, year = 2024, collection = 10,
+ # large window. Used only for the map overlay - never for area statistics.
+ #' @keywords internal
+ #' @noRd
+-.mb_display_read <- function(aoi, year, collection, src, max_pixels = 600) {
++.mb_display_read <- function(aoi, year, collection, src, max_pixels = 600,
++                             initiative = "brazil") {
+   if (!requireNamespace("terra", quietly = TRUE) ||
+       !requireNamespace("sf", quietly = TRUE))
+     stop("Packages 'terra' and 'sf' are required.", call. = FALSE)
++  ini <- .mb_resolve_initiative(initiative)
++  if (is.null(collection)) collection <- ini$collection
+   aoi <- sf::st_geometry(aoi)
+   if (is.na(sf::st_crs(aoi))) sf::st_crs(aoi) <- 4326
+-  if (is.null(src)) src <- mb_source_url(year, collection)
++  if (is.null(src)) src <- mb_source_url(year, collection, ini$key)
+   path <- if (grepl("^https?://", src)) paste0("/vsicurl/", src) else src
+ 
+   old <- .mb_set_gdal()
+diff --git a/R/plotting.R b/R/plotting.R
+index 9f5d516..6341f5a 100644
+--- a/R/plotting.R
++++ b/R/plotting.R
+@@ -63,8 +63,9 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
+       requireNamespace("terra", quietly = TRUE)) {
+     rr <- tryCatch({
+       r <- .mb_raster_display(clip_geom, st$year, st$collection, src,
+-                              max_pixels = max_pixels, crs = NULL)
+-      leg <- mb_legend(st$collection)
++                              max_pixels = max_pixels, crs = NULL,
++                              initiative = st$initiative %||% "brazil")
++      leg <- mb_legend(st$collection, st$initiative %||% "brazil")
+       vals <- terra::unique(r)[, 1]; vals <- vals[!is.na(vals)]
+       list(r = r, keep = leg[leg$code %in% vals, , drop = FALSE], year = st$year)
+     }, error = function(e) {
+diff --git a/R/plotting_static.R b/R/plotting_static.R
+index 808f66e..e012f2b 100644
+--- a/R/plotting_static.R
++++ b/R/plotting_static.R
+@@ -102,7 +102,8 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
+   # ---- MapBiomas land-cover raster (clipped to EOO or AOO) ----
+   if (draw_lulc) {
+     rdf <- tryCatch(
+-      .mb_display_df(clip_geom, st$year, st$collection, src, max_pixels, crs, lang),
++      .mb_display_df(clip_geom, st$year, st$collection, src, max_pixels, crs, lang,
++                     initiative = st$initiative %||% "brazil"),
+       error = function(e) {
+         warning("MapBiomas layer skipped: ", conditionMessage(e), call. = FALSE)
+         NULL
+@@ -215,12 +216,12 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
+ #' @keywords internal
+ #' @noRd
+ .mb_display_df <- function(aoi, year, collection, src, max_pixels, crs,
+-                           lang = "pt") {
++                           lang = "pt", initiative = "brazil") {
+   r <- .mb_raster_display(aoi, year, collection, src, max_pixels = max_pixels,
+-                          crs = crs)
++                          crs = crs, initiative = initiative)
+   df <- terra::as.data.frame(r, xy = TRUE, na.rm = TRUE)
+   names(df)[3] <- "code"
+-  leg <- mb_legend(collection)
++  leg <- mb_legend(collection, initiative)
+   lcol <- if (lang == "en") "class_en" else "class_pt"
+   df <- df[df$code %in% leg$code, , drop = FALSE]
+   idx <- match(df$code, leg$code)
+diff --git a/R/protected_areas.R b/R/protected_areas.R
+index 25be685..7abdb14 100644
+--- a/R/protected_areas.R
++++ b/R/protected_areas.R
+@@ -339,19 +339,25 @@ pa_table <- function(assessment, species = NULL) {
+ #' Glue used by [assess_species()] to attach UC overlap to one species
+ #' @keywords internal
+ #' @noRd
+-.protected_for <- function(points, eoo, aoo, src = NULL, typename = NULL,
+-                           base = icmbio_wfs_base(), verbose = TRUE) {
++.protected_for <- function(points, eoo, aoo, src = NULL, source = "icmbio",
++                           typename = NULL, base = icmbio_wfs_base(),
++                           verbose = TRUE) {
+   aoi <- if (!is.null(eoo) && !is.null(eoo$hull)) eoo$hull
+          else sf::st_as_sfc(sf::st_bbox(sf::st_geometry(points)))
+   pa <- tryCatch(
+-    protected_areas(aoi, typename = typename, src = src, base = base),
++    if (identical(source, "wdpa") && is.null(src)) {
++      wdpa_areas(aoi)
++    } else {
++      protected_areas(aoi, typename = typename, src = src, base = base)
++    },
+     error = function(e) {
+-      warning(sprintf("UC overlap failed: %s", conditionMessage(e)), call. = FALSE)
++      warning(sprintf("Protected-area overlap failed: %s", conditionMessage(e)),
++              call. = FALSE)
+       NULL
+     })
+   if (is.null(pa)) return(NULL)                      # read failed -> NA metrics
+-  if (nrow(pa) == 0) {                               # genuinely no UC in range
+-    if (verbose) message("  UC: no federal Conservation Unit intersects the range.")
++  if (nrow(pa) == 0) {                               # genuinely no PA in range
++    if (verbose) message("  PA: no protected area intersects the range.")
+     out <- .pa_empty(); out$occ_pct <- 0; out$eoo_pct <- 0; out$aoo_pct <- 0
+     out$eoo_km2 <- 0; out$aoo_km2 <- 0; out$aoo_cells_in <- 0L
+     out$eoo_nat_uc_pct <- 0; out$aoo_nat_uc_pct <- 0
+@@ -366,7 +372,8 @@ pa_table <- function(assessment, species = NULL) {
+ #' @keywords internal
+ #' @noRd
+ .nat_in_uc <- function(range_geom, uc_union, conv_range, year, collection,
+-                       backend, src, water_in_denominator, verbose, label) {
++                       initiative, backend, src, water_in_denominator, verbose,
++                       label) {
+   na3 <- list(nat_km2 = NA_real_, alt_km2 = NA_real_,
+               nat_pct_total = NA_real_, alt_pct_total = NA_real_,
+               nat_pct_uc = NA_real_)
+@@ -378,7 +385,7 @@ pa_table <- function(assessment, species = NULL) {
+   if (is.null(inter) || !length(inter) || all(sf::st_is_empty(inter)))
+     return(utils::modifyList(na3, list(nat_km2 = 0, alt_km2 = 0,
+                                        nat_pct_total = 0, alt_pct_total = 0)))
+-  cu <- .conversion_for(inter, year, collection, backend, src,
++  cu <- .conversion_for(inter, year, collection, initiative, backend, src,
+                         water_in_denominator, verbose, paste0(label, "/UC"))
+   if (is.null(cu)) return(na3)
+   wd   <- isTRUE(water_in_denominator)
+diff --git a/R/report.R b/R/report.R
+index 3337775..9e09b7d 100644
+--- a/R/report.R
++++ b/R/report.R
+@@ -117,6 +117,8 @@ assessment_report <- function(assessment, species = NULL,
+     stop("Species not found in assessment: ", species, call. = FALSE)
+   r <- r[1, , drop = FALSE]
+   st  <- assessment$settings
++  mb_label <- tryCatch(.mb_resolve_initiative(st$initiative %||% "brazil")$label,
++                       error = function(e) "MapBiomas Brazil")
+   det <- assessment$detail[[species]]
+   pa  <- if (!is.null(det)) det$pa else NULL
+   # cover_series / fire_series may be a single data frame (one range) or a list
+@@ -194,9 +196,9 @@ assessment_report <- function(assessment, species = NULL,
+   if (isTRUE(st$mapbiomas) &&
+       (!is.na(r$eoo_converted_pct) || !is.na(r$aoo_converted_pct))) {
+     conv_p <- sprintf(L(
+-      "Based on MapBiomas Collection %s (%s), converted (anthropic) land cover accounts for %s of the terrestrial EOO and %s of the AOO; the remaining natural habitat is %s (EOO) and %s (AOO). Water and unobserved areas are excluded from the terrestrial denominator.",
+-      "Com base na Colecao %s do MapBiomas (%s), a cobertura convertida (antropica) corresponde a %s da EOO terrestre e a %s da AOO; o habitat natural remanescente e de %s (EOO) e %s (AOO). Corpos d'agua e areas nao observadas sao excluidos do denominador terrestre."),
+-      st$collection, st$year,
++      "Based on %s Collection %s (%s), converted (anthropic) land cover accounts for %s of the terrestrial EOO and %s of the AOO; the remaining natural habitat is %s (EOO) and %s (AOO). Water and unobserved areas are excluded from the terrestrial denominator.",
++      "Com base em %s Colecao %s (%s), a cobertura convertida (antropica) corresponde a %s da EOO terrestre e a %s da AOO; o habitat natural remanescente e de %s (EOO) e %s (AOO). Corpos d'agua e areas nao observadas sao excluidos do denominador terrestre."),
++      mb_label, st$collection, st$year,
+       fmt_pct(r$eoo_converted_pct), fmt_pct(r$aoo_converted_pct),
+       fmt_pct(r$eoo_natural_pct), fmt_pct(r$aoo_natural_pct))
+     if (length(cover_trs)) {
+@@ -352,7 +354,7 @@ assessment_report <- function(assessment, species = NULL,
+   )
+   if (isTRUE(st$mapbiomas))
+     refs <- c(refs,
+-      sprintf("Project MapBiomas - Collection %s of the Annual Series of Land Use and Land Cover Maps of Brazil. https://brasil.mapbiomas.org", st$collection),
++      sprintf("Project %s - Collection %s of the Annual Series of Land Use and Land Cover Maps. https://mapbiomas.org", mb_label, st$collection),
+       "Souza, C.M. et al. (2020). Reconstructing Three Decades of Land Use and Land Cover Changes in Brazilian Biomes with Landsat Archive and Earth Engine. Remote Sensing 12(17): 2735. doi:10.3390/rs12172735")
+   if (isTRUE(st$fire))
+     refs <- c(refs,
+diff --git a/R/timeseries.R b/R/timeseries.R
+index 43e910f..fd3e88e 100644
+--- a/R/timeseries.R
++++ b/R/timeseries.R
+@@ -11,10 +11,13 @@
+ #'
+ #' @param geom An \code{sf}/\code{sfc} polygon (any CRS).
+ #' @param years Integer vector of years. If \code{NULL} (default) a 5-year step
+-#'   across the collection span (plus the last year) is used.
+-#' @param collection Integer MapBiomas collection (default \code{10}).
++#'   across the initiative's span (plus the last year) is used.
++#' @param collection Integer MapBiomas collection. \code{NULL} uses the
++#'   initiative default.
++#' @param initiative One of \code{"brazil"} (default), \code{"amazonia"} or
++#'   \code{"colombia"} (see \code{\link{mb_initiatives}}).
+ #' @param backend \code{"local"} (default, windowed GeoTIFF read) or
+-#'   \code{"gee"} (Earth Engine).
++#'   \code{"gee"} (Earth Engine; Brazil only).
+ #' @param src Optional GeoTIFF path/URL for the local backend (overrides the
+ #'   public per-year URL).
+ #' @param by \code{"class"} (default; one series per MapBiomas class, with the
+@@ -28,23 +31,28 @@
+ #'   and \code{class_en}.
+ #' @seealso \code{\link{plot_timeseries}}, \code{\link{timeseries_for_species}}
+ #' @export
+-cover_timeseries <- function(geom, years = NULL, collection = 10,
++cover_timeseries <- function(geom, years = NULL, collection = NULL,
++                             initiative = "brazil",
+                              backend = c("local", "gee"), src = NULL,
+                              by = c("class", "group"),
+                              include_not_observed = FALSE, verbose = TRUE) {
+   backend <- match.arg(backend)
+   by <- match.arg(by)
++  ini <- .mb_resolve_initiative(initiative)
++  initiative <- ini$key
++  if (is.null(collection)) collection <- ini$collection
++  if (backend == "gee" && initiative != "brazil") backend <- "local"
+   g <- sf::st_geometry(geom)
+   if (length(g) == 0 || all(sf::st_is_empty(g)))
+     stop("`geom` is empty; a polygon is required (EOO needs >= 3 unique points).",
+          call. = FALSE)
+ 
+   if (is.null(years)) {
+-    yy <- mb_years(collection)
++    yy <- mb_years(collection, initiative)
+     years <- sort(unique(c(seq(min(yy), max(yy), by = 5), max(yy))))
+   }
+   years <- sort(unique(as.integer(years)))
+-  leg <- mb_legend(collection)
++  leg <- mb_legend(collection, initiative)
+ 
+   out <- vector("list", length(years))
+   for (i in seq_along(years)) {
+@@ -55,7 +63,8 @@ cover_timeseries <- function(geom, years = NULL, collection = 10,
+         mb_class_areas_gee(g, year = y, collection = collection)
+       } else {
+         mb_class_areas_raster(
+-          mb_raster_local(g, year = y, collection = collection, src = src)
++          mb_raster_local(g, year = y, collection = collection,
++                          initiative = initiative, src = src)
+         )
+       }
+     }, error = function(e) {
+@@ -161,6 +170,7 @@ timeseries_for_species <- function(assessment, species = NULL,
+ 
+   s <- assessment$settings
+   ts <- cover_timeseries(geom, years = years, collection = s$collection,
++                         initiative = s$initiative %||% "brazil",
+                          backend = s$backend, src = src, by = by,
+                          verbose = verbose)
+   attr(ts, "species") <- species
+diff --git a/R/wdpa.R b/R/wdpa.R
+new file mode 100644
+index 0000000..ee79bf4
+--- /dev/null
++++ b/R/wdpa.R
+@@ -0,0 +1,149 @@
++#' Default WDPA ArcGIS FeatureServer query endpoint
++#'
++#' The public ArcGIS \code{FeatureServer} layer that serves the World Database
++#' on Protected Areas (WDPA) polygons, used by [wdpa_areas()] as a global
++#' alternative to the Brazil-only ICMBio Conservation Units. This is the layer
++#' behind the ArcGIS Living Atlas "WDPA" item and returns GeoJSON on demand, so
++#' no Google Earth Engine or bulk download is required.
++#'
++#' @return A length-1 character URL (the \code{/query} endpoint).
++#' @seealso <https://www.protectedplanet.net>, [wdpa_areas()]
++#' @export
++wdpa_query_url <- function() {
++  paste0("https://services5.arcgis.com/Mj0hjvkNtV7NRhA7/arcgis/rest/services/",
++         "WDPA_v0/FeatureServer/1/query")
++}
++
++#' Read World Database on Protected Areas polygons intersecting an area
++#'
++#' Queries the public WDPA ArcGIS \code{FeatureServer} for the protected-area
++#' polygons whose envelope intersects the bounding box of \code{aoi} and returns
++#' them as an \code{sf} in WGS84 with the same three standardised columns used by
++#' [protected_areas()]: \code{pa_name} (WDPA \code{NAME}), \code{pa_category}
++#' (designation / IUCN category) and \code{pa_group} (\emph{Strict protection}
++#' for IUCN Ia-III, \emph{Sustainable use} for IUCN IV-VI, else the reported
++#' status), plus all original WDPA attributes.
++#'
++#' Only the AOI's bounding box is requested (server-side envelope filter) and the
++#' server's transfer limit is followed with pagination, so this stays light even
++#' though WDPA is a global dataset. Results are cached on disk by bounding box.
++#' This is the recommended protected-area source for the \code{"amazonia"} and
++#' \code{"colombia"} initiatives (and anywhere outside Brazil), where the ICMBio
++#' service does not apply.
++#'
++#' @param aoi An \code{sf}/\code{sfc} polygon or point set (any CRS).
++#' @param url WDPA query endpoint (default [wdpa_query_url()]).
++#' @param marine One of \code{"all"} (default), \code{"terrestrial"} (drop purely
++#'   marine PAs, \code{MARINE = 2}) - useful for terrestrial species screening.
++#' @param cache,cache_dir Cache the result on disk (default \code{TRUE}; folder
++#'   \code{mappingAS_pa_cache} under \code{tempdir()}).
++#' @param quiet Passed to [sf::st_read()] (default \code{TRUE}).
++#' @return An \code{sf} of WDPA polygons in EPSG:4326 (possibly zero rows), or
++#'   \code{NULL} if the service could not be read.
++#' @examples
++#' \dontrun{
++#' occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
++#'                                     package = "mappingAS"))
++#' sp1 <- occ[occ$species == occ$species[1], ]
++#' pas <- wdpa_areas(calc_eoo(sp1)$hull)
++#' unique(pas$pa_name)
++#' }
++#' @export
++wdpa_areas <- function(aoi, url = wdpa_query_url(),
++                       marine = c("all", "terrestrial"),
++                       cache = TRUE, cache_dir = NULL, quiet = TRUE) {
++  marine <- match.arg(marine)
++  g <- sf::st_geometry(aoi)
++  if (is.na(sf::st_crs(g))) sf::st_crs(g) <- 4326
++  bb <- sf::st_bbox(sf::st_transform(g, 4326))
++
++  key <- paste0("wdpa__", marine, "__",
++                paste(round(as.numeric(bb), 4), collapse = "_"))
++  f <- .pa_cache_file(cache, cache_dir, key)
++  if (!is.null(f) && file.exists(f))
++    return(tryCatch(sf::st_read(f, quiet = TRUE), error = function(e) NULL))
++
++  where <- if (marine == "terrestrial") "MARINE<>2" else "1=1"
++  geom <- sprintf("%f,%f,%f,%f",
++                  bb[["xmin"]], bb[["ymin"]], bb[["xmax"]], bb[["ymax"]])
++
++  pa <- .wdpa_fetch(url, where, geom, quiet)
++  if (is.null(pa)) return(NULL)
++  if (!nrow(pa)) return(pa)
++
++  pa <- sf::st_make_valid(sf::st_transform(pa, 4326))
++  pa <- .pa_standardise_wdpa(pa)
++  if (nrow(pa) && !is.null(f))
++    tryCatch(sf::st_write(pa, f, quiet = TRUE, append = FALSE),
++             error = function(e) NULL)
++  pa
++}
++
++#' @keywords internal
++#' @noRd
++.wdpa_fetch <- function(url, where, geom, quiet, page = 1000L, max_pages = 25L) {
++  build <- function(offset) {
++    q <- c(
++      where = utils::URLencode(where, TRUE),
++      geometry = utils::URLencode(geom, TRUE),
++      geometryType = "esriGeometryEnvelope",
++      inSR = "4326", outSR = "4326",
++      spatialRel = "esriSpatialRelIntersects",
++      outFields = "*", returnGeometry = "true",
++      resultOffset = as.character(offset),
++      resultRecordCount = as.character(page),
++      f = "geojson")
++    paste0(url, "?", paste(names(q), q, sep = "=", collapse = "&"))
++  }
++
++  parts <- list(); i <- 0L; offset <- 0L
++  repeat {
++    i <- i + 1L
++    chunk <- tryCatch(sf::st_read(build(offset), quiet = quiet),
++                      error = function(e) NULL)
++    if (is.null(chunk)) {
++      if (i == 1L)
++        stop("Could not read the WDPA FeatureServer. Check the connection or ",
++             "use pa_source = 'icmbio' / a local `pa_src` file.", call. = FALSE)
++      break
++    }
++    if (nrow(chunk)) parts[[i]] <- chunk
++    if (nrow(chunk) < page || i >= max_pages) break
++    offset <- offset + page
++  }
++  if (!length(parts))
++    return(sf::st_sf(pa_name = character(0),
++                     geometry = sf::st_sfc(crs = 4326)))
++  do.call(rbind, parts)
++}
++
++#' Standardise WDPA attributes to pa_name / pa_category / pa_group
++#' @keywords internal
++#' @noRd
++.pa_standardise_wdpa <- function(pa) {
++  nms <- names(pa)
++  nm <- .match_col(nms, c("NAME", "name", "ORIG_NAME"))
++  ds <- .match_col(nms, c("DESIG_ENG", "DESIG", "desig_eng", "desig"))
++  ic <- .match_col(nms, c("IUCN_CAT", "iucn_cat"))
++
++  pa$pa_name <- if (!is.na(nm)) as.character(pa[[nm]])
++                else paste0("WDPA_", seq_len(nrow(pa)))
++  cat_desig <- if (!is.na(ds)) as.character(pa[[ds]]) else NA_character_
++  iucn <- if (!is.na(ic)) toupper(trimws(as.character(pa[[ic]]))) else NA_character_
++  pa$pa_category <- ifelse(is.na(cat_desig) | cat_desig == "",
++                           iucn, cat_desig)
++  pa$pa_group <- .wdpa_group(iucn)
++  pa
++}
++
++#' Map WDPA IUCN categories to a strict/sustainable protection group
++#' @keywords internal
++#' @noRd
++.wdpa_group <- function(iucn) {
++  strict <- c("IA", "IB", "II", "III")
++  sust   <- c("IV", "V", "VI")
++  out <- rep("Not reported / applicable", length(iucn))
++  out[iucn %in% strict] <- "Strict protection (IUCN Ia-III)"
++  out[iucn %in% sust]   <- "Sustainable use (IUCN IV-VI)"
++  out
++}
+diff --git a/README.md b/README.md
+index 6364588..10ea7e1 100644
+--- a/README.md
++++ b/README.md
+@@ -190,7 +190,7 @@ Key columns (`res$summary`, also shown with a glossary in the app's **Results**
+ | `eoo_converted_pct` / `eoo_natural_pct` | % converted / natural within the EOO |
+ | `aoo_converted_pct` / `aoo_natural_pct` | % converted / natural within the AOO |
+ | `eoo_cat_B1`, `aoo_cat_B2`, `provisional_cat` | Provisional categories (size only) |
+-| `mapbiomas_year`, `mapbiomas_collection` | Land-cover source used |
++| `mapbiomas_initiative`, `mapbiomas_year`, `mapbiomas_collection` | Land-cover source used (Brazil / Amazonia / Colombia) |
+ | `eoo_burned_pct`, `aoo_burned_pct` | % of the EOO/AOO burned at least once *(fire = TRUE)* |
+ | `occ_in_uc_pct`, `eoo_uc_pct`, `aoo_uc_pct`, `n_uc` | Overlap with protected areas *(protected = TRUE)* |
+ | `eoo_nat_uc_pct`, `aoo_nat_uc_pct` | Share of the range that is natural *and* protected |
+@@ -210,7 +210,42 @@ Key columns (`res$summary`, also shown with a glossary in the app's **Results**
+ ## MapBiomas backends
+ 
+ - **`"local"` (default)** — reads, over the network, only the *window* of the national GeoTIFF via GDAL `/vsicurl/`. No Earth Engine account, no full-mosaic download. The windowed crop is cached on disk and reused for mapping and re-runs; map overlays use a fast decimated read.
+-- **`"gee"`** — computes per-class areas server-side on Google Earth Engine (recommended for very large, e.g. continental, ranges). Requires `rgee::ee_Initialize()`.
++- **`"gee"`** — computes per-class areas server-side on Google Earth Engine (recommended for very large, e.g. continental, ranges). Requires `rgee::ee_Initialize()`. Wired for `initiative = "brazil"` only.
++
++---
++
++## MapBiomas initiatives: Brazil, Pan-Amazon and Colombia
++
++`assess_species()` (and the whole pipeline) takes an **`initiative`** argument so a species outside Brazil can be screened with the same workflow — **without Google Earth Engine and without a Google Drive download**. All three products are streamed year-by-year as Cloud-Optimized GeoTIFFs from the public MapBiomas bucket via GDAL `/vsicurl/`, exactly like the Brazil backend:
++
++| `initiative` | Product | Default collection | Years |
++|---|---|---|---|
++| `"brazil"` (default) | MapBiomas Brazil | 10 | 1985–2024 |
++| `"amazonia"` | MapBiomas Amazonia / Pan-Amazon (RAISG) | 6 | 1986–2023 |
++| `"colombia"` | MapBiomas Colombia | 3 | 1985–2024 |
++
++```r
++# A species in the Colombian Amazon, no GEE:
++res_co <- assess_species(occ, initiative = "colombia")
++
++# Anywhere in the Amazon basin (Pan-Amazon collection):
++res_az <- assess_species(occ, initiative = "amazonia")
++```
++
++`year` and `collection` default to each initiative's latest year and native collection. `mb_initiatives()` lists the products; `mb_source_url()`, `mb_raster_local()`, `mb_years()`, `mb_legend()`, `summarise_conversion()` and `cover_timeseries()` all accept `initiative`.
++
++**One standardised legend.** MapBiomas harmonises its pixel codes across initiatives, so `mb_legend()` returns a single *standardised* table (same class names, colours and conservation groups) that labels the Brazil, Amazonia and Colombia rasters consistently — this is what lets a range spanning more than one country be assessed coherently. The Colombia/Amazonia-specific classes (Andinean formations, Glacier, Other natural non-vegetated, Banana) are included; a code absent from a given product simply contributes zero area. MapBiomas **Fire** is published for Brazil only and is skipped (with a warning) for the other initiatives.
++
++---
++
++## Protected areas: ICMBio (Brazil) or WDPA (global)
++
++Protected-area overlap (`assess_species(protected = TRUE)`) can be read from two sources via **`pa_source`**:
++
++- `"icmbio"` — Brazil's **federal Conservation Units** from the ICMBio/INDE WFS (rich SNUC categories; the default for `initiative = "brazil"`).
++- `"wdpa"` — the global **World Database on Protected Areas**, read from its public ArcGIS FeatureServer (bounding-box query, cached), standardised to the same `pa_name` / `pa_category` / `pa_group` columns with IUCN categories mapped to strict-protection (Ia–III) vs sustainable-use (IV–VI). This is the default for the Amazonia/Colombia initiatives and works anywhere in the world.
++
++`pa_source = NULL` (default) picks ICMBio for Brazil and WDPA otherwise; a local `pa_src` file overrides either. See `wdpa_areas()`.
+ 
+ ---
+ 
+@@ -227,10 +262,11 @@ Key columns (`res$summary`, also shown with a glossary in the app's **Results**
+ 
+ When using this package, please also cite the underlying data and methods:
+ 
+-- **MapBiomas** — Projeto MapBiomas, Collection 10 (land use/cover) and Fire Collection 4 (<https://brasil.mapbiomas.org>).
++- **MapBiomas** — Projeto MapBiomas, Brazil Collection 10 (land use/cover) and Fire Collection 4 (<https://brasil.mapbiomas.org>); MapBiomas Amazonia / Pan-Amazon Collection 6 (RAISG, <https://amazonia.mapbiomas.org>); MapBiomas Colombia Collection 3 (<https://colombia.mapbiomas.org>).
+ - **IUCN** — Standards and Petitions Committee. *Guidelines for Using the IUCN Red List Categories and Criteria.*
+ - **GeoCAT** — Bachman, S. *et al.* (2011). *Supporting Red List threat assessments with GeoCAT.* ZooKeys 150: 117–126.
+ - **ICMBio / INDE** — Federal Conservation Units geoservice.
++- **WDPA** — UNEP-WCMC and IUCN, Protected Planet: The World Database on Protected Areas (<https://www.protectedplanet.net>).
+ 
+ ---
+ 
+diff --git a/inst/shiny/app.R b/inst/shiny/app.R
+index 17157ca..2262056 100644
+--- a/inst/shiny/app.R
++++ b/inst/shiny/app.R
+@@ -43,8 +43,8 @@ suppressMessages({
+ 
+ # Year grid for the MapBiomas collection, thinned by `step` (always keeps the
+ # last year). Shared by the land-cover and fire time-series reactives.
+-.year_grid <- function(step, collection = 10L) {
+-  yy <- mappingAS::mb_years(collection)
++.year_grid <- function(step, collection = 10L, initiative = "brazil") {
++  yy <- mappingAS::mb_years(collection, initiative)
+   step <- max(1L, as.integer(step))
+   sort(unique(c(seq(min(yy), max(yy), by = step), max(yy))))
+ }
+@@ -90,6 +90,11 @@ ui <- bslib::page_sidebar(
+       )
+     ),
+     hr(),
++    selectInput("initiative", "MapBiomas initiative",
++                choices = c("Brazil (Collection 10)" = "brazil",
++                            "Amazonia / Pan-Amazon (Collection 6)" = "amazonia",
++                            "Colombia (Collection 3)" = "colombia"),
++                selected = "brazil"),
+     selectInput("year", "MapBiomas Year", choices = 2024:1985, selected = 2024),
+     numericInput("cell_km", "AOO Cell (km)", value = 2, min = 0.5, step = 0.5),
+     radioButtons("backend", "MapBiomas Source",
+@@ -98,8 +103,13 @@ ui <- bslib::page_sidebar(
+                  selected = "local"),
+     checkboxInput("water_denom", "Include water as natural in denominator", FALSE),
+     checkboxInput("do_mb", "Calculate MapBiomas conversion", TRUE),
+-    checkboxInput("do_fire", "Calculate fire (MapBiomas burned area)", FALSE),
+-    checkboxInput("do_pa", "Overlap with Protected areas (ICMBio)", FALSE),
++    checkboxInput("do_fire", "Calculate fire (MapBiomas burned area, Brazil only)", FALSE),
++    checkboxInput("do_pa", "Overlap with Protected areas", FALSE),
++    selectInput("pa_source", "Protected-area source",
++                choices = c("Auto (ICMBio for Brazil, WDPA otherwise)" = "auto",
++                            "ICMBio federal UCs (Brazil)" = "icmbio",
++                            "WDPA (global)" = "wdpa"),
++                selected = "auto"),
+     radioButtons("lang", "Legend language",
+                  choices = c("English" = "en", "Portuguese" = "pt"),
+                  selected = "en", inline = TRUE),
+@@ -357,6 +367,14 @@ ui <- bslib::page_sidebar(
+ 
+ server <- function(input, output, session) {
+ 
++  # Keep the Year dropdown in sync with the selected initiative's span
++  # (Brazil/Colombia 1985-2024, Amazonia 1986-2023).
++  observeEvent(input$initiative, {
++    yy <- tryCatch(mappingAS::mb_years(initiative = input$initiative),
++                   error = function(e) 1985:2024)
++    updateSelectInput(session, "year", choices = rev(yy), selected = max(yy))
++  }, ignoreInit = TRUE)
++
+   occ <- reactive({
+     req(input$file)
+     orig <- input$file$name
+@@ -390,13 +408,15 @@ server <- function(input, output, session) {
+       res <- tryCatch(
+         mappingAS::assess_species(
+           o,
++          initiative = input$initiative %||% "brazil",
+           year = as.integer(input$year),
+-          collection = 10L,
++          collection = NULL,
+           backend = input$backend,
+           cell_km = input$cell_km,
+           mapbiomas = isTRUE(input$do_mb),
+           fire = isTRUE(input$do_fire),
+           protected = isTRUE(input$do_pa),
++          pa_source = if (identical(input$pa_source, "auto")) NULL else input$pa_source,
+           water_in_denominator = isTRUE(input$water_denom),
+           verbose = FALSE
+         ),
+@@ -630,7 +650,9 @@ server <- function(input, output, session) {
+       withProgress(message = "Preparing rasters (reading MapBiomas)...", value = 0, {
+         if ("lulc" %in% layers) {
+           r <- tryCatch(mappingAS::mb_raster_local(geom, year = st$year,
+-                          collection = st$collection), error = function(e) NULL)
++                          collection = st$collection,
++                          initiative = st$initiative %||% "brazil"),
++                        error = function(e) NULL)
+           if (!is.null(r)) {
+             f <- file.path(tmp, sprintf("mapbiomas_lulc_%s_%s.tif", clip, st$year))
+             terra::writeRaster(r, f, overwrite = TRUE, datatype = "INT1U",
+@@ -820,7 +842,8 @@ server <- function(input, output, session) {
+ 
+   ts_data <- eventReactive(input$ts_run, {
+     req(result(), input$ts_species)
+-    yrs <- .year_grid(input$ts_step)
++    yrs <- .year_grid(input$ts_step, result()$settings$collection,
++                      result()$settings$initiative %||% "brazil")
+     withProgress(message = "Calculating time series...", value = 0, {
+       ts <- tryCatch(
+         mappingAS::timeseries_for_species(
+diff --git a/man/assess_species.Rd b/man/assess_species.Rd
+index 1adf7ca..103ef80 100644
+--- a/man/assess_species.Rd
++++ b/man/assess_species.Rd
+@@ -6,8 +6,9 @@
+ \usage{
+ assess_species(
+   occ,
+-  year = 2024,
+-  collection = 10,
++  initiative = "brazil",
++  year = NULL,
++  collection = NULL,
+   backend = c("local", "gee"),
+   cell_km = 2,
+   mapbiomas = TRUE,
+@@ -16,6 +17,7 @@ assess_species(
+   fire_host_collection = 9,
+   protected = FALSE,
+   pa_src = NULL,
++  pa_source = NULL,
+   pa_typename = NULL,
+   src = NULL,
+   fire_src = NULL,
+@@ -27,11 +29,21 @@ assess_species(
+ \arguments{
+ \item{occ}{An \code{sf} of POINT geometries from \code{\link{read_occurrences}}.}
+ 
+-\item{year}{Integer MapBiomas year (default \code{2024}).}
++\item{initiative}{MapBiomas initiative: \code{"brazil"} (default),
++\code{"amazonia"} (Pan-Amazon / RAISG) or \code{"colombia"}. Selects the
++land-cover product, its default collection and the standardised legend, so a
++species in the Amazon basin or Colombia can be assessed without Google Earth
++Engine (see \code{\link{mb_initiatives}}).}
+ 
+-\item{collection}{Integer MapBiomas collection number (default \code{10}).}
++\item{year}{Integer MapBiomas year. \code{NULL} (default) uses the most recent
++year available for the initiative (2024 for Brazil/Colombia, 2023 for
++Amazonia).}
+ 
+-\item{backend}{Habitat backend: \code{"local"} (default) or \code{"gee"}.}
++\item{collection}{Integer MapBiomas collection number. \code{NULL} (default)
++uses the initiative default (10/6/3 for Brazil/Amazonia/Colombia).}
++
++\item{backend}{Habitat backend: \code{"local"} (default) or \code{"gee"}.
++The \code{"gee"} backend is only wired for \code{initiative = "brazil"}.}
+ 
+ \item{cell_km}{AOO grid cell size in km (default \code{2}).}
+ 
+@@ -44,13 +56,19 @@ MapBiomas Fire (accumulated layer, read locally). Default \code{FALSE}.}
+ \code{4}) and the initiative folder hosting it (default \code{9}).}
+ 
+ \item{protected}{Logical; if \code{TRUE}, also compute the overlap of the
+-range with federal Conservation Units (UCs) from the ICMBio WFS: the share
+-of occurrences inside UCs and the \\% of the EOO/AOO within UCs. Default
+-\code{FALSE}. Requires internet unless \code{pa_src} is given.}
++range with protected areas: the share of occurrences inside them and the
++\\% of the EOO/AOO within them. Default \code{FALSE}. Requires internet
++unless \code{pa_src} is given.}
+ 
+ \item{pa_src}{Optional local UC vector file (\code{.shp}/\code{.gpkg}/
+ \code{.geojson}) used instead of the WFS (offline).}
+ 
++\item{pa_source}{Protected-area source: \code{"icmbio"} (Brazilian federal
++Conservation Units, INDE WFS) or \code{"wdpa"} (World Database on Protected
++Areas, global). \code{NULL} (default) picks \code{"icmbio"} for
++\code{initiative = "brazil"} and \code{"wdpa"} otherwise (see
++\code{\link{wdpa_areas}}).}
++
+ \item{pa_typename}{Optional ICMBio WFS layer name; \code{NULL} (default)
+ auto-detects it (see \code{\link{protected_layers}}).}
+ 
+diff --git a/man/cover_timeseries.Rd b/man/cover_timeseries.Rd
+index 28adf85..edc3daf 100644
+--- a/man/cover_timeseries.Rd
++++ b/man/cover_timeseries.Rd
+@@ -7,7 +7,8 @@
+ cover_timeseries(
+   geom,
+   years = NULL,
+-  collection = 10,
++  collection = NULL,
++  initiative = "brazil",
+   backend = c("local", "gee"),
+   src = NULL,
+   by = c("class", "group"),
+@@ -19,12 +20,16 @@ cover_timeseries(
+ \item{geom}{An \code{sf}/\code{sfc} polygon (any CRS).}
+ 
+ \item{years}{Integer vector of years. If \code{NULL} (default) a 5-year step
+-across the collection span (plus the last year) is used.}
++across the initiative's span (plus the last year) is used.}
+ 
+-\item{collection}{Integer MapBiomas collection (default \code{10}).}
++\item{collection}{Integer MapBiomas collection. \code{NULL} uses the
++initiative default.}
++
++\item{initiative}{One of \code{"brazil"} (default), \code{"amazonia"} or
++\code{"colombia"} (see \code{\link{mb_initiatives}}).}
+ 
+ \item{backend}{\code{"local"} (default, windowed GeoTIFF read) or
+-\code{"gee"} (Earth Engine).}
++\code{"gee"} (Earth Engine; Brazil only).}
+ 
+ \item{src}{Optional GeoTIFF path/URL for the local backend (overrides the
+ public per-year URL).}
+diff --git a/man/mb_groups.Rd b/man/mb_groups.Rd
+index b885631..bce1f18 100644
+--- a/man/mb_groups.Rd
++++ b/man/mb_groups.Rd
+@@ -4,11 +4,16 @@
+ \alias{mb_groups}
+ \title{Group lookup vectors for MapBiomas conservation groups}
+ \usage{
+-mb_groups(collection = 10)
++mb_groups(collection = 10, initiative = "brazil")
+ }
+ \arguments{
+-\item{collection}{Integer collection number. Only \code{10} (default) is
+-currently shipped; other values emit a warning and fall back to 10.}
++\item{collection}{Integer collection number. Interpreted together with
++\code{initiative}; a value that does not match the initiative's default
++collection emits a warning and the standardised legend is still returned.}
++
++\item{initiative}{One of \code{"brazil"} (default), \code{"amazonia"} or
++\code{"colombia"}. Kept for API symmetry and warning logic; the returned
++legend is the same standardised table for every initiative.}
+ }
+ \value{
+ A named list with elements \code{natural}, \code{anthropic},
+diff --git a/man/mb_initiatives.Rd b/man/mb_initiatives.Rd
+new file mode 100644
+index 0000000..5862037
+--- /dev/null
++++ b/man/mb_initiatives.Rd
+@@ -0,0 +1,40 @@
++% Generated by roxygen2: do not edit by hand
++% Please edit documentation in R/initiatives.R
++\name{mb_initiatives}
++\alias{mb_initiatives}
++\title{MapBiomas initiatives supported by mappingAS}
++\usage{
++mb_initiatives()
++}
++\value{
++A named list, one element per initiative, each a list with
++\code{label} (human-readable name), \code{collection} (default collection
++number), \code{years} (integer vector of available years) and \code{key}.
++}
++\description{
++\pkg{mappingAS} can read land-use/land-cover from three public MapBiomas
++initiatives, all streamed as annual Cloud-Optimized GeoTIFFs from the public
++\code{storage.googleapis.com/mapbiomas-public} bucket via GDAL's
++\code{/vsicurl/} driver - no Google Earth Engine account and no Google Drive
++download required. Each initiative is one coherent product with its own
++default collection, year span and file layout, but all share the same
++\emph{standardised} legend (see \code{\link{mb_legend}}), so a species whose
++range spans more than one product can be assessed with consistent class
++names, colours and conservation groups.
++}
++\details{
++\describe{
++  \item{\code{"brazil"}}{MapBiomas Brazil, Collection 10 (1985-2024).}
++  \item{\code{"amazonia"}}{MapBiomas Amazonia / Pan-Amazon (RAISG),
++    Collection 6 (1986-2023). Covers the whole Amazon basin across countries.}
++  \item{\code{"colombia"}}{MapBiomas Colombia, Collection 3 (1985-2024).}
++}
++}
++\examples{
++names(mb_initiatives())
++mb_initiatives()$amazonia$years
++}
++\seealso{
++\code{\link{mb_source_url}}, \code{\link{mb_legend}},
++\code{\link{assess_species}}
++}
+diff --git a/man/mb_legend.Rd b/man/mb_legend.Rd
+index cb18734..87c0525 100644
+--- a/man/mb_legend.Rd
++++ b/man/mb_legend.Rd
+@@ -2,34 +2,45 @@
+ % Please edit documentation in R/legend.R
+ \name{mb_legend}
+ \alias{mb_legend}
+-\title{MapBiomas legend (Collection 10) with conservation groupings}
++\title{Standardised MapBiomas legend with conservation groupings}
+ \usage{
+-mb_legend(collection = 10)
++mb_legend(collection = 10, initiative = "brazil")
+ }
+ \arguments{
+-\item{collection}{Integer collection number. Only \code{10} (default) is
+-currently shipped; other values emit a warning and fall back to 10.}
++\item{collection}{Integer collection number. Interpreted together with
++\code{initiative}; a value that does not match the initiative's default
++collection emits a warning and the standardised legend is still returned.}
++
++\item{initiative}{One of \code{"brazil"} (default), \code{"amazonia"} or
++\code{"colombia"}. Kept for API symmetry and warning logic; the returned
++legend is the same standardised table for every initiative.}
+ }
+ \value{
+ A \code{data.frame} with columns \code{code}, \code{class_en},
+-\code{class_pt}, \code{hex} (official MapBiomas colour), \code{level1} and
++\code{class_pt}, \code{hex} (standardised MapBiomas colour), \code{level1} and
+ \code{group}.
+ }
+ \description{
+-Returns the official MapBiomas land-use/land-cover legend for Collection 10
+-(Brazil), with each pixel class assigned to a conservation-relevant group:
+-\code{"natural"}, \code{"anthropic"}, \code{"water"}, \code{"not_observed"} or
+-\code{"other"}. The \code{"anthropic"} classes are what counts as
+-\emph{converted} habitat; \code{"natural"} is the remaining (current) natural
+-habitat. By default \code{"water"}, \code{"not_observed"} and \code{"other"}
+-are excluded from the conversion denominator (see
++Returns the \emph{standardised} MapBiomas land-use/land-cover legend used
++across all three initiatives supported by \pkg{mappingAS} - MapBiomas Brazil
++(Collection 10), Pan-Amazon / Amazonia (Collection 6) and Colombia
++(Collection 3) - with each pixel class assigned to a conservation-relevant
++group: \code{"natural"}, \code{"anthropic"}, \code{"water"},
++\code{"not_observed"} or \code{"other"}. The \code{"anthropic"} classes are
++what counts as \emph{converted} habitat; \code{"natural"} is the remaining
++(current) natural habitat. By default \code{"water"}, \code{"not_observed"}
++and \code{"other"} are excluded from the conversion denominator (see
+ \code{\link{summarise_conversion}}).
+ }
+ \details{
+-Codes follow "Códigos das classes da legenda da Coleção 10 do MapBiomas
+-Brasil". A handful of parent/aggregation codes (e.g. 10, 13, 14, 18, 19, 36)
+-and codes from neighbouring collections are included so the table also works
+-if applied to Collection 9 rasters; unused codes simply contribute zero area.
++MapBiomas harmonises pixel codes across its initiatives, so a single legend
++can label the Brazil, Amazonia and Colombia rasters consistently - this is
++what makes cross-border assessment possible for a species whose range spans
++more than one product. The table is the union of the classes that occur in
++any of the three products; a code that does not occur in a given raster
++simply contributes zero area. Codes 81, 82 (Andinean formations), 34
++(Glacier), 68 (Other natural non-vegetated) and 74 (Banana) are the
++Colombia/Amazonia additions to the Brazil Collection 10 set.
+ }
+ \examples{
+ head(mb_legend())
+diff --git a/man/mb_palette.Rd b/man/mb_palette.Rd
+index ee7a351..2a424d5 100644
+--- a/man/mb_palette.Rd
++++ b/man/mb_palette.Rd
+@@ -7,6 +7,7 @@
+ mb_palette(
+   codes = NULL,
+   collection = 10,
++  initiative = "brazil",
+   by = c("code", "class_pt", "class_en")
+ )
+ }
+@@ -14,8 +15,13 @@ mb_palette(
+ \item{codes}{Optional integer vector of MapBiomas pixel codes. If \code{NULL}
+ (default) colours for the full legend are returned.}
+ 
+-\item{collection}{Integer collection number. Only \code{10} (default) is
+-currently shipped; other values emit a warning and fall back to 10.}
++\item{collection}{Integer collection number. Interpreted together with
++\code{initiative}; a value that does not match the initiative's default
++collection emits a warning and the standardised legend is still returned.}
++
++\item{initiative}{One of \code{"brazil"} (default), \code{"amazonia"} or
++\code{"colombia"}. Kept for API symmetry and warning logic; the returned
++legend is the same standardised table for every initiative.}
+ 
+ \item{by}{One of \code{"code"} (names are codes) or \code{"class_pt"} /
+ \code{"class_en"} (names are class labels). Default \code{"code"}.}
+diff --git a/man/mb_raster_local.Rd b/man/mb_raster_local.Rd
+index a3cb25f..015f2a1 100644
+--- a/man/mb_raster_local.Rd
++++ b/man/mb_raster_local.Rd
+@@ -7,7 +7,8 @@
+ mb_raster_local(
+   aoi,
+   year = 2024,
+-  collection = 10,
++  collection = NULL,
++  initiative = "brazil",
+   src = NULL,
+   mask = TRUE,
+   cache = TRUE,
+@@ -20,11 +21,15 @@ extract, e.g. an EOO hull or the union of AOO cells.}
+ 
+ \item{year}{Integer year (default \code{2024}).}
+ 
+-\item{collection}{Integer collection number (default \code{10}).}
++\item{collection}{Integer collection number. \code{NULL} uses the
++\code{initiative} default (10/6/3 for Brazil/Amazonia/Colombia).}
++
++\item{initiative}{One of \code{"brazil"} (default), \code{"amazonia"} or
++\code{"colombia"} (see \code{\link{mb_initiatives}}).}
+ 
+ \item{src}{Optional path or URL to a MapBiomas GeoTIFF. If \code{NULL}
+-(default) the public Collection \code{collection} URL for \code{year} is
+-used through \code{/vsicurl/}.}
++(default) the public URL for \code{year}/\code{collection}/\code{initiative}
++is used through \code{/vsicurl/}.}
+ 
+ \item{mask}{Logical; if \code{TRUE} (default) pixels outside the polygon are
+ set to \code{NA}. If \code{FALSE} only a rectangular crop is returned.}
+diff --git a/man/mb_source_url.Rd b/man/mb_source_url.Rd
+index c9721d5..9fe9e75 100644
+--- a/man/mb_source_url.Rd
++++ b/man/mb_source_url.Rd
+@@ -2,22 +2,37 @@
+ % Please edit documentation in R/mapbiomas_local.R
+ \name{mb_source_url}
+ \alias{mb_source_url}
+-\title{Build the MapBiomas national GeoTIFF URL for a given year}
++\title{Build the MapBiomas land-use GeoTIFF URL for a given year and initiative}
+ \usage{
+-mb_source_url(year = 2024, collection = 10)
++mb_source_url(year = 2024, collection = NULL, initiative = "brazil")
+ }
+ \arguments{
+-\item{year}{Integer year (1985-2024 for Collection 10).}
++\item{year}{Integer year.}
+ 
+-\item{collection}{Integer collection number (default \code{10}).}
++\item{collection}{Integer collection number. \code{NULL} (default) uses the
++initiative's default collection (10 for Brazil, 6 for Amazonia, 3 for
++Colombia).}
++
++\item{initiative}{One of \code{"brazil"} (default), \code{"amazonia"} or
++\code{"colombia"} (see \code{\link{mb_initiatives}}).}
+ }
+ \value{
+ A length-1 character URL.
+ }
+ \description{
+-Returns the public Google Cloud Storage URL of the MapBiomas Brazil
+-land-use/land-cover annual mosaic. Collection 10 covers 1985-2024.
++Returns the public Google Cloud Storage URL of the MapBiomas
++land-use/land-cover annual mosaic for the chosen initiative. All three
++supported initiatives publish annual single-year Cloud-Optimized GeoTIFFs on
++the same public bucket, so they can be streamed with GDAL's \code{/vsicurl/}
++driver (no Google Earth Engine, no Google Drive):
++\itemize{
++  \item \code{"brazil"}  - Collection 10, 1985-2024
++  \item \code{"amazonia"} - Pan-Amazon Collection 6, 1986-2023
++  \item \code{"colombia"} - Collection 3, 1985-2024
++}
+ }
+ \examples{
+ mb_source_url(2024)
++mb_source_url(2023, initiative = "amazonia")
++mb_source_url(2024, initiative = "colombia")
+ }
+diff --git a/man/mb_years.Rd b/man/mb_years.Rd
+index 4804a0a..b6bd169 100644
+--- a/man/mb_years.Rd
++++ b/man/mb_years.Rd
+@@ -2,17 +2,27 @@
+ % Please edit documentation in R/legend.R
+ \name{mb_years}
+ \alias{mb_years}
+-\title{Years available for a MapBiomas collection}
++\title{Years available for a MapBiomas initiative/collection}
+ \usage{
+-mb_years(collection = 10)
++mb_years(collection = 10, initiative = "brazil")
+ }
+ \arguments{
+-\item{collection}{Integer collection number. Only \code{10} (default) is
+-currently shipped; other values emit a warning and fall back to 10.}
++\item{collection}{Integer collection number. Interpreted together with
++\code{initiative}; a value that does not match the initiative's default
++collection emits a warning and the standardised legend is still returned.}
++
++\item{initiative}{One of \code{"brazil"} (default), \code{"amazonia"} or
++\code{"colombia"}. Kept for API symmetry and warning logic; the returned
++legend is the same standardised table for every initiative.}
+ }
+ \value{
+-An integer vector of years (Collection 10 / 9 cover 1985-2024).
++An integer vector of years available for the initiative (Brazil
++1985-2024, Amazonia 1986-2023, Colombia 1985-2024).
+ }
+ \description{
+-Years available for a MapBiomas collection
++Years available for a MapBiomas initiative/collection
++}
++\examples{
++range(mb_years())
++range(mb_years(initiative = "amazonia"))
+ }
+diff --git a/man/summarise_conversion.Rd b/man/summarise_conversion.Rd
+index 192372d..cb5ba10 100644
+--- a/man/summarise_conversion.Rd
++++ b/man/summarise_conversion.Rd
+@@ -7,6 +7,7 @@
+ summarise_conversion(
+   class_areas,
+   collection = 10,
++  initiative = "brazil",
+   water_in_denominator = FALSE
+ )
+ }
+@@ -18,6 +19,10 @@ summarise_conversion(
+ 
+ \item{collection}{Integer collection number (default \code{10}).}
+ 
++\item{initiative}{One of \code{"brazil"} (default), \code{"amazonia"} or
++\code{"colombia"}; selects the standardised legend context (see
++\code{\link{mb_legend}}).}
++
+ \item{water_in_denominator}{Logical; if \code{TRUE}, water is treated as
+ natural and included in the terrestrial denominator (default \code{FALSE}).}
+ }
+diff --git a/man/wdpa_areas.Rd b/man/wdpa_areas.Rd
+new file mode 100644
+index 0000000..d35909a
+--- /dev/null
++++ b/man/wdpa_areas.Rd
+@@ -0,0 +1,58 @@
++% Generated by roxygen2: do not edit by hand
++% Please edit documentation in R/wdpa.R
++\name{wdpa_areas}
++\alias{wdpa_areas}
++\title{Read World Database on Protected Areas polygons intersecting an area}
++\usage{
++wdpa_areas(
++  aoi,
++  url = wdpa_query_url(),
++  marine = c("all", "terrestrial"),
++  cache = TRUE,
++  cache_dir = NULL,
++  quiet = TRUE
++)
++}
++\arguments{
++\item{aoi}{An \code{sf}/\code{sfc} polygon or point set (any CRS).}
++
++\item{url}{WDPA query endpoint (default \code{\link{wdpa_query_url}}).}
++
++\item{marine}{One of \code{"all"} (default), \code{"terrestrial"} (drop purely
++marine PAs, \code{MARINE = 2}) - useful for terrestrial species screening.}
++
++\item{cache, cache_dir}{Cache the result on disk (default \code{TRUE}; folder
++\code{mappingAS_pa_cache} under \code{tempdir()}).}
++
++\item{quiet}{Passed to \code{\link[sf]{st_read}} (default \code{TRUE}).}
++}
++\value{
++An \code{sf} of WDPA polygons in EPSG:4326 (possibly zero rows), or
++\code{NULL} if the service could not be read.
++}
++\description{
++Queries the public WDPA ArcGIS \code{FeatureServer} for the protected-area
++polygons whose envelope intersects the bounding box of \code{aoi} and returns
++them as an \code{sf} in WGS84 with the same three standardised columns used by
++\code{\link{protected_areas}}: \code{pa_name} (WDPA \code{NAME}),
++\code{pa_category} (designation / IUCN category) and \code{pa_group}
++(\emph{Strict protection} for IUCN Ia-III, \emph{Sustainable use} for IUCN
++IV-VI, else the reported status), plus all original WDPA attributes.
++}
++\details{
++Only the AOI's bounding box is requested (server-side envelope filter) and the
++server's transfer limit is followed with pagination, so this stays light even
++though WDPA is a global dataset. Results are cached on disk by bounding box.
++This is the recommended protected-area source for the \code{"amazonia"} and
++\code{"colombia"} initiatives (and anywhere outside Brazil), where the ICMBio
++service does not apply.
++}
++\examples{
++\dontrun{
++occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
++                                    package = "mappingAS"))
++sp1 <- occ[occ$species == occ$species[1], ]
++pas <- wdpa_areas(calc_eoo(sp1)$hull)
++unique(pas$pa_name)
++}
++}
+diff --git a/man/wdpa_query_url.Rd b/man/wdpa_query_url.Rd
+new file mode 100644
+index 0000000..e696c18
+--- /dev/null
++++ b/man/wdpa_query_url.Rd
+@@ -0,0 +1,21 @@
++% Generated by roxygen2: do not edit by hand
++% Please edit documentation in R/wdpa.R
++\name{wdpa_query_url}
++\alias{wdpa_query_url}
++\title{Default WDPA ArcGIS FeatureServer query endpoint}
++\usage{
++wdpa_query_url()
++}
++\value{
++A length-1 character URL (the \code{/query} endpoint).
++}
++\description{
++The public ArcGIS \code{FeatureServer} layer that serves the World Database
++on Protected Areas (WDPA) polygons, used by \code{\link{wdpa_areas}} as a
++global alternative to the Brazil-only ICMBio Conservation Units. This is the
++layer behind the ArcGIS Living Atlas "WDPA" item and returns GeoJSON on
++demand, so no Google Earth Engine or bulk download is required.
++}
++\seealso{
++\url{https://www.protectedplanet.net}, \code{\link{wdpa_areas}}
++}
+diff --git a/tests/testthat/test-initiatives.R b/tests/testthat/test-initiatives.R
+new file mode 100644
+index 0000000..30894b1
+--- /dev/null
++++ b/tests/testthat/test-initiatives.R
+@@ -0,0 +1,79 @@
++# Multi-initiative support (Brazil / Amazonia / Colombia) and the standardised
++# legend. These are pure-URL / pure-table checks (no network).
++
++test_that("mb_initiatives lists the three products with sane metadata", {
++  ini <- mb_initiatives()
++  expect_setequal(names(ini), c("brazil", "amazonia", "colombia"))
++  expect_identical(ini$brazil$collection, 10L)
++  expect_identical(ini$amazonia$collection, 6L)
++  expect_identical(ini$colombia$collection, 3L)
++  expect_equal(range(ini$brazil$years), c(1985L, 2024L))
++  expect_equal(range(ini$amazonia$years), c(1986L, 2023L))
++  expect_equal(range(ini$colombia$years), c(1985L, 2024L))
++})
++
++test_that("mb_source_url builds per-initiative public bucket URLs", {
++  # Brazil (default) - unchanged behaviour
++  b <- mb_source_url(2024, 10)
++  expect_match(b, "initiatives/brasil/collection_10")
++  expect_match(b, "brazil_coverage_2024\\.tif$")
++
++  # Amazonia (Pan-Amazon) Collection 6 integration classification
++  a <- mb_source_url(2023, initiative = "amazonia")
++  expect_match(a, "initiatives/amazon/lulc/collection_6/integration")
++  expect_match(a, "mapbiomas_collection60_integration_v1-classification_2023\\.tif$")
++
++  # Colombia Collection 3 per-year coverage
++  co <- mb_source_url(2024, initiative = "colombia")
++  expect_match(co, "initiatives/colombia/collection_3/coverage")
++  expect_match(co, "colombia_coverage_2024\\.tif$")
++
++  # collection defaults follow the initiative when NULL
++  expect_match(mb_source_url(2023, collection = NULL, initiative = "amazonia"),
++               "collection_6")
++})
++
++test_that("friendly initiative aliases resolve", {
++  expect_match(mb_source_url(2023, initiative = "pan-amazonia"), "amazon")
++  expect_match(mb_source_url(2024, initiative = "brasil"), "brazil_coverage")
++})
++
++test_that("mb_years follows the initiative span", {
++  expect_equal(range(mb_years(initiative = "amazonia")), c(1986L, 2023L))
++  expect_equal(range(mb_years(initiative = "colombia")), c(1985L, 2024L))
++  # positional collection still returns Brazil default
++  expect_equal(range(mb_years(10)), c(1985L, 2024L))
++})
++
++test_that("standardised legend adds Colombia/Amazonia classes without breaking Brazil", {
++  leg <- mb_legend()
++  expect_false(any(duplicated(leg$code)))
++  expect_setequal(unique(leg$group),
++                  c("natural", "anthropic", "water", "other", "not_observed"))
++  g <- function(code) leg$group[leg$code == code]
++  # Brazil mappings preserved
++  expect_identical(g(3), "natural")
++  expect_identical(g(15), "anthropic")
++  expect_identical(g(33), "water")
++  expect_identical(g(25), "other")
++  # new standardised (Colombia/Amazonia) codes present and grouped
++  expect_identical(g(81), "natural")   # Andinean herbaceous/shrubby
++  expect_identical(g(82), "natural")   # Flooded Andinean
++  expect_identical(g(34), "water")     # Glacier
++  expect_identical(g(68), "other")     # Other natural non-vegetated
++  expect_identical(g(74), "anthropic") # Banana (beta)
++})
++
++test_that("mb_legend does not warn for a valid initiative/collection pair", {
++  expect_silent(mb_legend(6, "amazonia"))
++  expect_silent(mb_legend(3, "colombia"))
++  expect_silent(mb_legend(10, "brazil"))
++  # mismatched collection still warns
++  expect_warning(mb_legend(9))
++})
++
++test_that("wdpa_query_url points at the WDPA FeatureServer query endpoint", {
++  u <- wdpa_query_url()
++  expect_match(u, "services5\\.arcgis\\.com")
++  expect_match(u, "WDPA_v0/FeatureServer/1/query$")
++})
+-- 
+2.43.0
+

@@ -24,10 +24,10 @@ names, colours and conservation groups.
 }
 \details{
 \describe{
-  \item{\code{"brazil"}}{MapBiomas Brazil, Collection 10 (1985-2024).}
-  \item{\code{"amazonia"}}{MapBiomas Amazonia / Pan-Amazon (RAISG),
-    Collection 6 (1986-2023). Covers the whole Amazon basin across countries.}
-  \item{\code{"colombia"}}{MapBiomas Colombia, Collection 3 (1985-2024).}
+\item{\code{"brazil"}}{MapBiomas Brazil, Collection 10 (1985-2024).}
+\item{\code{"amazonia"}}{MapBiomas Amazonia / Pan-Amazon (RAISG),
+Collection 6 (1986-2023). Covers the whole Amazon basin across countries.}
+\item{\code{"colombia"}}{MapBiomas Colombia, Collection 3 (1985-2024).}
 }
 }
 \examples{
