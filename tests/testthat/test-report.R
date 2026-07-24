@@ -36,7 +36,7 @@ test_that("assessment_report renders HTML and text with key facts", {
 
   txt <- assessment_report(a, output = "text")
   expect_match(txt, "Extent of Occurrence")
-  expect_match(txt, "MapBiomas Collection")
+  expect_match(txt, "MapBiomas Brazil Collection")
   expect_match(txt, "burned")
   expect_match(txt, "Conservation Units")
   expect_match(txt, "IUCN")

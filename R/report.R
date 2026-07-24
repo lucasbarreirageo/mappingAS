@@ -24,6 +24,9 @@
 #'   \code{\link{fire_timeseries_for_species}} / \code{\link{fire_timeseries}},
 #'   with \code{year} and \code{burned_pct}). When supplied, the fire regime is
 #'   characterised over time.
+#' @param figures Logical; for \code{output = "docx"} only, embed the supporting
+#'   figures (composition, protection and the land-cover/fire time-series charts)
+#'   in the Word document (default \code{FALSE}). Ignored for other outputs.
 #' @return For \code{"html"}/\code{"text"}, a length-one character string. For
 #'   \code{"docx"}, the \code{file} path (written as a side effect), invisibly.
 #' @examples
@@ -117,6 +120,8 @@ assessment_report <- function(assessment, species = NULL,
     stop("Species not found in assessment: ", species, call. = FALSE)
   r <- r[1, , drop = FALSE]
   st  <- assessment$settings
+  mb_label <- tryCatch(.mb_resolve_initiative(st$initiative %||% "brazil")$label,
+                       error = function(e) "MapBiomas Brazil")
   det <- assessment$detail[[species]]
   pa  <- if (!is.null(det)) det$pa else NULL
   # cover_series / fire_series may be a single data frame (one range) or a list
@@ -194,9 +199,9 @@ assessment_report <- function(assessment, species = NULL,
   if (isTRUE(st$mapbiomas) &&
       (!is.na(r$eoo_converted_pct) || !is.na(r$aoo_converted_pct))) {
     conv_p <- sprintf(L(
-      "Based on MapBiomas Collection %s (%s), converted (anthropic) land cover accounts for %s of the terrestrial EOO and %s of the AOO; the remaining natural habitat is %s (EOO) and %s (AOO). Water and unobserved areas are excluded from the terrestrial denominator.",
-      "Com base na Colecao %s do MapBiomas (%s), a cobertura convertida (antropica) corresponde a %s da EOO terrestre e a %s da AOO; o habitat natural remanescente e de %s (EOO) e %s (AOO). Corpos d'agua e areas nao observadas sao excluidos do denominador terrestre."),
-      st$collection, st$year,
+      "Based on %s Collection %s (%s), converted (anthropic) land cover accounts for %s of the terrestrial EOO and %s of the AOO; the remaining natural habitat is %s (EOO) and %s (AOO). Water and unobserved areas are excluded from the terrestrial denominator.",
+      "Com base em %s Colecao %s (%s), a cobertura convertida (antropica) corresponde a %s da EOO terrestre e a %s da AOO; o habitat natural remanescente e de %s (EOO) e %s (AOO). Corpos d'agua e areas nao observadas sao excluidos do denominador terrestre."),
+      mb_label, st$collection, st$year,
       fmt_pct(r$eoo_converted_pct), fmt_pct(r$aoo_converted_pct),
       fmt_pct(r$eoo_natural_pct), fmt_pct(r$aoo_natural_pct))
     if (length(cover_trs)) {
@@ -352,7 +357,7 @@ assessment_report <- function(assessment, species = NULL,
   )
   if (isTRUE(st$mapbiomas))
     refs <- c(refs,
-      sprintf("Project MapBiomas - Collection %s of the Annual Series of Land Use and Land Cover Maps of Brazil. https://brasil.mapbiomas.org", st$collection),
+      sprintf("Project %s - Collection %s of the Annual Series of Land Use and Land Cover Maps. https://mapbiomas.org", mb_label, st$collection),
       "Souza, C.M. et al. (2020). Reconstructing Three Decades of Land Use and Land Cover Changes in Brazilian Biomes with Landsat Archive and Earth Engine. Remote Sensing 12(17): 2735. doi:10.3390/rs12172735")
   if (isTRUE(st$fire))
     refs <- c(refs,

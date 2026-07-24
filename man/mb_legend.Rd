@@ -2,34 +2,45 @@
 % Please edit documentation in R/legend.R
 \name{mb_legend}
 \alias{mb_legend}
-\title{MapBiomas legend (Collection 10) with conservation groupings}
+\title{Standardised MapBiomas legend with conservation groupings}
 \usage{
-mb_legend(collection = 10)
+mb_legend(collection = 10, initiative = "brazil")
 }
 \arguments{
-\item{collection}{Integer collection number. Only \code{10} (default) is
-currently shipped; other values emit a warning and fall back to 10.}
+\item{collection}{Integer collection number. Interpreted together with
+\code{initiative}; a value that does not match the initiative's default
+collection emits a warning and the standardised legend is still returned.}
+
+\item{initiative}{One of \code{"brazil"} (default), \code{"amazonia"} or
+\code{"colombia"}. Kept for API symmetry and warning logic; the returned
+legend is the same standardised table for every initiative.}
 }
 \value{
 A \code{data.frame} with columns \code{code}, \code{class_en},
-\code{class_pt}, \code{hex} (official MapBiomas colour), \code{level1} and
-\code{group}.
+\code{class_pt}, \code{hex} (standardised MapBiomas colour), \code{level1}
+and \code{group}.
 }
 \description{
-Returns the official MapBiomas land-use/land-cover legend for Collection 10
-(Brazil), with each pixel class assigned to a conservation-relevant group:
-\code{"natural"}, \code{"anthropic"}, \code{"water"}, \code{"not_observed"} or
-\code{"other"}. The \code{"anthropic"} classes are what counts as
-\emph{converted} habitat; \code{"natural"} is the remaining (current) natural
-habitat. By default \code{"water"}, \code{"not_observed"} and \code{"other"}
-are excluded from the conversion denominator (see
+Returns the \emph{standardised} MapBiomas land-use/land-cover legend used
+across all three initiatives supported by \pkg{mappingAS} - MapBiomas Brazil
+(Collection 10), Pan-Amazon / Amazonia (Collection 6) and Colombia
+(Collection 3) - with each pixel class assigned to a conservation-relevant
+group: \code{"natural"}, \code{"anthropic"}, \code{"water"},
+\code{"not_observed"} or \code{"other"}. The \code{"anthropic"} classes are
+what counts as \emph{converted} habitat; \code{"natural"} is the remaining
+(current) natural habitat. By default \code{"water"}, \code{"not_observed"}
+and \code{"other"} are excluded from the conversion denominator (see
 \code{\link{summarise_conversion}}).
 }
 \details{
-Codes follow "Códigos das classes da legenda da Coleção 10 do MapBiomas
-Brasil". A handful of parent/aggregation codes (e.g. 10, 13, 14, 18, 19, 36)
-and codes from neighbouring collections are included so the table also works
-if applied to Collection 9 rasters; unused codes simply contribute zero area.
+MapBiomas harmonises pixel codes across its initiatives, so a single legend
+can label the Brazil, Amazonia and Colombia rasters consistently - this is
+what makes cross-border assessment possible for a species whose range spans
+more than one product. The table is the union of the classes that occur in
+any of the three products; a code that does not occur in a given raster
+simply contributes zero area. Codes 81, 82 (Andinean formations), 34
+(Glacier), 68 (Other natural non-vegetated) and 74 (Banana) are the
+Colombia/Amazonia additions to the Brazil Collection 10 set.
 }
 \examples{
 head(mb_legend())

@@ -1,18 +1,46 @@
-#' Build the MapBiomas national GeoTIFF URL for a given year
+#' Build the MapBiomas land-use GeoTIFF URL for a given year and initiative
 #'
-#' Returns the public Google Cloud Storage URL of the MapBiomas Brazil
-#' land-use/land-cover annual mosaic. Collection 10 covers 1985-2024.
+#' Returns the public Google Cloud Storage URL of the MapBiomas
+#' land-use/land-cover annual mosaic for the chosen initiative. All three
+#' supported initiatives publish annual single-year Cloud-Optimized GeoTIFFs on
+#' the same public bucket, so they can be streamed with GDAL's \code{/vsicurl/}
+#' driver (no Google Earth Engine, no Google Drive):
+#' \itemize{
+#'   \item \code{"brazil"}  - Collection 10, 1985-2024
+#'   \item \code{"amazonia"} - Pan-Amazon Collection 6, 1986-2023
+#'   \item \code{"colombia"} - Collection 3, 1985-2024
+#' }
 #'
-#' @param year Integer year (1985-2024 for Collection 10).
-#' @param collection Integer collection number (default \code{10}).
+#' @param year Integer year.
+#' @param collection Integer collection number. \code{NULL} (default) uses the
+#'   initiative's default collection (10 for Brazil, 6 for Amazonia, 3 for
+#'   Colombia).
+#' @param initiative One of \code{"brazil"} (default), \code{"amazonia"} or
+#'   \code{"colombia"} (see \code{\link{mb_initiatives}}).
 #' @return A length-1 character URL.
 #' @examples
 #' mb_source_url(2024)
+#' mb_source_url(2023, initiative = "amazonia")
+#' mb_source_url(2024, initiative = "colombia")
 #' @export
-mb_source_url <- function(year = 2024, collection = 10) {
-  sprintf(
-    "https://storage.googleapis.com/mapbiomas-public/initiatives/brasil/collection_%d/lulc/coverage/brazil_coverage_%d.tif",
-    as.integer(collection), as.integer(year)
+mb_source_url <- function(year = 2024, collection = NULL, initiative = "brazil") {
+  ini <- .mb_resolve_initiative(initiative)
+  if (is.null(collection)) collection <- ini$collection
+  collection <- as.integer(collection)
+  year <- as.integer(year)
+  base <- "https://storage.googleapis.com/mapbiomas-public/initiatives"
+  switch(
+    ini$key,
+    brazil = sprintf(
+      "%s/brasil/collection_%d/lulc/coverage/brazil_coverage_%d.tif",
+      base, collection, year),
+    amazonia = sprintf(
+      paste0("%s/amazon/lulc/collection_%d/integration/",
+             "mapbiomas_collection%d0_integration_v1-classification_%d.tif"),
+      base, collection, collection, year),
+    colombia = sprintf(
+      "%s/colombia/collection_%d/coverage/colombia_coverage_%d.tif",
+      base, collection, year)
   )
 }
 
@@ -51,10 +79,13 @@ mb_source_url <- function(year = 2024, collection = 10) {
 #' @param aoi An \code{sf}/\code{sfc} polygon (any CRS) defining the area to
 #'   extract, e.g. an EOO hull or the union of AOO cells.
 #' @param year Integer year (default \code{2024}).
-#' @param collection Integer collection number (default \code{10}).
+#' @param collection Integer collection number. \code{NULL} uses the
+#'   \code{initiative} default (10/6/3 for Brazil/Amazonia/Colombia).
+#' @param initiative One of \code{"brazil"} (default), \code{"amazonia"} or
+#'   \code{"colombia"} (see \code{\link{mb_initiatives}}).
 #' @param src Optional path or URL to a MapBiomas GeoTIFF. If \code{NULL}
-#'   (default) the public Collection \code{collection} URL for \code{year} is
-#'   used through \code{/vsicurl/}.
+#'   (default) the public URL for \code{year}/\code{collection}/\code{initiative}
+#'   is used through \code{/vsicurl/}.
 #' @param mask Logical; if \code{TRUE} (default) pixels outside the polygon are
 #'   set to \code{NA}. If \code{FALSE} only a rectangular crop is returned.
 #' @param cache Logical; if \code{TRUE} (default) the rectangular windowed crop
@@ -67,12 +98,15 @@ mb_source_url <- function(year = 2024, collection = 10) {
 #' @return A \pkg{terra} \code{SpatRaster} of MapBiomas pixel codes restricted to
 #'   the AOI, in the raster's native CRS.
 #' @export
-mb_raster_local <- function(aoi, year = 2024, collection = 10,
+mb_raster_local <- function(aoi, year = 2024, collection = NULL,
+                            initiative = "brazil",
                             src = NULL, mask = TRUE,
                             cache = TRUE, cache_dir = NULL) {
   if (!requireNamespace("terra", quietly = TRUE)) {
     stop("Package 'terra' is required.", call. = FALSE)
   }
+  ini <- .mb_resolve_initiative(initiative)
+  if (is.null(collection)) collection <- ini$collection
   aoi <- sf::st_geometry(aoi)
   if (is.na(sf::st_crs(aoi))) sf::st_crs(aoi) <- 4326
 
@@ -80,7 +114,7 @@ mb_raster_local <- function(aoi, year = 2024, collection = 10,
   old <- .mb_set_gdal()
   on.exit(for (k in names(old)) terra::setGDALconfig(k, old[[k]]), add = TRUE)
 
-  if (is.null(src)) src <- mb_source_url(year, collection)
+  if (is.null(src)) src <- mb_source_url(year, collection, ini$key)
   path <- if (grepl("^https?://", src)) paste0("/vsicurl/", src) else src
 
   r <- tryCatch(
@@ -126,12 +160,13 @@ mb_raster_local <- function(aoi, year = 2024, collection = 10,
 #' @keywords internal
 #' @noRd
 .mb_raster_display <- function(aoi, year, collection, src, max_pixels = 600,
-                               crs = NULL, cache = TRUE) {
+                               crs = NULL, cache = TRUE, initiative = "brazil") {
   r <- tryCatch(
-    .mb_display_read(aoi, year, collection, src, max_pixels),
+    .mb_display_read(aoi, year, collection, src, max_pixels, initiative),
     error = function(e) NULL)
   if (is.null(r)) {
-    r <- mb_raster_local(aoi, year = year, collection = collection, src = src,
+    r <- mb_raster_local(aoi, year = year, collection = collection,
+                         initiative = initiative, src = src,
                          mask = TRUE, cache = cache)
     d <- max(dim(r)[1:2])
     if (d > max_pixels)
@@ -148,13 +183,16 @@ mb_raster_local <- function(aoi, year = 2024, collection = 10,
 # large window. Used only for the map overlay - never for area statistics.
 #' @keywords internal
 #' @noRd
-.mb_display_read <- function(aoi, year, collection, src, max_pixels = 600) {
+.mb_display_read <- function(aoi, year, collection, src, max_pixels = 600,
+                             initiative = "brazil") {
   if (!requireNamespace("terra", quietly = TRUE) ||
       !requireNamespace("sf", quietly = TRUE))
     stop("Packages 'terra' and 'sf' are required.", call. = FALSE)
+  ini <- .mb_resolve_initiative(initiative)
+  if (is.null(collection)) collection <- ini$collection
   aoi <- sf::st_geometry(aoi)
   if (is.na(sf::st_crs(aoi))) sf::st_crs(aoi) <- 4326
-  if (is.null(src)) src <- mb_source_url(year, collection)
+  if (is.null(src)) src <- mb_source_url(year, collection, ini$key)
   path <- if (grepl("^https?://", src)) paste0("/vsicurl/", src) else src
 
   old <- .mb_set_gdal()

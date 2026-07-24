@@ -339,19 +339,25 @@ pa_table <- function(assessment, species = NULL) {
 #' Glue used by [assess_species()] to attach UC overlap to one species
 #' @keywords internal
 #' @noRd
-.protected_for <- function(points, eoo, aoo, src = NULL, typename = NULL,
-                           base = icmbio_wfs_base(), verbose = TRUE) {
+.protected_for <- function(points, eoo, aoo, src = NULL, source = "icmbio",
+                           typename = NULL, base = icmbio_wfs_base(),
+                           verbose = TRUE) {
   aoi <- if (!is.null(eoo) && !is.null(eoo$hull)) eoo$hull
          else sf::st_as_sfc(sf::st_bbox(sf::st_geometry(points)))
   pa <- tryCatch(
-    protected_areas(aoi, typename = typename, src = src, base = base),
+    if (identical(source, "wdpa") && is.null(src)) {
+      wdpa_areas(aoi)
+    } else {
+      protected_areas(aoi, typename = typename, src = src, base = base)
+    },
     error = function(e) {
-      warning(sprintf("UC overlap failed: %s", conditionMessage(e)), call. = FALSE)
+      warning(sprintf("Protected-area overlap failed: %s", conditionMessage(e)),
+              call. = FALSE)
       NULL
     })
   if (is.null(pa)) return(NULL)                      # read failed -> NA metrics
-  if (nrow(pa) == 0) {                               # genuinely no UC in range
-    if (verbose) message("  UC: no federal Conservation Unit intersects the range.")
+  if (nrow(pa) == 0) {                               # genuinely no PA in range
+    if (verbose) message("  PA: no protected area intersects the range.")
     out <- .pa_empty(); out$occ_pct <- 0; out$eoo_pct <- 0; out$aoo_pct <- 0
     out$eoo_km2 <- 0; out$aoo_km2 <- 0; out$aoo_cells_in <- 0L
     out$eoo_nat_uc_pct <- 0; out$aoo_nat_uc_pct <- 0
@@ -366,7 +372,8 @@ pa_table <- function(assessment, species = NULL) {
 #' @keywords internal
 #' @noRd
 .nat_in_uc <- function(range_geom, uc_union, conv_range, year, collection,
-                       backend, src, water_in_denominator, verbose, label) {
+                       initiative, backend, src, water_in_denominator, verbose,
+                       label) {
   na3 <- list(nat_km2 = NA_real_, alt_km2 = NA_real_,
               nat_pct_total = NA_real_, alt_pct_total = NA_real_,
               nat_pct_uc = NA_real_)
@@ -378,7 +385,7 @@ pa_table <- function(assessment, species = NULL) {
   if (is.null(inter) || !length(inter) || all(sf::st_is_empty(inter)))
     return(utils::modifyList(na3, list(nat_km2 = 0, alt_km2 = 0,
                                        nat_pct_total = 0, alt_pct_total = 0)))
-  cu <- .conversion_for(inter, year, collection, backend, src,
+  cu <- .conversion_for(inter, year, collection, initiative, backend, src,
                         water_in_denominator, verbose, paste0(label, "/UC"))
   if (is.null(cu)) return(na3)
   wd   <- isTRUE(water_in_denominator)

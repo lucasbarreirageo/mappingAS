@@ -6,8 +6,9 @@
 \usage{
 assess_species(
   occ,
-  year = 2024,
-  collection = 10,
+  initiative = "brazil",
+  year = NULL,
+  collection = NULL,
   backend = c("local", "gee"),
   cell_km = 2,
   mapbiomas = TRUE,
@@ -16,6 +17,7 @@ assess_species(
   fire_host_collection = 9,
   protected = FALSE,
   pa_src = NULL,
+  pa_source = NULL,
   pa_typename = NULL,
   src = NULL,
   fire_src = NULL,
@@ -27,11 +29,21 @@ assess_species(
 \arguments{
 \item{occ}{An \code{sf} of POINT geometries from \code{\link{read_occurrences}}.}
 
-\item{year}{Integer MapBiomas year (default \code{2024}).}
+\item{initiative}{MapBiomas initiative: \code{"brazil"} (default),
+\code{"amazonia"} (Pan-Amazon / RAISG) or \code{"colombia"}. Selects the
+land-cover product, its default collection and the standardised legend, so a
+species in the Amazon basin or Colombia can be assessed without Google Earth
+Engine (see \code{\link{mb_initiatives}}).}
 
-\item{collection}{Integer MapBiomas collection number (default \code{10}).}
+\item{year}{Integer MapBiomas year. \code{NULL} (default) uses the most recent
+year available for the initiative (2024 for Brazil/Colombia, 2023 for
+Amazonia).}
 
-\item{backend}{Habitat backend: \code{"local"} (default) or \code{"gee"}.}
+\item{collection}{Integer MapBiomas collection number. \code{NULL} (default)
+uses the initiative default (10/6/3 for Brazil/Amazonia/Colombia).}
+
+\item{backend}{Habitat backend: \code{"local"} (default) or \code{"gee"}.
+The \code{"gee"} backend is only wired for \code{initiative = "brazil"}.}
 
 \item{cell_km}{AOO grid cell size in km (default \code{2}).}
 
@@ -50,6 +62,12 @@ of occurrences inside UCs and the \\% of the EOO/AOO within UCs. Default
 
 \item{pa_src}{Optional local UC vector file (\code{.shp}/\code{.gpkg}/
 \code{.geojson}) used instead of the WFS (offline).}
+
+\item{pa_source}{Protected-area source: \code{"icmbio"} (Brazilian federal
+Conservation Units, INDE WFS) or \code{"wdpa"} (World Database on Protected
+Areas, global). \code{NULL} (default) picks \code{"icmbio"} for
+\code{initiative = "brazil"} and \code{"wdpa"} otherwise (see
+\code{\link{wdpa_areas}}).}
 
 \item{pa_typename}{Optional ICMBio WFS layer name; \code{NULL} (default)
 auto-detects it (see \code{\link{protected_layers}}).}
