@@ -102,7 +102,8 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
   # ---- MapBiomas land-cover raster (clipped to EOO or AOO) ----
   if (draw_lulc) {
     rdf <- tryCatch(
-      .mb_display_df(clip_geom, st$year, st$collection, src, max_pixels, crs, lang),
+      .mb_display_df(clip_geom, st$year, st$collection, src, max_pixels, crs, lang,
+                     initiative = st$initiative %||% "brazil"),
       error = function(e) {
         warning("MapBiomas layer skipped: ", conditionMessage(e), call. = FALSE)
         NULL
@@ -215,12 +216,12 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
 #' @keywords internal
 #' @noRd
 .mb_display_df <- function(aoi, year, collection, src, max_pixels, crs,
-                           lang = "pt") {
+                           lang = "pt", initiative = "brazil") {
   r <- .mb_raster_display(aoi, year, collection, src, max_pixels = max_pixels,
-                          crs = crs)
+                          crs = crs, initiative = initiative)
   df <- terra::as.data.frame(r, xy = TRUE, na.rm = TRUE)
   names(df)[3] <- "code"
-  leg <- mb_legend(collection)
+  leg <- mb_legend(collection, initiative)
   lcol <- if (lang == "en") "class_en" else "class_pt"
   df <- df[df$code %in% leg$code, , drop = FALSE]
   idx <- match(df$code, leg$code)

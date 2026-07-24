@@ -2,22 +2,37 @@
 % Please edit documentation in R/mapbiomas_local.R
 \name{mb_source_url}
 \alias{mb_source_url}
-\title{Build the MapBiomas national GeoTIFF URL for a given year}
+\title{Build the MapBiomas land-use GeoTIFF URL for a given year and initiative}
 \usage{
-mb_source_url(year = 2024, collection = 10)
+mb_source_url(year = 2024, collection = NULL, initiative = "brazil")
 }
 \arguments{
-\item{year}{Integer year (1985-2024 for Collection 10).}
+\item{year}{Integer year.}
 
-\item{collection}{Integer collection number (default \code{10}).}
+\item{collection}{Integer collection number. \code{NULL} (default) uses the
+initiative's default collection (10 for Brazil, 6 for Amazonia, 3 for
+Colombia).}
+
+\item{initiative}{One of \code{"brazil"} (default), \code{"amazonia"} or
+\code{"colombia"} (see \code{\link{mb_initiatives}}).}
 }
 \value{
 A length-1 character URL.
 }
 \description{
-Returns the public Google Cloud Storage URL of the MapBiomas Brazil
-land-use/land-cover annual mosaic. Collection 10 covers 1985-2024.
+Returns the public Google Cloud Storage URL of the MapBiomas
+land-use/land-cover annual mosaic for the chosen initiative. All three
+supported initiatives publish annual single-year Cloud-Optimized GeoTIFFs on
+the same public bucket, so they can be streamed with GDAL's \code{/vsicurl/}
+driver (no Google Earth Engine, no Google Drive):
+\itemize{
+  \item \code{"brazil"}  - Collection 10, 1985-2024
+  \item \code{"amazonia"} - Pan-Amazon Collection 6, 1986-2023
+  \item \code{"colombia"} - Collection 3, 1985-2024
+}
 }
 \examples{
 mb_source_url(2024)
+mb_source_url(2023, initiative = "amazonia")
+mb_source_url(2024, initiative = "colombia")
 }

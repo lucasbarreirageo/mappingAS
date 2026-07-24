@@ -63,8 +63,9 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
       requireNamespace("terra", quietly = TRUE)) {
     rr <- tryCatch({
       r <- .mb_raster_display(clip_geom, st$year, st$collection, src,
-                              max_pixels = max_pixels, crs = NULL)
-      leg <- mb_legend(st$collection)
+                              max_pixels = max_pixels, crs = NULL,
+                              initiative = st$initiative %||% "brazil")
+      leg <- mb_legend(st$collection, st$initiative %||% "brazil")
       vals <- terra::unique(r)[, 1]; vals <- vals[!is.na(vals)]
       list(r = r, keep = leg[leg$code %in% vals, , drop = FALSE], year = st$year)
     }, error = function(e) {

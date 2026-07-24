@@ -1,3 +1,42 @@
+# mappingAS 1.8.1
+
+* **MapBiomas beyond Brazil: Pan-Amazon and Colombia.** `assess_species()` (and
+  the whole pipeline) gains an `initiative` argument - `"brazil"` (default),
+  `"amazonia"` (Pan-Amazon / RAISG, Collection 6, 1986-2023) or `"colombia"`
+  (Collection 3, 1985-2024). All three products are streamed as annual
+  Cloud-Optimized GeoTIFFs from the public MapBiomas bucket via GDAL
+  `/vsicurl/` - **no Google Earth Engine and no Google Drive download**. Colombia
+  is served per-year on the same public bucket
+  (`initiatives/colombia/collection_3/coverage/`), so it reads exactly like
+  Brazil (windowed, cached) rather than through the multi-band Drive archive. A
+  new exported `mb_initiatives()` lists the products, their default collections
+  and year spans; `mb_source_url()`, `mb_raster_local()`, `mb_years()`,
+  `mb_legend()`, `summarise_conversion()` and `cover_timeseries()` all take the
+  `initiative` argument. `year`/`collection` now default to the initiative's
+  latest year and native collection when left `NULL`.
+* **Standardised pan-MapBiomas legend.** `mb_legend()` now returns a single
+  standardised legend that labels the Brazil, Amazonia and Colombia rasters
+  consistently (same class names, colours and conservation groups), built from
+  the cross-product harmonisation table. The Colombia/Amazonia-specific classes
+  are added - Andinean herbaceous/shrubby formations (81, 82), Glacier (34),
+  Other natural non-vegetated area (68) and Banana (74) - so a species whose
+  range spans more than one country is assessed on one coherent legend. Existing
+  Brazil codes, names, colours and groups are unchanged.
+* **Global protected areas via WDPA.** New `wdpa_areas()` reads the World
+  Database on Protected Areas from its public ArcGIS FeatureServer (bounding-box
+  query, GeoJSON, on-disk cached), standardised to the same
+  `pa_name`/`pa_category`/`pa_group` columns as the ICMBio layer, with IUCN
+  categories mapped to strict-protection (Ia-III) vs sustainable-use (IV-VI).
+  `assess_species()` gains `pa_source` (`"icmbio"` or `"wdpa"`); it defaults to
+  ICMBio for Brazil and WDPA for the Amazonia/Colombia initiatives, so
+  protected-area overlap now works outside Brazil.
+* The assessment `summary` gains a `mapbiomas_initiative` column and the stored
+  `settings` record the `initiative` and `pa_source`; the Shiny app adds an
+  **initiative** selector (with the Year list auto-updating to the product's
+  span) and a **protected-area source** selector, and threads both through the
+  map overlay, static map, time series and raster export. MapBiomas Fire remains
+  Brazil-only and is skipped with a warning for the other initiatives.
+
 # mappingAS 1.8.0
 
 * **MapBiomas composition donut charts.** The Conversion tab now shows, below

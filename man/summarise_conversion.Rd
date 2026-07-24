@@ -7,6 +7,7 @@
 summarise_conversion(
   class_areas,
   collection = 10,
+  initiative = "brazil",
   water_in_denominator = FALSE
 )
 }
@@ -17,6 +18,10 @@ summarise_conversion(
 \code{\link{mb_class_areas_raster}}).}
 
 \item{collection}{Integer collection number (default \code{10}).}
+
+\item{initiative}{One of \code{"brazil"} (default), \code{"amazonia"} or
+\code{"colombia"}; selects the standardised legend context (see
+\code{\link{mb_legend}}).}
 
 \item{water_in_denominator}{Logical; if \code{TRUE}, water is treated as
 natural and included in the terrestrial denominator (default \code{FALSE}).}

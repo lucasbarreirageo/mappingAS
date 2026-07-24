@@ -190,7 +190,7 @@ Key columns (`res$summary`, also shown with a glossary in the app's **Results** 
 | `eoo_converted_pct` / `eoo_natural_pct` | % converted / natural within the EOO |
 | `aoo_converted_pct` / `aoo_natural_pct` | % converted / natural within the AOO |
 | `eoo_cat_B1`, `aoo_cat_B2`, `provisional_cat` | Provisional categories (size only) |
-| `mapbiomas_year`, `mapbiomas_collection` | Land-cover source used |
+| `mapbiomas_initiative`, `mapbiomas_year`, `mapbiomas_collection` | Land-cover source used (Brazil / Amazonia / Colombia) |
 | `eoo_burned_pct`, `aoo_burned_pct` | % of the EOO/AOO burned at least once *(fire = TRUE)* |
 | `occ_in_uc_pct`, `eoo_uc_pct`, `aoo_uc_pct`, `n_uc` | Overlap with protected areas *(protected = TRUE)* |
 | `eoo_nat_uc_pct`, `aoo_nat_uc_pct` | Share of the range that is natural *and* protected |
@@ -210,7 +210,42 @@ Key columns (`res$summary`, also shown with a glossary in the app's **Results** 
 ## MapBiomas backends
 
 - **`"local"` (default)** — reads, over the network, only the *window* of the national GeoTIFF via GDAL `/vsicurl/`. No Earth Engine account, no full-mosaic download. The windowed crop is cached on disk and reused for mapping and re-runs; map overlays use a fast decimated read.
-- **`"gee"`** — computes per-class areas server-side on Google Earth Engine (recommended for very large, e.g. continental, ranges). Requires `rgee::ee_Initialize()`.
+- **`"gee"`** — computes per-class areas server-side on Google Earth Engine (recommended for very large, e.g. continental, ranges). Requires `rgee::ee_Initialize()`. Wired for `initiative = "brazil"` only.
+
+---
+
+## MapBiomas initiatives: Brazil, Pan-Amazon and Colombia
+
+`assess_species()` (and the whole pipeline) takes an **`initiative`** argument so a species outside Brazil can be screened with the same workflow — **without Google Earth Engine and without a Google Drive download**. All three products are streamed year-by-year as Cloud-Optimized GeoTIFFs from the public MapBiomas bucket via GDAL `/vsicurl/`, exactly like the Brazil backend:
+
+| `initiative` | Product | Default collection | Years |
+|---|---|---|---|
+| `"brazil"` (default) | MapBiomas Brazil | 10 | 1985–2024 |
+| `"amazonia"` | MapBiomas Amazonia / Pan-Amazon (RAISG) | 6 | 1986–2023 |
+| `"colombia"` | MapBiomas Colombia | 3 | 1985–2024 |
+
+```r
+# A species in the Colombian Amazon, no GEE:
+res_co <- assess_species(occ, initiative = "colombia")
+
+# Anywhere in the Amazon basin (Pan-Amazon collection):
+res_az <- assess_species(occ, initiative = "amazonia")
+```
+
+`year` and `collection` default to each initiative's latest year and native collection. `mb_initiatives()` lists the products; `mb_source_url()`, `mb_raster_local()`, `mb_years()`, `mb_legend()`, `summarise_conversion()` and `cover_timeseries()` all accept `initiative`.
+
+**One standardised legend.** MapBiomas harmonises its pixel codes across initiatives, so `mb_legend()` returns a single *standardised* table (same class names, colours and conservation groups) that labels the Brazil, Amazonia and Colombia rasters consistently — this is what lets a range spanning more than one country be assessed coherently. The Colombia/Amazonia-specific classes (Andinean formations, Glacier, Other natural non-vegetated, Banana) are included; a code absent from a given product simply contributes zero area. MapBiomas **Fire** is published for Brazil only and is skipped (with a warning) for the other initiatives.
+
+---
+
+## Protected areas: ICMBio (Brazil) or WDPA (global)
+
+Protected-area overlap (`assess_species(protected = TRUE)`) can be read from two sources via **`pa_source`**:
+
+- `"icmbio"` — Brazil's **federal Conservation Units** from the ICMBio/INDE WFS (rich SNUC categories; the default for `initiative = "brazil"`).
+- `"wdpa"` — the global **World Database on Protected Areas**, read from its public ArcGIS FeatureServer (bounding-box query, cached), standardised to the same `pa_name` / `pa_category` / `pa_group` columns with IUCN categories mapped to strict-protection (Ia–III) vs sustainable-use (IV–VI). This is the default for the Amazonia/Colombia initiatives and works anywhere in the world.
+
+`pa_source = NULL` (default) picks ICMBio for Brazil and WDPA otherwise; a local `pa_src` file overrides either. See `wdpa_areas()`.
 
 ---
 
@@ -227,10 +262,11 @@ Key columns (`res$summary`, also shown with a glossary in the app's **Results** 
 
 When using this package, please also cite the underlying data and methods:
 
-- **MapBiomas** — Projeto MapBiomas, Collection 10 (land use/cover) and Fire Collection 4 (<https://brasil.mapbiomas.org>).
+- **MapBiomas** — Projeto MapBiomas, Brazil Collection 10 (land use/cover) and Fire Collection 4 (<https://brasil.mapbiomas.org>); MapBiomas Amazonia / Pan-Amazon Collection 6 (RAISG, <https://amazonia.mapbiomas.org>); MapBiomas Colombia Collection 3 (<https://colombia.mapbiomas.org>).
 - **IUCN** — Standards and Petitions Committee. *Guidelines for Using the IUCN Red List Categories and Criteria.*
 - **GeoCAT** — Bachman, S. *et al.* (2011). *Supporting Red List threat assessments with GeoCAT.* ZooKeys 150: 117–126.
 - **ICMBio / INDE** — Federal Conservation Units geoservice.
+- **WDPA** — UNEP-WCMC and IUCN, Protected Planet: The World Database on Protected Areas (<https://www.protectedplanet.net>).
 
 ---
 
