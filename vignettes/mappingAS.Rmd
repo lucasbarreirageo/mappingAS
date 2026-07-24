@@ -105,15 +105,15 @@ head(ct)
 
 ```{r timeseries}
 # a cada 5 anos (padrao), dentro do EOO da primeira especie
-ts <- timeseries_for_species(res, range = "eoo", by = "class")
+ts <- timeseries_for_species(res, range = "eoo", by = "class", years = c(2022, 2024))
 plot_timeseries(ts)         # grafico de area empilhada, cores oficiais MapBiomas
 
 # anual (mais lento) e por grupo:
 ts_anual <- timeseries_for_species(res, range = "eoo",
-                                   years = mb_years(), by = "group")
+                                   years = c(2022, 2024), by = "group")
 
 # ou sobre uma geometria qualquer:
-ts2 <- cover_timeseries(minha_geometria,
+ts2 <- cover_timeseries(res$eoo,
                         years = c(1990, 2000, 2010, 2020),
                         by = "class", backend = "local")
 ```
@@ -140,7 +140,7 @@ A tabela de atributos traz `species`, `eoo_km2`/`aoo_km2`, `conv_pct`,
 
 ## 7. Aplicativo Shiny
 
-```{r app}
+```{r app, eval=FALSE}
 run_app()
 ```
 
@@ -156,7 +156,7 @@ imagens (PNG/HTML).
 - **`"gee"`**: calcula as áreas por classe no servidor do Google Earth Engine
   (recomendado para distribuições muito grandes). Requer `rgee`:
 
-```{r gee}
+```{r gee, eval=FALSE}
 install.packages("rgee")
 rgee::ee_install()
 rgee::ee_Initialize()
