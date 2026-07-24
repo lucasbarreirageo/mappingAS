@@ -42,13 +42,13 @@ library(mappingAS)
 vetoriais (`.shp`, `.gpkg`, `.geojson`, `.zip`) e tenta **detectar
 automaticamente** as colunas de espécie, longitude e latitude.
 
-```{r import, eval=FALSE}
+```{r import}
 # arquivo de exemplo que acompanha o pacote
 ex <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
 occ <- read_occurrences(ex)
 
 # se a deteccao falhar, informe as colunas manualmente:
-occ <- read_occurrences("meus_dados.csv",
+# occ <- read_occurrences("meus_dados.csv",
                         species_col = "especie",
                         lon_col = "longitude",
                         lat_col = "latitude")
