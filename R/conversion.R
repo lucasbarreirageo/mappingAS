@@ -14,6 +14,9 @@
 #'   \pkg{terra} \code{SpatRaster} of MapBiomas codes (which is tabulated via
 #'   \code{\link{mb_class_areas_raster}}).
 #' @param collection Integer collection number (default \code{10}).
+#' @param initiative One of \code{"brazil"} (default), \code{"amazonia"} or
+#'   \code{"colombia"}; selects the standardised legend context (see
+#'   \code{\link{mb_legend}}).
 #' @param water_in_denominator Logical; if \code{TRUE}, water is treated as
 #'   natural and included in the terrestrial denominator (default \code{FALSE}).
 #' @return A list with: \code{converted_pct}, \code{natural_pct} (terrestrial,
@@ -26,13 +29,14 @@
 #' summarise_conversion(ca)$converted_pct
 #' @export
 summarise_conversion <- function(class_areas, collection = 10,
+                                 initiative = "brazil",
                                  water_in_denominator = FALSE) {
   if (inherits(class_areas, "SpatRaster")) {
     class_areas <- mb_class_areas_raster(class_areas)
   }
   stopifnot(all(c("code", "area_km2") %in% names(class_areas)))
 
-  leg <- mb_legend(collection)
+  leg <- mb_legend(collection, initiative)
   byc <- merge(class_areas, leg, by = "code", all.x = TRUE)
   byc$group[is.na(byc$group)] <- "other"
   byc <- byc[order(-byc$area_km2), , drop = FALSE]

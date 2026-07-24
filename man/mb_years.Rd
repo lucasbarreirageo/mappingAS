@@ -2,17 +2,27 @@
 % Please edit documentation in R/legend.R
 \name{mb_years}
 \alias{mb_years}
-\title{Years available for a MapBiomas collection}
+\title{Years available for a MapBiomas initiative/collection}
 \usage{
-mb_years(collection = 10)
+mb_years(collection = 10, initiative = "brazil")
 }
 \arguments{
-\item{collection}{Integer collection number. Only \code{10} (default) is
-currently shipped; other values emit a warning and fall back to 10.}
+\item{collection}{Integer collection number. Interpreted together with
+\code{initiative}; a value that does not match the initiative's default
+collection emits a warning and the standardised legend is still returned.}
+
+\item{initiative}{One of \code{"brazil"} (default), \code{"amazonia"} or
+\code{"colombia"}. Kept for API symmetry and warning logic; the returned
+legend is the same standardised table for every initiative.}
 }
 \value{
-An integer vector of years (Collection 10 / 9 cover 1985-2024).
+An integer vector of years available for the initiative (Brazil
+1985-2024, Amazonia 1986-2023, Colombia 1985-2024).
 }
 \description{
-Years available for a MapBiomas collection
+Years available for a MapBiomas initiative/collection
+}
+\examples{
+range(mb_years())
+range(mb_years(initiative = "amazonia"))
 }

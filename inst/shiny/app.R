@@ -43,8 +43,8 @@ suppressMessages({
 
 # Year grid for the MapBiomas collection, thinned by `step` (always keeps the
 # last year). Shared by the land-cover and fire time-series reactives.
-.year_grid <- function(step, collection = 10L) {
-  yy <- mappingAS::mb_years(collection)
+.year_grid <- function(step, collection = 10L, initiative = "brazil") {
+  yy <- mappingAS::mb_years(collection, initiative)
   step <- max(1L, as.integer(step))
   sort(unique(c(seq(min(yy), max(yy), by = step), max(yy))))
 }
@@ -90,6 +90,11 @@ ui <- bslib::page_sidebar(
       )
     ),
     hr(),
+    selectInput("initiative", "MapBiomas initiative",
+                choices = c("Brazil (Collection 10)" = "brazil",
+                            "Amazonia / Pan-Amazon (Collection 6)" = "amazonia",
+                            "Colombia (Collection 3)" = "colombia"),
+                selected = "brazil"),
     selectInput("year", "MapBiomas Year", choices = 2024:1985, selected = 2024),
     numericInput("cell_km", "AOO Cell (km)", value = 2, min = 0.5, step = 0.5),
     radioButtons("backend", "MapBiomas Source",
@@ -98,8 +103,13 @@ ui <- bslib::page_sidebar(
                  selected = "local"),
     checkboxInput("water_denom", "Include water as natural in denominator", FALSE),
     checkboxInput("do_mb", "Calculate MapBiomas conversion", TRUE),
-    checkboxInput("do_fire", "Calculate fire (MapBiomas burned area)", FALSE),
-    checkboxInput("do_pa", "Overlap with Protected areas (ICMBio)", FALSE),
+    checkboxInput("do_fire", "Calculate fire (MapBiomas burned area, Brazil only)", FALSE),
+    checkboxInput("do_pa", "Overlap with Protected areas", FALSE),
+    selectInput("pa_source", "Protected-area source",
+                choices = c("Auto (ICMBio for Brazil, WDPA otherwise)" = "auto",
+                            "ICMBio federal UCs (Brazil)" = "icmbio",
+                            "WDPA (global)" = "wdpa"),
+                selected = "auto"),
     radioButtons("lang", "Legend language",
                  choices = c("English" = "en", "Portuguese" = "pt"),
                  selected = "en", inline = TRUE),
@@ -357,6 +367,14 @@ ui <- bslib::page_sidebar(
 
 server <- function(input, output, session) {
 
+  # Keep the Year dropdown in sync with the selected initiative's span
+  # (Brazil/Colombia 1985-2024, Amazonia 1986-2023).
+  observeEvent(input$initiative, {
+    yy <- tryCatch(mappingAS::mb_years(initiative = input$initiative),
+                   error = function(e) 1985:2024)
+    updateSelectInput(session, "year", choices = rev(yy), selected = max(yy))
+  }, ignoreInit = TRUE)
+
   occ <- reactive({
     req(input$file)
     orig <- input$file$name
@@ -390,13 +408,15 @@ server <- function(input, output, session) {
       res <- tryCatch(
         mappingAS::assess_species(
           o,
+          initiative = input$initiative %||% "brazil",
           year = as.integer(input$year),
-          collection = 10L,
+          collection = NULL,
           backend = input$backend,
           cell_km = input$cell_km,
           mapbiomas = isTRUE(input$do_mb),
           fire = isTRUE(input$do_fire),
           protected = isTRUE(input$do_pa),
+          pa_source = if (identical(input$pa_source, "auto")) NULL else input$pa_source,
           water_in_denominator = isTRUE(input$water_denom),
           verbose = FALSE
         ),
@@ -630,7 +650,9 @@ server <- function(input, output, session) {
       withProgress(message = "Preparing rasters (reading MapBiomas)...", value = 0, {
         if ("lulc" %in% layers) {
           r <- tryCatch(mappingAS::mb_raster_local(geom, year = st$year,
-                          collection = st$collection), error = function(e) NULL)
+                          collection = st$collection,
+                          initiative = st$initiative %||% "brazil"),
+                        error = function(e) NULL)
           if (!is.null(r)) {
             f <- file.path(tmp, sprintf("mapbiomas_lulc_%s_%s.tif", clip, st$year))
             terra::writeRaster(r, f, overwrite = TRUE, datatype = "INT1U",
@@ -820,7 +842,8 @@ server <- function(input, output, session) {
 
   ts_data <- eventReactive(input$ts_run, {
     req(result(), input$ts_species)
-    yrs <- .year_grid(input$ts_step)
+    yrs <- .year_grid(input$ts_step, result()$settings$collection,
+                      result()$settings$initiative %||% "brazil")
     withProgress(message = "Calculating time series...", value = 0, {
       ts <- tryCatch(
         mappingAS::timeseries_for_species(
