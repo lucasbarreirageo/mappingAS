@@ -113,9 +113,9 @@ ts_anual <- timeseries_for_species(res, range = "eoo",
                                    years = c(2022, 2024), by = "group")
 
 # ou sobre uma geometria qualquer:
-ts2 <- cover_timeseries(res$eoo,
-                        years = c(1990, 2000, 2010, 2020),
-                        by = "class", backend = "local")
+# ts2 <- cover_timeseries(minha_geometria,
+#                         years = c(1990, 2000, 2010, 2020),
+#                         by = "class", backend = "local")
 ```
 
 Cada ano é lido separadamente do MapBiomas, então séries anuais de toda a
