@@ -24,6 +24,9 @@
 #'   \code{\link{fire_timeseries_for_species}} / \code{\link{fire_timeseries}},
 #'   with \code{year} and \code{burned_pct}). When supplied, the fire regime is
 #'   characterised over time.
+#' @param figures Logical; for \code{output = "docx"} only, embed the supporting
+#'   figures (composition, protection and the land-cover/fire time-series charts)
+#'   in the Word document (default \code{FALSE}). Ignored for other outputs.
 #' @return For \code{"html"}/\code{"text"}, a length-one character string. For
 #'   \code{"docx"}, the \code{file} path (written as a side effect), invisibly.
 #' @examples

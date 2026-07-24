@@ -63,7 +63,7 @@ mb_initiatives <- function() {
                 "pan-amazonia" = "amazonia",
                 "panamazonia" = "amazonia",
                 "pan_amazonia" = "amazonia",
-                "amazônia" = "amazonia",
+                "amaz\u00f4nia" = "amazonia",
                 key)
   ini <- mb_initiatives()
   if (!key %in% names(ini)) {
