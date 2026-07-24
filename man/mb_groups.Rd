@@ -4,11 +4,16 @@
 \alias{mb_groups}
 \title{Group lookup vectors for MapBiomas conservation groups}
 \usage{
-mb_groups(collection = 10)
+mb_groups(collection = 10, initiative = "brazil")
 }
 \arguments{
-\item{collection}{Integer collection number. Only \code{10} (default) is
-currently shipped; other values emit a warning and fall back to 10.}
+\item{collection}{Integer collection number. Interpreted together with
+\code{initiative}; a value that does not match the initiative's default
+collection emits a warning and the standardised legend is still returned.}
+
+\item{initiative}{One of \code{"brazil"} (default), \code{"amazonia"} or
+\code{"colombia"}. Kept for API symmetry and warning logic; the returned
+legend is the same standardised table for every initiative.}
 }
 \value{
 A named list with elements \code{natural}, \code{anthropic},

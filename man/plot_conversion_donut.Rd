@@ -45,7 +45,3 @@ plot_conversion_donut(res, by = "class")
 mas_plotly(plot_conversion_donut(res, by = "group"))
 }
 }
-\seealso{
-\code{\link{mas_plotly}} for the interactive version;
-\code{\link{plot_conversion}} for the stacked-bar summary.
-}

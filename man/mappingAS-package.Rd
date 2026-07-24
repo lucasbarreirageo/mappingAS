@@ -42,11 +42,11 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Antônio Lucas Barreira Rodrigues \email{barreira_rodrigues@hotmail.com}
+\strong{Maintainer}: Antônio Lucas Barreira \email{barreira_rodrigues@hotmail.com}
 
 Authors:
 \itemize{
-  \item Antônio Lucas Barreira Rodrigues \email{barreira_rodrigues@hotmail.com}
+  \item Antônio Lucas Barreira \email{barreira_rodrigues@hotmail.com}
 }
 
 }

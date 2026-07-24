@@ -7,7 +7,8 @@
 cover_timeseries(
   geom,
   years = NULL,
-  collection = 10,
+  collection = NULL,
+  initiative = "brazil",
   backend = c("local", "gee"),
   src = NULL,
   by = c("class", "group"),
@@ -19,12 +20,16 @@ cover_timeseries(
 \item{geom}{An \code{sf}/\code{sfc} polygon (any CRS).}
 
 \item{years}{Integer vector of years. If \code{NULL} (default) a 5-year step
-across the collection span (plus the last year) is used.}
+across the initiative's span (plus the last year) is used.}
 
-\item{collection}{Integer MapBiomas collection (default \code{10}).}
+\item{collection}{Integer MapBiomas collection. \code{NULL} uses the
+initiative default.}
+
+\item{initiative}{One of \code{"brazil"} (default), \code{"amazonia"} or
+\code{"colombia"} (see \code{\link{mb_initiatives}}).}
 
 \item{backend}{\code{"local"} (default, windowed GeoTIFF read) or
-\code{"gee"} (Earth Engine).}
+\code{"gee"} (Earth Engine; Brazil only).}
 
 \item{src}{Optional GeoTIFF path/URL for the local backend (overrides the
 public per-year URL).}

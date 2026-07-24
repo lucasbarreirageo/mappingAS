@@ -11,10 +11,13 @@
 #'
 #' @param geom An \code{sf}/\code{sfc} polygon (any CRS).
 #' @param years Integer vector of years. If \code{NULL} (default) a 5-year step
-#'   across the collection span (plus the last year) is used.
-#' @param collection Integer MapBiomas collection (default \code{10}).
+#'   across the initiative's span (plus the last year) is used.
+#' @param collection Integer MapBiomas collection. \code{NULL} uses the
+#'   initiative default.
+#' @param initiative One of \code{"brazil"} (default), \code{"amazonia"} or
+#'   \code{"colombia"} (see \code{\link{mb_initiatives}}).
 #' @param backend \code{"local"} (default, windowed GeoTIFF read) or
-#'   \code{"gee"} (Earth Engine).
+#'   \code{"gee"} (Earth Engine; Brazil only).
 #' @param src Optional GeoTIFF path/URL for the local backend (overrides the
 #'   public per-year URL).
 #' @param by \code{"class"} (default; one series per MapBiomas class, with the
@@ -28,23 +31,28 @@
 #'   and \code{class_en}.
 #' @seealso \code{\link{plot_timeseries}}, \code{\link{timeseries_for_species}}
 #' @export
-cover_timeseries <- function(geom, years = NULL, collection = 10,
+cover_timeseries <- function(geom, years = NULL, collection = NULL,
+                             initiative = "brazil",
                              backend = c("local", "gee"), src = NULL,
                              by = c("class", "group"),
                              include_not_observed = FALSE, verbose = TRUE) {
   backend <- match.arg(backend)
   by <- match.arg(by)
+  ini <- .mb_resolve_initiative(initiative)
+  initiative <- ini$key
+  if (is.null(collection)) collection <- ini$collection
+  if (backend == "gee" && initiative != "brazil") backend <- "local"
   g <- sf::st_geometry(geom)
   if (length(g) == 0 || all(sf::st_is_empty(g)))
     stop("`geom` is empty; a polygon is required (EOO needs >= 3 unique points).",
          call. = FALSE)
 
   if (is.null(years)) {
-    yy <- mb_years(collection)
+    yy <- mb_years(collection, initiative)
     years <- sort(unique(c(seq(min(yy), max(yy), by = 5), max(yy))))
   }
   years <- sort(unique(as.integer(years)))
-  leg <- mb_legend(collection)
+  leg <- mb_legend(collection, initiative)
 
   out <- vector("list", length(years))
   for (i in seq_along(years)) {
@@ -55,7 +63,8 @@ cover_timeseries <- function(geom, years = NULL, collection = 10,
         mb_class_areas_gee(g, year = y, collection = collection)
       } else {
         mb_class_areas_raster(
-          mb_raster_local(g, year = y, collection = collection, src = src)
+          mb_raster_local(g, year = y, collection = collection,
+                          initiative = initiative, src = src)
         )
       }
     }, error = function(e) {
@@ -161,6 +170,7 @@ timeseries_for_species <- function(assessment, species = NULL,
 
   s <- assessment$settings
   ts <- cover_timeseries(geom, years = years, collection = s$collection,
+                         initiative = s$initiative %||% "brazil",
                          backend = s$backend, src = src, by = by,
                          verbose = verbose)
   attr(ts, "species") <- species

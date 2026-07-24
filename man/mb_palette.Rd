@@ -7,6 +7,7 @@
 mb_palette(
   codes = NULL,
   collection = 10,
+  initiative = "brazil",
   by = c("code", "class_pt", "class_en")
 )
 }
@@ -14,8 +15,13 @@ mb_palette(
 \item{codes}{Optional integer vector of MapBiomas pixel codes. If \code{NULL}
 (default) colours for the full legend are returned.}
 
-\item{collection}{Integer collection number. Only \code{10} (default) is
-currently shipped; other values emit a warning and fall back to 10.}
+\item{collection}{Integer collection number. Interpreted together with
+\code{initiative}; a value that does not match the initiative's default
+collection emits a warning and the standardised legend is still returned.}
+
+\item{initiative}{One of \code{"brazil"} (default), \code{"amazonia"} or
+\code{"colombia"}. Kept for API symmetry and warning logic; the returned
+legend is the same standardised table for every initiative.}
 
 \item{by}{One of \code{"code"} (names are codes) or \code{"class_pt"} /
 \code{"class_en"} (names are class labels). Default \code{"code"}.}
