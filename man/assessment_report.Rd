@@ -28,18 +28,13 @@ assessment_report(
 
 \item{cover_series}{Optional land-cover time series for this species (as from
 \code{\link{timeseries_for_species}} / \code{\link{cover_timeseries}}, with
-\code{year}, \code{pct} and \code{group} columns). May be a single data frame
-or a list of them (e.g. one for the EOO and one for the AOO), each carrying a
-\code{"range"} attribute; a temporal trend is then reported per range.}
+\code{year}, \code{pct} and \code{group} columns). When supplied, a
+temporal trend of habitat conversion is added.}
 
 \item{fire_series}{Optional burned-area time series (as from
 \code{\link{fire_timeseries_for_species}} / \code{\link{fire_timeseries}},
 with \code{year} and \code{burned_pct}). When supplied, the fire regime is
 characterised over time.}
-
-\item{figures}{Logical; when \code{TRUE} and \code{output = "docx"}, embed
-support figures (composition, protection and any supplied time series) in the
-Word document via \pkg{officer}. Ignored for HTML/text output.}
 }
 \value{
 For \code{"html"}/\code{"text"}, a length-one character string. For

@@ -17,8 +17,8 @@ legend is the same standardised table for every initiative.}
 }
 \value{
 A \code{data.frame} with columns \code{code}, \code{class_en},
-\code{class_pt}, \code{hex} (standardised MapBiomas colour), \code{level1} and
-\code{group}.
+\code{class_pt}, \code{hex} (standardised MapBiomas colour), \code{level1}
+and \code{group}.
 }
 \description{
 Returns the \emph{standardised} MapBiomas land-use/land-cover legend used
