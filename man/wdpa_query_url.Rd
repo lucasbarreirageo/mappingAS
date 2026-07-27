@@ -17,5 +17,5 @@ behind the ArcGIS Living Atlas "WDPA" item and returns GeoJSON on demand, so
 no Google Earth Engine or bulk download is required.
 }
 \seealso{
-\url{https://www.protectedplanet.net}, \code{\link[=wdpa_areas]{wdpa_areas()}}
+\url{https://www.protectedplanet.net/en}, \code{\link[=wdpa_areas]{wdpa_areas()}}
 }

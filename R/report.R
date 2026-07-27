@@ -364,7 +364,7 @@ assessment_report <- function(assessment, species = NULL,
       "Alencar, A. et al. (2022). Long-Term Landsat-Based Monthly Burned Area Dataset for the Brazilian Biomes Using Deep Learning. Remote Sensing 14(11): 2510. doi:10.3390/rs14112510")
   if (isTRUE(st$protected))
     refs <- c(refs,
-      "UNEP-WCMC and IUCN. Protected Planet: The World Database on Protected Areas (WDPA). Cambridge, UK. https://www.protectedplanet.net")
+      "UNEP-WCMC and IUCN. Protected Planet: The World Database on Protected Areas (WDPA). Cambridge, UK. https://www.protectedplanet.net/en")
 
   # --- Support figures (only for docx; static ggplots embedded via officer) ---
   figs <- NULL

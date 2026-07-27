@@ -7,7 +7,7 @@
 #' no Google Earth Engine or bulk download is required.
 #'
 #' @return A length-1 character URL (the \code{/query} endpoint).
-#' @seealso <https://www.protectedplanet.net>, [wdpa_areas()]
+#' @seealso <https://www.protectedplanet.net/en>, [wdpa_areas()]
 #' @export
 wdpa_query_url <- function() {
   paste0("https://services5.arcgis.com/Mj0hjvkNtV7NRhA7/arcgis/rest/services/",

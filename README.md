@@ -266,7 +266,7 @@ When using this package, please also cite the underlying data and methods:
 - **MapBiomas** — Projeto MapBiomas (Brazil, Amazonia/RAISG, Colombia, Argentina, Bolivia, Chile, Ecuador, Peru and Venezuela collections; <https://mapbiomas.org>) and MapBiomas Fire Collection 4.
 - **IUCN** — Standards and Petitions Committee. *Guidelines for Using the IUCN Red List Categories and Criteria.*
 - **GeoCAT** — Bachman, S. *et al.* (2011). *Supporting Red List threat assessments with GeoCAT.* ZooKeys 150: 117–126.
-- **WDPA** — UNEP-WCMC and IUCN, Protected Planet: The World Database on Protected Areas (<https://www.protectedplanet.net>).
+- **WDPA** — UNEP-WCMC and IUCN, Protected Planet: The World Database on Protected Areas (<https://www.protectedplanet.net/en>).
 
 ---
 
