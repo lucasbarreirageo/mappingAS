@@ -12,3 +12,4 @@
 ^\.gitattributes$
 ^\.zenodo\.json$
 ^CITATION\.cff$
+^cran-comments\.md$
