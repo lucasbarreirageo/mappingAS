@@ -11,9 +11,9 @@ mb_years(collection = 10, initiative = "brazil")
 \code{initiative}; a value that does not match the initiative's default
 collection emits a warning and the standardised legend is still returned.}
 
-\item{initiative}{One of \code{"brazil"} (default), \code{"amazonia"} or
-\code{"colombia"}. Kept for API symmetry and warning logic; the returned
-legend is the same standardised table for every initiative.}
+\item{initiative}{One of the keys of \code{\link{mb_initiatives}}
+(\code{"brazil"} by default). Kept for API symmetry and warning logic; the
+returned legend is the same standardised table for every initiative.}
 }
 \value{
 An integer vector of years available for the initiative (Brazil

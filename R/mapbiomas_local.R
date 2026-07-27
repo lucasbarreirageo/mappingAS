@@ -1,47 +1,30 @@
 #' Build the MapBiomas land-use GeoTIFF URL for a given year and initiative
 #'
 #' Returns the public Google Cloud Storage URL of the MapBiomas
-#' land-use/land-cover annual mosaic for the chosen initiative. All three
-#' supported initiatives publish annual single-year Cloud-Optimized GeoTIFFs on
-#' the same public bucket, so they can be streamed with GDAL's \code{/vsicurl/}
-#' driver (no Google Earth Engine, no Google Drive):
-#' \itemize{
-#'   \item \code{"brazil"}  - Collection 10, 1985-2024
-#'   \item \code{"amazonia"} - Pan-Amazon Collection 6, 1986-2023
-#'   \item \code{"colombia"} - Collection 3, 1985-2024
-#' }
+#' land-use/land-cover annual mosaic for the chosen initiative. All supported
+#' initiatives publish annual single-year Cloud-Optimized GeoTIFFs on the same
+#' public bucket, so they can be streamed with GDAL's \code{/vsicurl/} driver
+#' (no Google Earth Engine, no Google Drive). See \code{\link{mb_initiatives}}
+#' for the full list of initiatives, their default collections and year spans.
 #'
 #' @param year Integer year.
 #' @param collection Integer collection number. \code{NULL} (default) uses the
-#'   initiative's default collection (10 for Brazil, 6 for Amazonia, 3 for
-#'   Colombia).
-#' @param initiative One of \code{"brazil"} (default), \code{"amazonia"} or
-#'   \code{"colombia"} (see \code{\link{mb_initiatives}}).
+#'   initiative's default collection.
+#' @param initiative One of the keys of \code{\link{mb_initiatives}}
+#'   (\code{"brazil"} by default).
 #' @return A length-1 character URL.
 #' @examples
 #' mb_source_url(2024)
 #' mb_source_url(2023, initiative = "amazonia")
-#' mb_source_url(2024, initiative = "colombia")
+#' mb_source_url(2024, initiative = "peru")
 #' @export
 mb_source_url <- function(year = 2024, collection = NULL, initiative = "brazil") {
   ini <- .mb_resolve_initiative(initiative)
   if (is.null(collection)) collection <- ini$collection
   collection <- as.integer(collection)
   year <- as.integer(year)
-  base <- "https://storage.googleapis.com/mapbiomas-public/initiatives"
-  switch(
-    ini$key,
-    brazil = sprintf(
-      "%s/brasil/collection_%d/lulc/coverage/brazil_coverage_%d.tif",
-      base, collection, year),
-    amazonia = sprintf(
-      paste0("%s/amazon/lulc/collection_%d/integration/",
-             "mapbiomas_collection%d0_integration_v1-classification_%d.tif"),
-      base, collection, collection, year),
-    colombia = sprintf(
-      "%s/colombia/collection_%d/coverage/colombia_coverage_%d.tif",
-      base, collection, year)
-  )
+  sprintf("https://storage.googleapis.com/mapbiomas-public/initiatives/%s",
+          ini$build(year, collection))
 }
 
 #' @keywords internal

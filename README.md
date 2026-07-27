@@ -10,7 +10,7 @@
 
 > **mappingAS** — *Mapping Area of Species.* Geographic range metrics (EOO / AOO), MapBiomas habitat conversion and fire, and protected-area overlap for extinction-risk screening — from raw occurrence points to an interactive app and a written assessment report.
 
-`mappingAS` is an R package, with an accompanying **Shiny** application, for screening species against **Criterion B** of the IUCN Red List. Starting from a set of occurrence points, it estimates each species' geographic range, measures how much of that range has been converted to anthropic land cover and how much has burned (using **MapBiomas**), quantifies the overlap with Brazil's federal protected areas, and packages everything for mapping, inspection, export and reporting. It feels familiar to anyone who has used [GeoCAT](https://geocat.iucnredlist.org/), while adding habitat-conversion, fire and protection layers driven by Brazil's national datasets.
+`mappingAS` is an R package, with an accompanying **Shiny** application, for screening species against **Criterion B** of the IUCN Red List. Starting from a set of occurrence points, it estimates each species' geographic range, measures how much of that range has been converted to anthropic land cover and how much has burned (using **MapBiomas**), quantifies the overlap with protected areas (global WDPA), and packages everything for mapping, inspection, export and reporting. It feels familiar to anyone who has used [GeoCAT](https://geocat.iucnredlist.org/), while adding habitat-conversion, fire and protection layers driven by MapBiomas and the World Database on Protected Areas.
 
 > **Screening only.** The categories produced are **provisional** — they rest solely on the EOO/AOO *size* thresholds of Criterion B. They **do not replace** a formal IUCN assessment, which also requires the sub-conditions of fragmentation/few locations, continuing decline and extreme fluctuation.
 
@@ -25,7 +25,7 @@
 | **Habitat conversion** | % converted (anthropic) vs. natural within the EOO/AOO, plus the full per-class MapBiomas breakdown | `assess_species()`, `class_table()`, `plot_conversion()` |
 | **Land-cover time series** | Composition (% × year, 1985–2024) as a MapBiomas-style stacked-area chart | `timeseries_for_species()`, `cover_timeseries()`, `plot_timeseries()` |
 | **Fire** | % of the range burned at least once and burned-area time series, from MapBiomas Fire | `assess_species(fire = TRUE)`, `fire_timeseries_for_species()`, `plot_fire_timeseries()` |
-| **Protected areas** | Overlap of occurrences/EOO/AOO with federal Conservation Units (UCs), incl. the natural-and-protected share | `assess_species(protected = TRUE)`, `pa_table()`, `plot_protection()`, `protected_areas()` |
+| **Protected areas** | Overlap of occurrences/EOO/AOO with protected areas (global WDPA), incl. the natural-and-protected share | `assess_species(protected = TRUE)`, `pa_table()`, `plot_protection()`, `protected_areas()` |
 | **Maps** | Interactive Leaflet map and a publication-ready static map (points + EOO + AOO + MapBiomas/fire) | `map_species()`, `map_static()` |
 | **Interactive charts** | Every chart as an interactive plotly widget (hover, zoom) | `mas_plotly()` |
 | **Reporting** | A written, referenced assessment report (HTML / text / **Word .docx**) | `assessment_report()` |
@@ -68,13 +68,13 @@ res <- assess_species(occ,
                       year = 2024, collection = 10, backend = "local",
                       mapbiomas = TRUE,   # habitat conversion (default)
                       fire      = TRUE,   # burned-area metrics
-                      protected = TRUE)   # overlap with protected areas (UCs)
+                      protected = TRUE)   # overlap with protected areas (WDPA)
 
 # 3. Inspect the summary table (one row per species)
 res$summary
 
 # 4. Map and charts
-map_species(res)                    # leaflet: points + EOO + AOO + MapBiomas (+ fire, UCs)
+map_species(res)                    # leaflet: points + EOO + AOO + MapBiomas (+ fire, protected areas)
 plot_conversion(res)                # natural vs. converted, EOO and AOO
 mas_plotly(plot_conversion(res))    # same chart, interactive
 
@@ -107,11 +107,11 @@ run_app()
 
 Upload a file (`.xlsx`/`.csv`/`.gpkg`/`.geojson` or a shapefile in a `.zip`), map the columns if needed, choose the MapBiomas **year**, the AOO **cell size**, the **backend** (local / GEE) and which optional modules to run (**fire**, **protected areas**), then click **Assess**. The app is organised as tabs:
 
-- **Map** — interactive Leaflet map (points, EOO, AOO, MapBiomas land use, fire, UCs) with downloads: interactive HTML, a **publishable PNG**, and the MapBiomas **land-use / fire rasters as GeoTIFF** (clipped to the selected EOO/AOO).
+- **Map** — interactive Leaflet map (points, EOO, AOO, MapBiomas land use, fire, protected areas) with downloads: interactive HTML, a **publishable PNG**, and the MapBiomas **land-use / fire rasters as GeoTIFF** (clipped to the selected EOO/AOO).
 - **Results** — a visual overview per species (stat cards with in-line bars and IUCN category badges) plus a **column glossary** explaining every field, and the full table (CSV download).
 - **Conversion** — interactive natural-vs-converted chart (EOO and AOO).
 - **Classes** — area and % of every MapBiomas class inside the EOO/AOO (CSV download).
-- **Protected areas** — overlap metrics, protection chart and the per-UC table (CSV download).
+- **Protected areas** — overlap metrics, protection chart and the per-area table (CSV download).
 - **Time Series** — land-cover composition over time (interactive stacked area) for the EOO or AOO.
 - **Fire** — burned-area metrics and time series.
 - **Report** — an interpretive, referenced assessment that you can preview and download as **Word (.docx)**; it accumulates the temporal analysis from any Time series / Fire series you calculate.
@@ -168,13 +168,13 @@ res <- assess_species(occ, fire = TRUE)
 fts <- fire_timeseries_for_species(res, species = "sp1", range = "eoo")
 plot_fire_timeseries(fts)
 
-# Protected areas (federal Conservation Units, ICMBio/INDE)
+# Protected areas (global WDPA)
 res <- assess_species(occ, protected = TRUE)
-pa_table(res)         # per-UC overlap table
-plot_protection(res)  # share of the range inside vs. outside UCs
+pa_table(res)         # per-protected-area overlap table
+plot_protection(res)  # share of the range inside vs. outside protected areas
 ```
 
-With `protected = TRUE` **and** `mapbiomas = TRUE`, the summary also reports the habitat that is *both* natural *and* inside UCs (effectively protected natural habitat).
+With `protected = TRUE` **and** `mapbiomas = TRUE`, the summary also reports the habitat that is *both* natural *and* inside protected areas (effectively protected natural habitat).
 
 ---
 
@@ -214,19 +214,25 @@ Key columns (`res$summary`, also shown with a glossary in the app's **Results** 
 
 ---
 
-## MapBiomas initiatives: Brazil, Pan-Amazon and Colombia
+## MapBiomas initiatives (Brazil + South America)
 
-`assess_species()` (and the whole pipeline) takes an **`initiative`** argument so a species outside Brazil can be screened with the same workflow — **without Google Earth Engine and without a Google Drive download**. All three products are streamed year-by-year as Cloud-Optimized GeoTIFFs from the public MapBiomas bucket via GDAL `/vsicurl/`, exactly like the Brazil backend:
+`assess_species()` (and the whole pipeline) takes an **`initiative`** argument so a species outside Brazil can be screened with the same workflow — **without Google Earth Engine and without a Google Drive download**. Every product is streamed year-by-year as Cloud-Optimized GeoTIFFs from the public MapBiomas bucket via GDAL `/vsicurl/`, exactly like the Brazil backend:
 
 | `initiative` | Product | Default collection | Years |
 |---|---|---|---|
 | `"brazil"` (default) | MapBiomas Brazil | 10 | 1985–2024 |
 | `"amazonia"` | MapBiomas Amazonia / Pan-Amazon (RAISG) | 6 | 1986–2023 |
 | `"colombia"` | MapBiomas Colombia | 3 | 1985–2024 |
+| `"argentina"` | MapBiomas Argentina | 2 | 1985–2024 |
+| `"bolivia"` | MapBiomas Bolivia | 3 | 1985–2024 |
+| `"chile"` | MapBiomas Chile | 1 | 2000–2022 |
+| `"ecuador"` | MapBiomas Ecuador | 3 | 1985–2024 |
+| `"peru"` | MapBiomas Peru | 3 | 1985–2024 |
+| `"venezuela"` | MapBiomas Venezuela | 2 | 1985–2023 |
 
 ```r
-# A species in the Colombian Amazon, no GEE:
-res_co <- assess_species(occ, initiative = "colombia")
+# A species in the Peruvian Amazon, no GEE:
+res_pe <- assess_species(occ, initiative = "peru")
 
 # Anywhere in the Amazon basin (Pan-Amazon collection):
 res_az <- assess_species(occ, initiative = "amazonia")
@@ -234,18 +240,15 @@ res_az <- assess_species(occ, initiative = "amazonia")
 
 `year` and `collection` default to each initiative's latest year and native collection. `mb_initiatives()` lists the products; `mb_source_url()`, `mb_raster_local()`, `mb_years()`, `mb_legend()`, `summarise_conversion()` and `cover_timeseries()` all accept `initiative`.
 
-**One standardised legend.** MapBiomas harmonises its pixel codes across initiatives, so `mb_legend()` returns a single *standardised* table (same class names, colours and conservation groups) that labels the Brazil, Amazonia and Colombia rasters consistently — this is what lets a range spanning more than one country be assessed coherently. The Colombia/Amazonia-specific classes (Andinean formations, Glacier, Other natural non-vegetated, Banana) are included; a code absent from a given product simply contributes zero area. MapBiomas **Fire** is published for Brazil only and is skipped (with a warning) for the other initiatives.
+> **Paraguay and Uruguay** also have MapBiomas collections, but their annual maps are not published as per-year GeoTIFFs on the public bucket (only bundled downloads / Earth Engine assets), so they cannot be streamed the same way and are not included.
+
+**One standardised legend.** MapBiomas harmonises its pixel codes across initiatives, so `mb_legend()` returns a single *standardised* table (same class names, colours and conservation groups) that labels every country's raster consistently — this is what lets a range spanning more than one country be assessed coherently. The country-specific classes (Andinean formations, Glacier, primary/secondary/dwarf forest, scrubland/steppe/fog oasis/peatlands, Pinus/Eucalyptus plantations, salt flat, …) are included; a code absent from a given product simply contributes zero area. MapBiomas **Fire** is published for Brazil only and is skipped (with a warning) for the other initiatives.
 
 ---
 
-## Protected areas: ICMBio (Brazil) or WDPA (global)
+## Protected areas: WDPA (global)
 
-Protected-area overlap (`assess_species(protected = TRUE)`) can be read from two sources via **`pa_source`**:
-
-- `"icmbio"` — Brazil's **federal Conservation Units** from the ICMBio/INDE WFS (rich SNUC categories; the default for `initiative = "brazil"`).
-- `"wdpa"` — the global **World Database on Protected Areas**, read from its public ArcGIS FeatureServer (bounding-box query, cached), standardised to the same `pa_name` / `pa_category` / `pa_group` columns with IUCN categories mapped to strict-protection (Ia–III) vs sustainable-use (IV–VI). This is the default for the Amazonia/Colombia initiatives and works anywhere in the world.
-
-`pa_source = NULL` (default) picks ICMBio for Brazil and WDPA otherwise; a local `pa_src` file overrides either. See `wdpa_areas()`.
+Protected-area overlap (`assess_species(protected = TRUE)`) reads the global **World Database on Protected Areas (WDPA)** from its public ArcGIS FeatureServer (bounding-box query, cached), standardised to `pa_name` / `pa_category` / `pa_group` columns with IUCN categories mapped to strict-protection (Ia–III) vs sustainable-use (IV–VI). It works anywhere in the world. A local `pa_src` file (`.shp`/`.gpkg`/`.geojson`) overrides it for offline use. See `wdpa_areas()`.
 
 ---
 
@@ -262,10 +265,9 @@ Protected-area overlap (`assess_species(protected = TRUE)`) can be read from two
 
 When using this package, please also cite the underlying data and methods:
 
-- **MapBiomas** — Projeto MapBiomas, Brazil Collection 10 (land use/cover) and Fire Collection 4 (<https://brasil.mapbiomas.org>); MapBiomas Amazonia / Pan-Amazon Collection 6 (RAISG, <https://amazonia.mapbiomas.org>); MapBiomas Colombia Collection 3 (<https://colombia.mapbiomas.org>).
+- **MapBiomas** — Projeto MapBiomas (Brazil, Amazonia/RAISG, Colombia, Argentina, Bolivia, Chile, Ecuador, Peru and Venezuela collections; <https://mapbiomas.org>) and MapBiomas Fire Collection 4.
 - **IUCN** — Standards and Petitions Committee. *Guidelines for Using the IUCN Red List Categories and Criteria.*
 - **GeoCAT** — Bachman, S. *et al.* (2011). *Supporting Red List threat assessments with GeoCAT.* ZooKeys 150: 117–126.
-- **ICMBio / INDE** — Federal Conservation Units geoservice.
 - **WDPA** — UNEP-WCMC and IUCN, Protected Planet: The World Database on Protected Areas (<https://www.protectedplanet.net>).
 
 ---

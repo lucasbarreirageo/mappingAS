@@ -12,7 +12,7 @@ A named list, one element per initiative, each a list with
 number), \code{years} (integer vector of available years) and \code{key}.
 }
 \description{
-\pkg{mappingAS} can read land-use/land-cover from three public MapBiomas
+\pkg{mappingAS} can read land-use/land-cover from several public MapBiomas
 initiatives, all streamed as annual Cloud-Optimized GeoTIFFs from the public
 \code{storage.googleapis.com/mapbiomas-public} bucket via GDAL's
 \code{/vsicurl/} driver - no Google Earth Engine account and no Google Drive
@@ -26,13 +26,24 @@ names, colours and conservation groups.
 \describe{
 \item{\code{"brazil"}}{MapBiomas Brazil, Collection 10 (1985-2024).}
 \item{\code{"amazonia"}}{MapBiomas Amazonia / Pan-Amazon (RAISG),
-Collection 6 (1986-2023). Covers the whole Amazon basin across countries.}
+Collection 6 (1986-2023). The whole Amazon basin across countries.}
 \item{\code{"colombia"}}{MapBiomas Colombia, Collection 3 (1985-2024).}
+\item{\code{"argentina"}}{MapBiomas Argentina, Collection 2 (1985-2024).}
+\item{\code{"bolivia"}}{MapBiomas Bolivia, Collection 3 (1985-2024).}
+\item{\code{"chile"}}{MapBiomas Chile, Collection 1 (2000-2022).}
+\item{\code{"ecuador"}}{MapBiomas Ecuador, Collection 3 (1985-2024).}
+\item{\code{"peru"}}{MapBiomas Peru, Collection 3 (1985-2024).}
+\item{\code{"venezuela"}}{MapBiomas Venezuela, Collection 2 (1985-2023).}
 }
+
+Paraguay and Uruguay also have MapBiomas collections, but their annual maps
+are not published as per-year GeoTIFFs on the public bucket (only bundled
+downloads / Earth Engine assets), so they cannot be streamed the same way and
+are not included here.
 }
 \examples{
 names(mb_initiatives())
-mb_initiatives()$amazonia$years
+mb_initiatives()$peru$years
 }
 \seealso{
 \code{\link{mb_source_url}}, \code{\link{mb_legend}},

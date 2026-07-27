@@ -1,7 +1,7 @@
 Package: mappingAS
 Type: Package
 Title: Spatial Metrics and Habitat Conversion for Extinction Risk Assessment
-Version: 1.8.1
+Version: 1.9.0
 Authors@R:
     person("Antônio Lucas Barreira", email = "barreira_rodrigues@hotmail.com", role = c("aut", "cre"))
 Author: Antônio Lucas Barreira [aut, cre]
@@ -13,16 +13,14 @@ Description: A spatial analytical framework for preliminary species
     assigns provisional Criterion B categories, and integrates MapBiomas
     land-use/land-cover data to quantify the proportion of anthropic
     conversion versus remaining natural habitat within each range metric, with
-    per-class breakdowns and land-cover time series. Three MapBiomas
+    per-class breakdowns and land-cover time series. Several MapBiomas
     initiatives are supported through one standardised legend - MapBiomas
-    Brazil (Collection 10), the Pan-Amazon / Amazonia collection (RAISG,
-    Collection 6) and MapBiomas Colombia (Collection 3) - so species in the
-    Amazon basin or Colombia can be screened as readily as Brazilian ones. It
-    also integrates MapBiomas Fire to compute burned-area metrics and fire
-    time series, and quantifies the overlap of the range with protected areas:
-    Brazilian federal Conservation Units (Unidades de Conservacao) from the
-    ICMBio geoservice on the Infraestrutura Nacional de Dados Espaciais (INDE),
-    or the global World Database on Protected Areas (WDPA). MapBiomas data are
+    Brazil, the Pan-Amazon / Amazonia collection (RAISG), Colombia, Argentina,
+    Bolivia, Chile, Ecuador, Peru and Venezuela - so a species anywhere these
+    products cover can be screened as readily as a Brazilian one. It also
+    integrates MapBiomas Fire to compute burned-area metrics and fire time
+    series, and quantifies the overlap of the range with protected areas from
+    the global World Database on Protected Areas (WDPA). MapBiomas data are
     read either locally over the network via GDAL '/vsicurl/' (no Google Earth
     Engine account required) or server-side through Google Earth Engine (GEE)
     for large-scale assessments. Outputs include interactive and publication

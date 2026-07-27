@@ -1,3 +1,38 @@
+# mappingAS 1.9.0
+
+* **Six more MapBiomas countries.** `assess_species()` (and the whole pipeline)
+  now accepts `initiative = "argentina"`, `"bolivia"`, `"chile"`, `"ecuador"`,
+  `"peru"` and `"venezuela"`, in addition to `"brazil"`, `"amazonia"` and
+  `"colombia"`. All are streamed as annual Cloud-Optimized GeoTIFFs from the
+  public MapBiomas bucket via GDAL `/vsicurl/` - **no Google Earth Engine and no
+  Google Drive**. The registry handles each product's file layout
+  (`coverage/<country>_coverage_YYYY.tif`, Peru/Venezuela's
+  `..._integration_v1-classification_YYYY.tif`, Argentina's hyphenated
+  `collection-2`, and Chile's collection-less `chile/coverage/` path). Year
+  spans follow each product: Chile is 2000-2022 and Venezuela (Collection 2) is
+  1985-2023; the others run 1985-2024. `mb_initiatives()` lists them all.
+  Paraguay and Uruguay are intentionally **not** included: their annual maps are
+  not published as per-year GeoTIFFs on the public bucket, so they cannot be
+  streamed the same way (they would require Earth Engine).
+* **Standardised legend extended to all of South America.** `mb_legend()` gains
+  the country-specific classes from the pan-continental harmonisation table -
+  primary/secondary/dwarf forest (59, 60, 67), scrubland/open shrublands/steppe/
+  fog oasis/peatlands (66, 77, 63, 70, 73), other crops (72), Pinus/Eucalyptus/
+  other forest plantations (79, 80, 83) and salt flat (61) - so a range that
+  spans several countries is still assessed on one coherent legend. The existing
+  Brazil/Amazonia/Colombia codes, names, colours and groups are unchanged; a
+  code absent from a given raster contributes zero area.
+* **Protected areas: WDPA only.** The Brazilian ICMBio/SNUC Conservation-Unit
+  source has been removed - the exported `icmbio_wfs_base()` and
+  `protected_layers()`, the WFS reader, and the bundled `ucs_federais.rds` data
+  are gone. Protected-area overlap (`assess_species(protected = TRUE)`) now
+  always uses the global **World Database on Protected Areas (WDPA)**, so it
+  works the same way everywhere; a local `pa_src` file still overrides it for
+  offline use. `assess_species()` drops the `pa_source`/`pa_typename` arguments,
+  and `protected_areas()` now reads WDPA (or a local file) instead of the ICMBio
+  WFS. The Shiny app drops the protected-area source selector and lists all nine
+  initiatives, and the written report cites WDPA instead of ICMBio/INDE.
+
 # mappingAS 1.8.1
 
 * **MapBiomas beyond Brazil: Pan-Amazon and Colombia.** `assess_species()` (and
