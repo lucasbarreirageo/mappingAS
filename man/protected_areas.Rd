@@ -28,14 +28,14 @@ read.
 \description{
 Returns the protected-area polygons that fall within the bounding box of
 \code{aoi}. By default it reads the global World Database on Protected Areas
-(WDPA) via \code{\link{wdpa_areas}} (see there for the source), so the overlap
-works anywhere in the world. For offline use, point \code{src} to a local
-protected-area file (\code{.shp}, \code{.gpkg}, \code{.geojson}) instead; it is
-then filtered to the AOI bounding box and standardised to the same columns.
+(WDPA) via \code{\link[=wdpa_areas]{wdpa_areas()}} (see there for the source), so the overlap works
+anywhere in the world. For offline use, point \code{src} to a local protected-area
+file (\code{.shp}, \code{.gpkg}, \code{.geojson}) instead; it is then filtered to the AOI
+bounding box and standardised to the same columns.
 }
 \details{
-The result carries three standardised columns: \code{pa_name},
-\code{pa_category} and \code{pa_group}, plus all original attributes.
+The result carries three standardised columns: \code{pa_name}, \code{pa_category} and
+\code{pa_group}, plus all original attributes.
 }
 \examples{
 \dontrun{
@@ -47,5 +47,5 @@ unique(pas$pa_name)
 }
 }
 \seealso{
-\code{\link{wdpa_areas}}
+\code{\link[=wdpa_areas]{wdpa_areas()}}
 }

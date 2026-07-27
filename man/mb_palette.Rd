@@ -19,9 +19,9 @@ mb_palette(
 \code{initiative}; a value that does not match the initiative's default
 collection emits a warning and the standardised legend is still returned.}
 
-\item{initiative}{One of \code{"brazil"} (default), \code{"amazonia"} or
-\code{"colombia"}. Kept for API symmetry and warning logic; the returned
-legend is the same standardised table for every initiative.}
+\item{initiative}{One of the keys of \code{\link{mb_initiatives}}
+(\code{"brazil"} by default). Kept for API symmetry and warning logic; the
+returned legend is the same standardised table for every initiative.}
 
 \item{by}{One of \code{"code"} (names are codes) or \code{"class_pt"} /
 \code{"class_en"} (names are class labels). Default \code{"code"}.}

@@ -27,19 +27,18 @@ assess_species(
 \arguments{
 \item{occ}{An \code{sf} of POINT geometries from \code{\link{read_occurrences}}.}
 
-\item{initiative}{MapBiomas initiative: one of the keys of
-\code{\link{mb_initiatives}} (\code{"brazil"} by default; also
-\code{"amazonia"}, \code{"colombia"}, \code{"argentina"}, \code{"bolivia"},
-\code{"chile"}, \code{"ecuador"}, \code{"peru"}, \code{"venezuela"}). Selects
-the land-cover product, its default collection and the standardised legend, so
-a species anywhere these products cover can be assessed without Google Earth
-Engine.}
+\item{initiative}{MapBiomas initiative: \code{"brazil"} (default),
+\code{"amazonia"} (Pan-Amazon / RAISG) or \code{"colombia"}. Selects the
+land-cover product, its default collection and the standardised legend, so a
+species in the Amazon basin or Colombia can be assessed without Google Earth
+Engine (see \code{\link{mb_initiatives}}).}
 
 \item{year}{Integer MapBiomas year. \code{NULL} (default) uses the most recent
-year available for the initiative.}
+year available for the initiative (2024 for Brazil/Colombia, 2023 for
+Amazonia).}
 
 \item{collection}{Integer MapBiomas collection number. \code{NULL} (default)
-uses the initiative default (see \code{\link{mb_initiatives}}).}
+uses the initiative default (10/6/3 for Brazil/Amazonia/Colombia).}
 
 \item{backend}{Habitat backend: \code{"local"} (default) or \code{"gee"}.
 The \code{"gee"} backend is only wired for \code{initiative = "brazil"}.}
@@ -55,9 +54,9 @@ MapBiomas Fire (accumulated layer, read locally). Default \code{FALSE}.}
 \code{4}) and the initiative folder hosting it (default \code{9}).}
 
 \item{protected}{Logical; if \code{TRUE}, also compute the overlap of the
-range with protected areas from the global World Database on Protected Areas
-(WDPA): the share of occurrences inside protected areas and the \\% of the
-EOO/AOO within them. Default \code{FALSE}. Requires internet unless
+range with protected areas from the global World Database on Protected
+Areas (WDPA): the share of occurrences inside protected areas and the \\% of
+the EOO/AOO within them. Default \code{FALSE}. Requires internet unless
 \code{pa_src} is given. See \code{\link{wdpa_areas}}.}
 
 \item{pa_src}{Optional local protected-area vector file (\code{.shp}/

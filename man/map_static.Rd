@@ -56,15 +56,16 @@ the feature labels (EOO/AOO/occurrences).}
 EOO hull) or \code{"aoo"} (the union of occupied AOO cells). Matches the
 \code{clip} argument of \code{\link{map_species}}.}
 
-\item{protected}{Logical; overlay federal Protected areas (UCs) on the
-publishable map (default \code{FALSE}). Uses the UC layer stored by
+\item{protected}{Logical; overlay protected areas on the publishable map
+(default \code{FALSE}). Uses the protected-area layer stored by
 \code{assess_species(..., protected = TRUE)}, or fetches it on the fly.}
 
-\item{pa_src}{Optional local UC vector file for the overlay (offline).}
+\item{pa_src}{Optional local protected-area vector file for the overlay
+(offline).}
 
-\item{pa_occ_only}{Logical; when \code{TRUE} (default) draw only the UCs that
-contain occurrences of the species. \code{FALSE} draws every UC the range
-overlaps.}
+\item{pa_occ_only}{Logical; when \code{TRUE} (default) draw only the protected
+areas that contain occurrences of the species. \code{FALSE} draws every
+protected area the range overlaps.}
 }
 \value{
 A \code{ggplot} object.
