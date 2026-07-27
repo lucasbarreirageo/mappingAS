@@ -15,8 +15,8 @@ authors:
   - given-names: "Antônio Lucas"
     family-names: "Barreira"
     email: barreira_rodrigues@hotmail.com
-version: "1.8.1"
-date-released: "2026-07-24"
+version: "1.9.0"
+date-released: "2026-07-27"
 license: MIT
 repository-code: "https://github.com/lucasbarreirageo/mappingAS"
 url: "https://github.com/lucasbarreirageo/mappingAS"

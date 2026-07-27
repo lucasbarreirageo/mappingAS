@@ -18,10 +18,11 @@
 #'   the language of the MapBiomas class labels and the fire-frequency legend.
 #' @param clip Geometry the rasters are clipped to: \code{"eoo"} (default, the
 #'   EOO hull) or \code{"aoo"} (the union of occupied AOO cells).
-#' @param protected Logical; overlay federal Protected areas (UCs). Uses the
-#'   UC layer already stored by \code{assess_species(..., protected = TRUE)}, or
-#'   fetches it on the fly from the ICMBio WFS otherwise. Default \code{FALSE}.
-#' @param pa_src Optional local UC vector file for the overlay (offline).
+#' @param protected Logical; overlay protected areas. Uses the protected-area
+#'   layer already stored by \code{assess_species(..., protected = TRUE)}, or
+#'   fetches it on the fly from WDPA otherwise. Default \code{FALSE}.
+#' @param pa_src Optional local protected-area vector file for the overlay
+#'   (offline).
 #' @param pa_occ_only Logical; when \code{TRUE} (default) the map draws only the
 #'   UCs that actually contain occurrences of the species. Set \code{FALSE} to
 #'   draw every UC the range overlaps. Does not affect the EOO/AOO overlap
@@ -119,7 +120,7 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
   }
   
   # --- optional federal Protected areas (UCs) overlay ---
-  grp_uc <- if (lang == "en") "Protected areas" else "Unidades de Conservacao"
+  grp_uc <- if (lang == "en") "Protected areas" else "Areas Protegidas"
   pa_on <- FALSE
   if (isTRUE(protected)) {
     pa_sf <- obj$pa$layer

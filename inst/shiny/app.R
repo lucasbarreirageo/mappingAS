@@ -93,7 +93,13 @@ ui <- bslib::page_sidebar(
     selectInput("initiative", "MapBiomas initiative",
                 choices = c("Brazil (Collection 10)" = "brazil",
                             "Amazonia / Pan-Amazon (Collection 6)" = "amazonia",
-                            "Colombia (Collection 3)" = "colombia"),
+                            "Colombia (Collection 3)" = "colombia",
+                            "Argentina (Collection 2)" = "argentina",
+                            "Bolivia (Collection 3)" = "bolivia",
+                            "Chile (Collection 1, 2000-2022)" = "chile",
+                            "Ecuador (Collection 3)" = "ecuador",
+                            "Peru (Collection 3)" = "peru",
+                            "Venezuela (Collection 2)" = "venezuela"),
                 selected = "brazil"),
     selectInput("year", "MapBiomas Year", choices = 2024:1985, selected = 2024),
     numericInput("cell_km", "AOO Cell (km)", value = 2, min = 0.5, step = 0.5),
@@ -104,12 +110,7 @@ ui <- bslib::page_sidebar(
     checkboxInput("water_denom", "Include water as natural in denominator", FALSE),
     checkboxInput("do_mb", "Calculate MapBiomas conversion", TRUE),
     checkboxInput("do_fire", "Calculate fire (MapBiomas burned area, Brazil only)", FALSE),
-    checkboxInput("do_pa", "Overlap with Protected areas", FALSE),
-    selectInput("pa_source", "Protected-area source",
-                choices = c("Auto (ICMBio for Brazil, WDPA otherwise)" = "auto",
-                            "ICMBio federal UCs (Brazil)" = "icmbio",
-                            "WDPA (global)" = "wdpa"),
-                selected = "auto"),
+    checkboxInput("do_pa", "Overlap with Protected areas (WDPA)", FALSE),
     radioButtons("lang", "Legend language",
                  choices = c("English" = "en", "Portuguese" = "pt"),
                  selected = "en", inline = TRUE),
@@ -206,9 +207,9 @@ ui <- bslib::page_sidebar(
       "Protected areas", icon = icon("tree"),
       selectInput("pa_species", "Species", choices = NULL),
       helpText(htmltools::HTML(
-        "Overlap of the range with federal Protected areas (UCs). Source: ",
-        "<a href='https://www.gov.br/icmbio/pt-br/assuntos/dados_geoespaciais' ",
-        "target='_blank'>ICMBio / INDE geoservice</a> (PDDL public domain).")),
+        "Overlap of the range with protected areas. Source: ",
+        "<a href='https://www.protectedplanet.net' ",
+        "target='_blank'>World Database on Protected Areas (WDPA)</a>.")),
       uiOutput("pa_summary"),
       div(style = "height:460px; min-height:460px;",
           plotly::plotlyOutput("pa_chart", height = "100%")),
@@ -416,7 +417,6 @@ server <- function(input, output, session) {
           mapbiomas = isTRUE(input$do_mb),
           fire = isTRUE(input$do_fire),
           protected = isTRUE(input$do_pa),
-          pa_source = if (identical(input$pa_source, "auto")) NULL else input$pa_source,
           water_in_denominator = isTRUE(input$water_denom),
           verbose = FALSE
         ),
@@ -530,7 +530,7 @@ server <- function(input, output, session) {
       c("eoo_burned_pct", L("% of the EOO burned at least once (1985-2024).", "% da EOO queimada ao menos uma vez (1985-2024).")),
       c("aoo_burned_pct", L("% of the AOO burned at least once (1985-2024).", "% da AOO queimada ao menos uma vez (1985-2024).")),
       c("fire_collection", L("MapBiomas Fire collection number.", "Numero da colecao MapBiomas Fogo.")),
-      c("occ_in_uc_pct", L("% of occurrences inside federal protected areas (UCs).", "% das ocorrencias dentro de UCs federais.")),
+      c("occ_in_uc_pct", L("% of occurrences inside protected areas (WDPA).", "% das ocorrencias dentro de areas protegidas.")),
       c("eoo_uc_pct", L("% of the EOO overlapping UCs.", "% da EOO sobreposta a UCs.")),
       c("aoo_uc_pct", L("% of the AOO overlapping UCs.", "% da AOO sobreposta a UCs.")),
       c("n_uc", L("Number of UCs the range touches.", "Numero de UCs que a distribuicao toca.")),
@@ -579,7 +579,7 @@ server <- function(input, output, session) {
     validate(need(nrow(tb) > 0,
                   "No Protected areas overlap this species' range."))
     .mas_dt(tb, page = 15,
-            caption = "Federal Protected areas overlapping the range")
+            caption = "Protected areas overlapping the range")
   })
 
   output$pa_chart <- plotly::renderPlotly({

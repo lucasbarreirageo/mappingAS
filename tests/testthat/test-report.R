@@ -38,7 +38,7 @@ test_that("assessment_report renders HTML and text with key facts", {
   expect_match(txt, "Extent of Occurrence")
   expect_match(txt, "MapBiomas Brazil Collection")
   expect_match(txt, "burned")
-  expect_match(txt, "Conservation Units")
+  expect_match(txt, "protected areas")
   expect_match(txt, "IUCN")
 })
 
@@ -47,7 +47,7 @@ test_that("assessment_report omits modules that were not computed", {
   txt <- assessment_report(a, output = "text")
   expect_false(grepl("MapBiomas Collection", txt))
   expect_false(grepl("burned", txt))
-  expect_false(grepl("Conservation Units", txt))
+  expect_false(grepl("protected areas", txt))
 })
 
 test_that("assessment_report supports Portuguese", {

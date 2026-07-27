@@ -271,8 +271,8 @@ assessment_report <- function(assessment, species = NULL,
   # --- Protected areas (snapshot + effectiveness) ---
   if (isTRUE(st$protected) && !is.null(r$occ_in_uc_pct)) {
     pa_p <- sprintf(L(
-      "%s of the occurrences fall within federal Conservation Units (Unidades de Conservacao, UCs); %s of the EOO and %s of the AOO overlap UCs, across %s units (source: ICMBio / INDE geoservice).",
-      "%s das ocorrencias estao dentro de Unidades de Conservacao federais (UCs); %s da EOO e %s da AOO sobrepoem UCs, em %s unidades (fonte: geoservico ICMBio / INDE)."),
+      "%s of the occurrences fall within protected areas; %s of the EOO and %s of the AOO overlap protected areas, across %s units (source: World Database on Protected Areas, WDPA).",
+      "%s das ocorrencias estao dentro de areas protegidas; %s da EOO e %s da AOO sobrepoem areas protegidas, em %s unidades (fonte: World Database on Protected Areas, WDPA)."),
       fmt_pct(r$occ_in_uc_pct), fmt_pct(r$eoo_uc_pct), fmt_pct(r$aoo_uc_pct), fmt_int(r$n_uc))
 
     lst <- if (!is.null(pa)) pa$list else NULL
@@ -364,7 +364,7 @@ assessment_report <- function(assessment, species = NULL,
       "Alencar, A. et al. (2022). Long-Term Landsat-Based Monthly Burned Area Dataset for the Brazilian Biomes Using Deep Learning. Remote Sensing 14(11): 2510. doi:10.3390/rs14112510")
   if (isTRUE(st$protected))
     refs <- c(refs,
-      "ICMBio - Instituto Chico Mendes de Conservacao da Biodiversidade. Federal Conservation Units geoservice, Infraestrutura Nacional de Dados Espaciais (INDE). https://www.gov.br/icmbio/pt-br/assuntos/dados_geoespaciais")
+      "UNEP-WCMC and IUCN. Protected Planet: The World Database on Protected Areas (WDPA). Cambridge, UK. https://www.protectedplanet.net")
 
   # --- Support figures (only for docx; static ggplots embedded via officer) ---
   figs <- NULL

@@ -104,7 +104,7 @@ wdpa_areas <- function(aoi, url = wdpa_query_url(),
     if (is.null(chunk)) {
       if (i == 1L)
         stop("Could not read the WDPA FeatureServer. Check the connection or ",
-             "use pa_source = 'icmbio' / a local `pa_src` file.", call. = FALSE)
+             "pass a local `pa_src` file instead.", call. = FALSE)
       break
     }
     if (nrow(chunk)) parts[[i]] <- chunk
