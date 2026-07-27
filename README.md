@@ -240,8 +240,6 @@ res_az <- assess_species(occ, initiative = "amazonia")
 
 `year` and `collection` default to each initiative's latest year and native collection. `mb_initiatives()` lists the products; `mb_source_url()`, `mb_raster_local()`, `mb_years()`, `mb_legend()`, `summarise_conversion()` and `cover_timeseries()` all accept `initiative`.
 
-> **Paraguay and Uruguay** also have MapBiomas collections, but their annual maps are not published as per-year GeoTIFFs on the public bucket (only bundled downloads / Earth Engine assets), so they cannot be streamed the same way and are not included.
-
 **One standardised legend.** MapBiomas harmonises its pixel codes across initiatives, so `mb_legend()` returns a single *standardised* table (same class names, colours and conservation groups) that labels every country's raster consistently — this is what lets a range spanning more than one country be assessed coherently. The country-specific classes (Andinean formations, Glacier, primary/secondary/dwarf forest, scrubland/steppe/fog oasis/peatlands, Pinus/Eucalyptus plantations, salt flat, …) are included; a code absent from a given product simply contributes zero area. MapBiomas **Fire** is published for Brazil only and is skipped (with a warning) for the other initiatives.
 
 ---
