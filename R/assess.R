@@ -27,18 +27,12 @@
 #' @param fire_collection,fire_host_collection Fire collection number (default
 #'   \code{4}) and the initiative folder hosting it (default \code{9}).
 #' @param protected Logical; if \code{TRUE}, also compute the overlap of the
-#'   range with federal Conservation Units (UCs) from the ICMBio WFS: the share
-#'   of occurrences inside UCs and the \% of the EOO/AOO within UCs. Default
-#'   \code{FALSE}. Requires internet unless \code{pa_src} is given.
-#' @param pa_src Optional local UC vector file (\code{.shp}/\code{.gpkg}/
-#'   \code{.geojson}) used instead of the WFS (offline).
-#' @param pa_source Protected-area source: \code{"icmbio"} (Brazilian federal
-#'   Conservation Units, INDE WFS) or \code{"wdpa"} (World Database on Protected
-#'   Areas, global). \code{NULL} (default) picks \code{"icmbio"} for
-#'   \code{initiative = "brazil"} and \code{"wdpa"} otherwise (see
-#'   \code{\link{wdpa_areas}}).
-#' @param pa_typename Optional ICMBio WFS layer name; \code{NULL} (default)
-#'   auto-detects it (see \code{\link{protected_layers}}).
+#'   range with protected areas from the global World Database on Protected
+#'   Areas (WDPA): the share of occurrences inside protected areas and the \% of
+#'   the EOO/AOO within them. Default \code{FALSE}. Requires internet unless
+#'   \code{pa_src} is given. See \code{\link{wdpa_areas}}.
+#' @param pa_src Optional local protected-area vector file (\code{.shp}/
+#'   \code{.gpkg}/\code{.geojson}) used instead of WDPA (offline).
 #' @param src Optional MapBiomas LULC GeoTIFF for the local backend.
 #' @param fire_src Optional MapBiomas Fire GeoTIFF (overrides the public URL).
 #' @param water_in_denominator Passed to \code{\link{summarise_conversion}}.
@@ -63,8 +57,7 @@ assess_species <- function(occ, initiative = "brazil",
                            cell_km = 2, mapbiomas = TRUE,
                            fire = FALSE, fire_collection = 4,
                            fire_host_collection = 9,
-                           protected = FALSE, pa_src = NULL, pa_source = NULL,
-                           pa_typename = NULL,
+                           protected = FALSE, pa_src = NULL,
                            src = NULL, fire_src = NULL,
                            water_in_denominator = FALSE,
                            min_records = 1, verbose = TRUE) {
@@ -76,9 +69,6 @@ assess_species <- function(occ, initiative = "brazil",
   if (is.null(year)) year <- max(ini$years)
   year <- as.integer(year)
   collection <- as.integer(collection)
-  if (is.null(pa_source))
-    pa_source <- if (initiative == "brazil") "icmbio" else "wdpa"
-  pa_source <- match.arg(tolower(pa_source), c("icmbio", "wdpa"))
   if (backend == "gee" && initiative != "brazil") {
     warning("The GEE backend is only wired for initiative = 'brazil'; ",
             "using the local (/vsicurl/) backend for ", initiative, ".",
@@ -137,8 +127,7 @@ assess_species <- function(occ, initiative = "brazil",
 
     pa <- NULL
     if (protected) {
-      pa <- .protected_for(pts, eoo, aoo, src = pa_src, source = pa_source,
-                           typename = pa_typename, verbose = verbose)
+      pa <- .protected_for(pts, eoo, aoo, src = pa_src, verbose = verbose)
     }
     if (protected && mapbiomas && !is.null(pa) && !is.null(pa$layer)) {
       uc_u <- .st_union_quiet(sf::st_geometry(pa$layer))
@@ -206,7 +195,7 @@ assess_species <- function(occ, initiative = "brazil",
                                  mapbiomas = mapbiomas, fire = fire,
                                  fire_collection = fire_collection,
                                  fire_host_collection = fire_host_collection,
-                                 protected = protected, pa_source = pa_source,
+                                 protected = protected,
                                  water_in_denominator = water_in_denominator)),
             class = "geoconv_assessment")
 }

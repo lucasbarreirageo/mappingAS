@@ -1,90 +1,46 @@
-#' Default ICMBio INDE WFS endpoint (federal Protected areas)
+#' Read Protected areas intersecting an area of interest
 #'
-#' The base OWS URL of the ICMBio geoservice on Brazil's Infraestrutura Nacional
-#' de Dados Espaciais (INDE). Used by [protected_areas()] and
-#' [protected_layers()] to read the official federal Conservation Unit (Unidade
-#' de Conservacao, UC) limits.
+#' Returns the protected-area polygons that fall within the bounding box of
+#' `aoi`. By default it reads the global World Database on Protected Areas
+#' (WDPA) via [wdpa_areas()] (see there for the source), so the overlap works
+#' anywhere in the world. For offline use, point `src` to a local protected-area
+#' file (`.shp`, `.gpkg`, `.geojson`) instead; it is then filtered to the AOI
+#' bounding box and standardised to the same columns.
 #'
-#' @return A length-1 character URL.
-#' @seealso <https://www.gov.br/icmbio/pt-br/assuntos/dados_geoespaciais>
-#' @export
-icmbio_wfs_base <- function() {
-  "https://geoservicos.inde.gov.br/geoserver/ICMBio/ows"
-}
-
-#' List the feature layers published by the ICMBio WFS
-#'
-#' Queries the ICMBio geoservice (WFS `GetCapabilities`, via GDAL's `WFS:`
-#' driver) and returns the available `typeName`s so you can confirm the exact
-#' layer to pass to [protected_areas()]. Requires an internet connection.
-#'
-#' @param base ICMBio OWS base URL (default [icmbio_wfs_base()]).
-#' @return A `data.frame` with `typename` (and `features` when advertised).
-#' @examples
-#' \dontrun{
-#' protected_layers()                 # inspect available ICMBio layers
-#' }
-#' @export
-protected_layers <- function(base = icmbio_wfs_base()) {
-  ly <- sf::st_layers(paste0("WFS:", base))
-  data.frame(
-    typename = ly$name,
-    features = if (!is.null(ly$features)) ly$features else NA_integer_,
-    stringsAsFactors = FALSE
-  )
-}
-
-#' Read federal Protected areas (UCs) intersecting an area of interest
-#'
-#' Downloads the official ICMBio federal Conservation Unit polygons that fall
-#' within the bounding box of `aoi` from the INDE WFS geoservice, and returns
-#' them as an `sf` in WGS84 with three standardised columns added:
-#' `pa_name` (UC name), `pa_category` (SNUC category) and `pa_group`
-#' (Protecao Integral / Uso Sustentavel), plus all original attributes.
-#'
-#' Only the AOI's bounding box is requested (via a WFS `BBOX` filter), so this
-#' is fast even though the national dataset is large. Results are cached on disk
-#' by layer + bounding box. For offline use, point `src` to a local UC file
-#' (`.shp`, `.gpkg`, `.geojson`) instead of hitting the WFS.
+#' The result carries three standardised columns: `pa_name`, `pa_category` and
+#' `pa_group`, plus all original attributes.
 #'
 #' @param aoi An `sf`/`sfc` polygon or point set (any CRS) defining the area of
 #'   interest, e.g. an EOO hull, the union of AOO cells, or the occurrence
 #'   points.
-#' @param typename WFS layer name. `NULL` (default) auto-detects the federal
-#'   conservation-unit layer from the capabilities (see [protected_layers()]).
-#' @param src Optional path/URL to a local UC vector file. When supplied the WFS
-#'   is not queried and the file is filtered to the AOI bounding box.
-#' @param base ICMBio OWS base URL (default [icmbio_wfs_base()]).
-#' @param cache,cache_dir Cache the WFS result on disk (default `TRUE`; folder
+#' @param src Optional path/URL to a local protected-area vector file. When
+#'   supplied WDPA is not queried and the file is filtered to the AOI bounding
+#'   box.
+#' @param cache,cache_dir Cache the WDPA result on disk (default `TRUE`; folder
 #'   `mappingAS_pa_cache` under `tempdir()`).
 #' @param quiet Passed to [sf::st_read()] (default `TRUE`).
-#' @return An `sf` of UC polygons in EPSG:4326 (possibly with zero rows when no
-#'   UC intersects the AOI), or `NULL` if the layer could not be read.
+#' @return An `sf` of protected-area polygons in EPSG:4326 (possibly with zero
+#'   rows when none intersects the AOI), or `NULL` if the source could not be
+#'   read.
+#' @seealso [wdpa_areas()]
 #' @examples
 #' \dontrun{
 #' occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
 #'                                     package = "mappingAS"))
 #' sp1 <- occ[occ$species == occ$species[1], ]
-#' ucs <- protected_areas(calc_eoo(sp1)$hull)
-#' unique(ucs$pa_name)
+#' pas <- protected_areas(calc_eoo(sp1)$hull)
+#' unique(pas$pa_name)
 #' }
 #' @export
-protected_areas <- function(aoi, typename = NULL, src = NULL,
-                            base = icmbio_wfs_base(),
+protected_areas <- function(aoi, src = NULL,
                             cache = TRUE, cache_dir = NULL, quiet = TRUE) {
+  if (is.null(src)) {
+    return(wdpa_areas(aoi, cache = cache, cache_dir = cache_dir, quiet = quiet))
+  }
   g <- sf::st_geometry(aoi)
   if (is.na(sf::st_crs(g))) sf::st_crs(g) <- 4326
   bb <- sf::st_bbox(sf::st_transform(g, 4326))
 
-  if (is.null(src)) {
-    src <- system.file("extdata", "ucs_federais.rds", package = "mappingAS")
-    if (src == "") {                       # data not installed -> use the WFS
-      pa <- .pa_read_wfs(base, typename, bb, cache, cache_dir, quiet)
-      if (is.null(pa) || nrow(pa) == 0) return(pa)
-      return(.pa_standardise(sf::st_make_valid(sf::st_transform(pa, 4326))))
-    }
-  }
-  
   pa <- .pa_read_local(src, bb)
   if (is.null(pa)) return(NULL)
   if (nrow(pa) == 0) return(pa)
@@ -218,37 +174,6 @@ pa_table <- function(assessment, species = NULL) {
 
 #' @keywords internal
 #' @noRd
-.pa_read_wfs <- function(base, typename, bb, cache, cache_dir, quiet) {
-  typename <- .pa_pick_typename(base, typename)
-  key <- paste0(gsub("[^A-Za-z0-9]+", "-", typename), "__",
-                paste(round(as.numeric(bb), 4), collapse = "_"))
-  f <- .pa_cache_file(cache, cache_dir, key)
-  if (!is.null(f) && file.exists(f))
-    return(tryCatch(sf::st_read(f, quiet = TRUE), error = function(e) NULL))
-
-  bbox_str <- sprintf("%.6f,%.6f,%.6f,%.6f,urn:ogc:def:crs:OGC:1.3:CRS84",
-                      bb[["xmin"]], bb[["ymin"]], bb[["xmax"]], bb[["ymax"]])
-  build <- function(fmt) sprintf(
-    paste0("%s?service=WFS&version=2.0.0&request=GetFeature&typeNames=%s",
-           "&srsName=urn:ogc:def:crs:OGC:1.3:CRS84&count=20000&bbox=%s%s"),
-    base, utils::URLencode(typename, TRUE), utils::URLencode(bbox_str, TRUE),
-    if (nzchar(fmt)) paste0("&outputFormat=", utils::URLencode(fmt, TRUE)) else "")
-
-  pa <- tryCatch(sf::st_read(build("application/json"), quiet = quiet),
-                 error = function(e) NULL)
-  if (is.null(pa) || !nrow(pa))                       # GML 3.2 fallback
-    pa <- tryCatch(sf::st_read(build(""), quiet = quiet), error = function(e) NULL)
-  if (is.null(pa))
-    stop("Could not read the ICMBio WFS. Check the connection or pass `src=` ",
-         "with a local UC file.", call. = FALSE)
-  if (nrow(pa) && !is.null(f))
-    tryCatch(sf::st_write(pa, f, quiet = TRUE, append = FALSE),
-             error = function(e) NULL)
-  pa
-}
-
-#' @keywords internal
-#' @noRd
 .pa_read_local <- function(src, bb) {
   # Verifica se e o RDS interno ou um shapefile/gpkg externo
   if (grepl("\\.rds$", src, ignore.case = TRUE)) {
@@ -264,26 +189,6 @@ pa_table <- function(assessment, species = NULL) {
   
   # Filtra apenas as UCs que tocam a Bounding Box da area de interesse
   pa[lengths(suppressMessages(sf::st_intersects(pa, box))) > 0, , drop = FALSE]
-}
-
-#' @keywords internal
-#' @noRd
-.pa_pick_typename <- function(base, typename) {
-  if (!is.null(typename)) return(typename)
-  ly <- tryCatch(sf::st_layers(paste0("WFS:", base))$name,
-                 error = function(e) character(0))
-  if (!length(ly))
-    stop("Could not list ICMBio WFS layers; pass `typename=` explicitly ",
-         "(see protected_layers()).", call. = FALSE)
-  low <- tolower(ly)
-  score <- grepl("conserva|unidade|lim.*uc|(^|[^a-z])ucs?([^a-z]|$)", low) +
-           grepl("fed", low)
-  if (max(score) == 0)
-    stop("No conservation-unit layer matched automatically; pass `typename=` ",
-         "explicitly (see protected_layers()).", call. = FALSE)
-  pick <- ly[which.max(score)]
-  message("Using ICMBio WFS layer: ", pick)
-  pick
 }
 
 #' @keywords internal
@@ -336,20 +241,14 @@ pa_table <- function(assessment, species = NULL) {
   file.path(cache_dir, paste0(substr(key, 1, 180), ".gpkg"))
 }
 
-#' Glue used by [assess_species()] to attach UC overlap to one species
+#' Glue used by [assess_species()] to attach protected-area overlap to a species
 #' @keywords internal
 #' @noRd
-.protected_for <- function(points, eoo, aoo, src = NULL, source = "icmbio",
-                           typename = NULL, base = icmbio_wfs_base(),
-                           verbose = TRUE) {
+.protected_for <- function(points, eoo, aoo, src = NULL, verbose = TRUE) {
   aoi <- if (!is.null(eoo) && !is.null(eoo$hull)) eoo$hull
          else sf::st_as_sfc(sf::st_bbox(sf::st_geometry(points)))
   pa <- tryCatch(
-    if (identical(source, "wdpa") && is.null(src)) {
-      wdpa_areas(aoi)
-    } else {
-      protected_areas(aoi, typename = typename, src = src, base = base)
-    },
+    protected_areas(aoi, src = src),
     error = function(e) {
       warning(sprintf("Protected-area overlap failed: %s", conditionMessage(e)),
               call. = FALSE)
