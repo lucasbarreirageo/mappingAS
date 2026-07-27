@@ -36,13 +36,14 @@
 #' @param clip Geometry the rasters are clipped to: \code{"eoo"} (default, the
 #'   EOO hull) or \code{"aoo"} (the union of occupied AOO cells). Matches the
 #'   \code{clip} argument of \code{\link{map_species}}.
-#' @param protected Logical; overlay federal Protected areas (UCs) on the
-#'   publishable map (default \code{FALSE}). Uses the UC layer stored by
+#' @param protected Logical; overlay protected areas on the publishable map
+#'   (default \code{FALSE}). Uses the protected-area layer stored by
 #'   \code{assess_species(..., protected = TRUE)}, or fetches it on the fly.
-#' @param pa_src Optional local UC vector file for the overlay (offline).
-#' @param pa_occ_only Logical; when \code{TRUE} (default) draw only the UCs that
-#'   contain occurrences of the species. \code{FALSE} draws every UC the range
-#'   overlaps.
+#' @param pa_src Optional local protected-area vector file for the overlay
+#'   (offline).
+#' @param pa_occ_only Logical; when \code{TRUE} (default) draw only the protected
+#'   areas that contain occurrences of the species. \code{FALSE} draws every
+#'   protected area the range overlaps.
 #' @return A \code{ggplot} object.
 #' @examples
 #' \dontrun{
@@ -148,7 +149,7 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
   lab_eoo  <- "EOO (MCP)"
   lab_aoo  <- if (lang == "en") "AOO (2 km)" else "AOO (2 km)"
   lab_pts  <- if (lang == "en") "Occurrences" else "Ocorrencias"
-  lab_uc   <- if (lang == "en") "Protected areas" else "Unidades de Conservacao"
+  lab_uc   <- if (lang == "en") "Protected areas" else "Areas Protegidas"
   feat <- character(0)
   if (isTRUE(protected)) {
     pa_sf <- obj$pa$layer

@@ -11,9 +11,9 @@ mb_legend(collection = 10, initiative = "brazil")
 \code{initiative}; a value that does not match the initiative's default
 collection emits a warning and the standardised legend is still returned.}
 
-\item{initiative}{One of \code{"brazil"} (default), \code{"amazonia"} or
-\code{"colombia"}. Kept for API symmetry and warning logic; the returned
-legend is the same standardised table for every initiative.}
+\item{initiative}{One of the keys of \code{\link{mb_initiatives}}
+(\code{"brazil"} by default). Kept for API symmetry and warning logic; the
+returned legend is the same standardised table for every initiative.}
 }
 \value{
 A \code{data.frame} with columns \code{code}, \code{class_en},
@@ -22,25 +22,27 @@ and \code{group}.
 }
 \description{
 Returns the \emph{standardised} MapBiomas land-use/land-cover legend used
-across all three initiatives supported by \pkg{mappingAS} - MapBiomas Brazil
-(Collection 10), Pan-Amazon / Amazonia (Collection 6) and Colombia
-(Collection 3) - with each pixel class assigned to a conservation-relevant
-group: \code{"natural"}, \code{"anthropic"}, \code{"water"},
-\code{"not_observed"} or \code{"other"}. The \code{"anthropic"} classes are
-what counts as \emph{converted} habitat; \code{"natural"} is the remaining
-(current) natural habitat. By default \code{"water"}, \code{"not_observed"}
-and \code{"other"} are excluded from the conversion denominator (see
-\code{\link{summarise_conversion}}).
+across every initiative supported by \pkg{mappingAS} (Brazil, Pan-Amazon /
+Amazonia, Colombia, Argentina, Bolivia, Chile, Ecuador, Peru and Venezuela -
+see \code{\link{mb_initiatives}}), with each pixel class assigned to a
+conservation-relevant group: \code{"natural"}, \code{"anthropic"},
+\code{"water"}, \code{"not_observed"} or \code{"other"}. The
+\code{"anthropic"} classes are what counts as \emph{converted} habitat;
+\code{"natural"} is the remaining (current) natural habitat. By default
+\code{"water"}, \code{"not_observed"} and \code{"other"} are excluded from the
+conversion denominator (see \code{\link{summarise_conversion}}).
 }
 \details{
 MapBiomas harmonises pixel codes across its initiatives, so a single legend
-can label the Brazil, Amazonia and Colombia rasters consistently - this is
-what makes cross-border assessment possible for a species whose range spans
-more than one product. The table is the union of the classes that occur in
-any of the three products; a code that does not occur in a given raster
-simply contributes zero area. Codes 81, 82 (Andinean formations), 34
-(Glacier), 68 (Other natural non-vegetated) and 74 (Banana) are the
-Colombia/Amazonia additions to the Brazil Collection 10 set.
+can label every country's raster consistently - this is what makes
+cross-border assessment possible for a species whose range spans more than
+one product. The table is the union of the classes that occur in any of the
+products; a code that does not occur in a given raster simply contributes
+zero area. Besides the Brazil Collection 10 classes it includes the classes
+specific to the other countries - e.g. Andinean formations (81, 82), Glacier
+(34), primary/secondary/dwarf forest (59, 60, 67), scrubland/steppe/fog
+oasis/peatlands (66, 63, 70, 73), Pinus/Eucalyptus plantations (79, 80) and
+salt flat (61).
 }
 \examples{
 head(mb_legend())

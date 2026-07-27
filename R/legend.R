@@ -1,31 +1,33 @@
 #' Standardised MapBiomas legend with conservation groupings
 #'
 #' Returns the \emph{standardised} MapBiomas land-use/land-cover legend used
-#' across all three initiatives supported by \pkg{mappingAS} - MapBiomas Brazil
-#' (Collection 10), Pan-Amazon / Amazonia (Collection 6) and Colombia
-#' (Collection 3) - with each pixel class assigned to a conservation-relevant
-#' group: \code{"natural"}, \code{"anthropic"}, \code{"water"},
-#' \code{"not_observed"} or \code{"other"}. The \code{"anthropic"} classes are
-#' what counts as \emph{converted} habitat; \code{"natural"} is the remaining
-#' (current) natural habitat. By default \code{"water"}, \code{"not_observed"}
-#' and \code{"other"} are excluded from the conversion denominator (see
-#' \code{\link{summarise_conversion}}).
+#' across every initiative supported by \pkg{mappingAS} (Brazil, Pan-Amazon /
+#' Amazonia, Colombia, Argentina, Bolivia, Chile, Ecuador, Peru and Venezuela -
+#' see \code{\link{mb_initiatives}}), with each pixel class assigned to a
+#' conservation-relevant group: \code{"natural"}, \code{"anthropic"},
+#' \code{"water"}, \code{"not_observed"} or \code{"other"}. The
+#' \code{"anthropic"} classes are what counts as \emph{converted} habitat;
+#' \code{"natural"} is the remaining (current) natural habitat. By default
+#' \code{"water"}, \code{"not_observed"} and \code{"other"} are excluded from the
+#' conversion denominator (see \code{\link{summarise_conversion}}).
 #'
 #' MapBiomas harmonises pixel codes across its initiatives, so a single legend
-#' can label the Brazil, Amazonia and Colombia rasters consistently - this is
-#' what makes cross-border assessment possible for a species whose range spans
-#' more than one product. The table is the union of the classes that occur in
-#' any of the three products; a code that does not occur in a given raster
-#' simply contributes zero area. Codes 81, 82 (Andinean formations), 34
-#' (Glacier), 68 (Other natural non-vegetated) and 74 (Banana) are the
-#' Colombia/Amazonia additions to the Brazil Collection 10 set.
+#' can label every country's raster consistently - this is what makes
+#' cross-border assessment possible for a species whose range spans more than
+#' one product. The table is the union of the classes that occur in any of the
+#' products; a code that does not occur in a given raster simply contributes
+#' zero area. Besides the Brazil Collection 10 classes it includes the classes
+#' specific to the other countries - e.g. Andinean formations (81, 82), Glacier
+#' (34), primary/secondary/dwarf forest (59, 60, 67), scrubland/steppe/fog
+#' oasis/peatlands (66, 63, 70, 73), Pinus/Eucalyptus plantations (79, 80) and
+#' salt flat (61).
 #'
 #' @param collection Integer collection number. Interpreted together with
 #'   \code{initiative}; a value that does not match the initiative's default
 #'   collection emits a warning and the standardised legend is still returned.
-#' @param initiative One of \code{"brazil"} (default), \code{"amazonia"} or
-#'   \code{"colombia"}. Kept for API symmetry and warning logic; the returned
-#'   legend is the same standardised table for every initiative.
+#' @param initiative One of the keys of \code{\link{mb_initiatives}}
+#'   (\code{"brazil"} by default). Kept for API symmetry and warning logic; the
+#'   returned legend is the same standardised table for every initiative.
 #' @return A \code{data.frame} with columns \code{code}, \code{class_en},
 #'   \code{class_pt}, \code{hex} (standardised MapBiomas colour), \code{level1}
 #'   and \code{group}.
@@ -44,16 +46,16 @@ mb_legend <- function(collection = 10, initiative = "brazil") {
   leg <- data.frame(
     code = c(
       # Forest (natural)
-      1, 3, 4, 5, 6, 49,
+      1, 3, 4, 5, 6, 49, 59, 60, 67,
       # Herbaceous & shrubby vegetation (natural)
-      10, 11, 12, 32, 29, 50, 13, 23, 81, 82,
+      10, 11, 12, 32, 29, 50, 13, 23, 81, 82, 66, 77, 63, 70, 73,
       # Farming / anthropic
       14, 9, 15, 18, 19, 39, 20, 40, 62, 41,
-      36, 46, 47, 35, 48, 21, 74,
+      36, 46, 47, 35, 48, 21, 74, 72, 79, 80, 83,
       # Non-vegetated anthropic
       24, 30, 75,
       # Ambiguous / natural non-vegetated -> "other" (excluded by default)
-      25, 68,
+      25, 68, 61,
       # Water
       26, 33, 31, 34,
       # Not observed
@@ -62,72 +64,82 @@ mb_legend <- function(collection = 10, initiative = "brazil") {
     class_en = c(
       "Forest", "Forest Formation", "Savanna Formation", "Mangrove",
       "Floodable Forest", "Wooded Sandbank Vegetation",
+      "Primary Forest", "Secondary Forest", "Dwarf Forest",
       "Herbaceous and Shrubby Vegetation", "Wetland", "Grassland",
       "Hypersaline Tidal Flat", "Rocky Outcrop", "Herbaceous Sandbank Vegetation",
       "Other Non Forest Formations", "Beach, Dune and Sand Spot",
       "Andinean Herbaceous and Shrubby Vegetation",
       "Flooded Andinean Herbaceous and Shrubby Vegetation",
+      "Scrubland", "Open Shrublands", "Steppe", "Fog Oasis", "Peatlands",
       "Farming", "Forest Plantation", "Pasture", "Agriculture", "Temporary Crop",
       "Soybean", "Sugar cane", "Rice", "Cotton (beta)", "Other Temporary Crops",
       "Perennial Crop", "Coffee", "Citrus", "Palm Oil", "Other Perennial Crops",
       "Mosaic of Uses", "Banana (beta)",
+      "Other Crops", "Pinus Plantation", "Eucalyptus Plantation",
+      "Other Forest Plantation",
       "Urban Area", "Mining", "Photovoltaic Power Plant (beta)",
-      "Other non Vegetated Areas", "Other Natural Non Vegetated Area",
+      "Other non Vegetated Areas", "Other Natural Non Vegetated Area", "Salt Flat",
       "Water", "River, Lake and Ocean", "Aquaculture", "Glacier",
       "Not Observed"
     ),
     class_pt = c(
       "Floresta", "Formacao Florestal", "Formacao Savanica", "Mangue",
       "Floresta Alagavel", "Restinga Arborea",
+      "Floresta Primaria", "Floresta Secundaria", "Floresta Ana",
       "Vegetacao Herbacea e Arbustiva", "Campo Alagado e Area Pantanosa",
       "Formacao Campestre", "Apicum", "Afloramento Rochoso", "Restinga Herbacea",
       "Outras Formacoes nao Florestais", "Praia, Duna e Areal",
       "Vegetacao Herbacea e Arbustiva Andina",
       "Vegetacao Herbacea e Arbustiva Andina Alagavel",
+      "Matagal", "Arbustal Aberto", "Estepe", "Oasis de Neblina", "Turfeiras",
       "Agropecuaria", "Silvicultura", "Pastagem", "Agricultura", "Lavoura Temporaria",
       "Soja", "Cana", "Arroz", "Algodao (beta)", "Outras Lavouras Temporarias",
       "Lavoura Perene", "Cafe", "Citrus", "Dende", "Outras Lavouras Perenes",
       "Mosaico de Usos", "Banana (beta)",
+      "Outras Lavouras", "Plantio de Pinus", "Plantio de Eucalipto",
+      "Outros Plantios Florestais",
       "Area Urbanizada", "Mineracao", "Usina Fotovoltaica (beta)",
-      "Outras Areas nao Vegetadas", "Outra Area Natural nao Vegetada",
+      "Outras Areas nao Vegetadas", "Outra Area Natural nao Vegetada", "Salina",
       "Corpo D'agua", "Rio, Lago e Oceano", "Aquicultura", "Geleira",
       "Nao Observado"
     ),
     hex = c(
-      # forest
+      # forest (+ primary/secondary/dwarf)
       "#1f8d49", "#1f8d49", "#7dc975", "#04381d", "#007785", "#02d659",
-      # herbaceous / shrubby (+ beach, rocky, Andinean)
+      "#1f8d49", "#5cb85d", "#c8ffb4",
+      # herbaceous / shrubby (+ beach, rocky, Andinean, scrub/steppe/oasis/peat)
       "#d6bc74", "#519799", "#d6bc74", "#fc8114", "#ffaa5f", "#ad5100",
       "#d6bc74", "#ffa07a", "#dfeb62", "#6fc179",
-      # farming block (+ banana)
+      "#a89358", "#86b074", "#c7e0ab", "#be9e00", "#6fc179",
+      # farming block (+ banana, other crops, pinus/eucalyptus/other plantation)
       "#ffefc3", "#7a5900", "#edde8e", "#E974ED", "#C27BA0", "#f5b3c8",
       "#db7093", "#c71585", "#ff69b4", "#f54ca9",
       "#d082de", "#d68fe2", "#9932cc", "#9065d0", "#e6ccff", "#ffefc3",
-      "#be83f7",
+      "#be83f7", "#910046", "#67671c", "#886827", "#ab8231",
       # non-vegetated anthropic
       "#d4271e", "#9c0027", "#c12100",
-      # other non-vegetated (anthropic-ambiguous + natural)
-      "#db4d4f", "#e97a7a",
+      # other non-vegetated (anthropic-ambiguous + natural + salt flat)
+      "#db4d4f", "#e97a7a", "#f5d5d5",
       # water (+ glacier)
       "#2532e4", "#2532e4", "#091077", "#93dfe6",
       # not observed
       "#ffffff"
     ),
     level1 = c(
-      rep("Forest", 6),
-      rep("Herbaceous/Shrubby", 10),
-      rep("Farming", 17),
+      rep("Forest", 9),
+      rep("Herbaceous/Shrubby", 15),
+      rep("Farming", 21),
       rep("NonVegetated", 3),
-      rep("NonVegetated", 2),
+      rep("NonVegetated", 3),
       rep("Water", 4),
       "NotObserved"
     ),
     group = c(
-      rep("natural", 6),      # forest
-      rep("natural", 10),     # herbaceous/shrubby + beach/dune + rocky + Andinean
-      rep("anthropic", 17),   # farming block + banana
+      rep("natural", 9),      # forest (+ primary/secondary/dwarf)
+      rep("natural", 15),     # herbaceous/shrubby + beach/rocky/Andinean/scrub/etc
+      rep("anthropic", 21),   # farming block + banana + crops + plantations
       rep("anthropic", 3),    # urban, mining, photovoltaic
-      "other", "other",       # other non-vegetated (ambiguous + natural bare)
+      "other", "other", "other",  # other non-vegetated (ambiguous + natural + salt flat)
       "water", "water", "anthropic", "water",  # water, river/lake/ocean, aquaculture, glacier
       "not_observed"
     ),

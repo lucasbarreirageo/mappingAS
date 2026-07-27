@@ -2,59 +2,50 @@
 % Please edit documentation in R/protected_areas.R
 \name{protected_areas}
 \alias{protected_areas}
-\title{Read federal Protected areas (UCs) intersecting an area of interest}
+\title{Read Protected areas intersecting an area of interest}
 \usage{
-protected_areas(
-  aoi,
-  typename = NULL,
-  src = NULL,
-  base = icmbio_wfs_base(),
-  cache = TRUE,
-  cache_dir = NULL,
-  quiet = TRUE
-)
+protected_areas(aoi, src = NULL, cache = TRUE, cache_dir = NULL, quiet = TRUE)
 }
 \arguments{
 \item{aoi}{An \code{sf}/\code{sfc} polygon or point set (any CRS) defining the area of
 interest, e.g. an EOO hull, the union of AOO cells, or the occurrence
 points.}
 
-\item{typename}{WFS layer name. \code{NULL} (default) auto-detects the federal
-conservation-unit layer from the capabilities (see \code{\link[=protected_layers]{protected_layers()}}).}
+\item{src}{Optional path/URL to a local protected-area vector file. When
+supplied WDPA is not queried and the file is filtered to the AOI bounding
+box.}
 
-\item{src}{Optional path/URL to a local UC vector file. When supplied the WFS
-is not queried and the file is filtered to the AOI bounding box.}
-
-\item{base}{ICMBio OWS base URL (default \code{\link[=icmbio_wfs_base]{icmbio_wfs_base()}}).}
-
-\item{cache, cache_dir}{Cache the WFS result on disk (default \code{TRUE}; folder
+\item{cache, cache_dir}{Cache the WDPA result on disk (default \code{TRUE}; folder
 \code{mappingAS_pa_cache} under \code{tempdir()}).}
 
 \item{quiet}{Passed to \code{\link[sf:st_read]{sf::st_read()}} (default \code{TRUE}).}
 }
 \value{
-An \code{sf} of UC polygons in EPSG:4326 (possibly with zero rows when no
-UC intersects the AOI), or \code{NULL} if the layer could not be read.
+An \code{sf} of protected-area polygons in EPSG:4326 (possibly with zero
+rows when none intersects the AOI), or \code{NULL} if the source could not be
+read.
 }
 \description{
-Downloads the official ICMBio federal Conservation Unit polygons that fall
-within the bounding box of \code{aoi} from the INDE WFS geoservice, and returns
-them as an \code{sf} in WGS84 with three standardised columns added:
-\code{pa_name} (UC name), \code{pa_category} (SNUC category) and \code{pa_group}
-(Protecao Integral / Uso Sustentavel), plus all original attributes.
+Returns the protected-area polygons that fall within the bounding box of
+\code{aoi}. By default it reads the global World Database on Protected Areas
+(WDPA) via \code{\link[=wdpa_areas]{wdpa_areas()}} (see there for the source), so the overlap works
+anywhere in the world. For offline use, point \code{src} to a local protected-area
+file (\code{.shp}, \code{.gpkg}, \code{.geojson}) instead; it is then filtered to the AOI
+bounding box and standardised to the same columns.
 }
 \details{
-Only the AOI's bounding box is requested (via a WFS \code{BBOX} filter), so this
-is fast even though the national dataset is large. Results are cached on disk
-by layer + bounding box. For offline use, point \code{src} to a local UC file
-(\code{.shp}, \code{.gpkg}, \code{.geojson}) instead of hitting the WFS.
+The result carries three standardised columns: \code{pa_name}, \code{pa_category} and
+\code{pa_group}, plus all original attributes.
 }
 \examples{
 \dontrun{
 occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
                                     package = "mappingAS"))
 sp1 <- occ[occ$species == occ$species[1], ]
-ucs <- protected_areas(calc_eoo(sp1)$hull)
-unique(ucs$pa_name)
+pas <- protected_areas(calc_eoo(sp1)$hull)
+unique(pas$pa_name)
 }
+}
+\seealso{
+\code{\link[=wdpa_areas]{wdpa_areas()}}
 }
