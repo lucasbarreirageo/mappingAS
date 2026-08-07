@@ -229,6 +229,8 @@ Key columns (`res$summary`, also shown with a glossary in the app's **Results** 
 | `"ecuador"` | MapBiomas Ecuador | 3 | 1985–2024 |
 | `"peru"` | MapBiomas Peru | 3 | 1985–2024 |
 | `"venezuela"` | MapBiomas Venezuela | 2 | 1985–2023 |
+| `"paraguay"` | MapBiomas Paraguay | 2 | 1985–2023 |
+| `"uruguay"` | MapBiomas Uruguay | 1 | 1985–2022 |
 
 ```r
 # A species in the Peruvian Amazon, no GEE:
@@ -263,7 +265,7 @@ Protected-area overlap (`assess_species(protected = TRUE)`) reads the global **W
 
 When using this package, please also cite the underlying data and methods:
 
-- **MapBiomas** — Projeto MapBiomas (Brazil, Amazonia/RAISG, Colombia, Argentina, Bolivia, Chile, Ecuador, Peru and Venezuela collections; <https://mapbiomas.org>) and MapBiomas Fire Collection 4.
+- **MapBiomas** — Projeto MapBiomas (Brazil, Amazonia/RAISG, Colombia, Argentina, Bolivia, Chile, Ecuador, Peru, Venezuela, Paraguay and Uruguay collections; <https://mapbiomas.org>) and MapBiomas Fire Collection 4.
 - **IUCN** — Standards and Petitions Committee. *Guidelines for Using the IUCN Red List Categories and Criteria.*
 - **GeoCAT** — Bachman, S. *et al.* (2011). *Supporting Red List threat assessments with GeoCAT.* ZooKeys 150: 117–126.
 - **WDPA** — UNEP-WCMC and IUCN, Protected Planet: The World Database on Protected Areas (<https://www.protectedplanet.net/en>).

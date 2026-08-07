@@ -34,12 +34,9 @@ Collection 6 (1986-2023). The whole Amazon basin across countries.}
 \item{\code{"ecuador"}}{MapBiomas Ecuador, Collection 3 (1985-2024).}
 \item{\code{"peru"}}{MapBiomas Peru, Collection 3 (1985-2024).}
 \item{\code{"venezuela"}}{MapBiomas Venezuela, Collection 2 (1985-2023).}
+\item{\code{"paraguay"}}{MapBiomas Paraguay, Collection 2 (1985-2023).}
+\item{\code{"uruguay"}}{MapBiomas Uruguay, Collection 1 (1985-2022).}
 }
-
-Paraguay and Uruguay also have MapBiomas collections, but their annual maps
-are not published as per-year GeoTIFFs on the public bucket (only bundled
-downloads / Earth Engine assets), so they cannot be streamed the same way and
-are not included here.
 }
 \examples{
 names(mb_initiatives())

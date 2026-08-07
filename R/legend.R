@@ -2,8 +2,9 @@
 #'
 #' Returns the \emph{standardised} MapBiomas land-use/land-cover legend used
 #' across every initiative supported by \pkg{mappingAS} (Brazil, Pan-Amazon /
-#' Amazonia, Colombia, Argentina, Bolivia, Chile, Ecuador, Peru and Venezuela -
-#' see \code{\link{mb_initiatives}}), with each pixel class assigned to a
+#' Amazonia, Colombia, Argentina, Bolivia, Chile, Ecuador, Peru, Venezuela,
+#' Paraguay and Uruguay - see \code{\link{mb_initiatives}}), with each pixel
+#' class assigned to a
 #' conservation-relevant group: \code{"natural"}, \code{"anthropic"},
 #' \code{"water"}, \code{"not_observed"} or \code{"other"}. The
 #' \code{"anthropic"} classes are what counts as \emph{converted} habitat;
@@ -55,7 +56,7 @@ mb_legend <- function(collection = 10, initiative = "brazil") {
       # Non-vegetated anthropic
       24, 30, 75,
       # Ambiguous / natural non-vegetated -> "other" (excluded by default)
-      25, 68, 61,
+      22, 25, 68, 61,
       # Water
       26, 33, 31, 34,
       # Not observed
@@ -67,7 +68,7 @@ mb_legend <- function(collection = 10, initiative = "brazil") {
       "Primary Forest", "Secondary Forest", "Dwarf Forest",
       "Herbaceous and Shrubby Vegetation", "Wetland", "Grassland",
       "Hypersaline Tidal Flat", "Rocky Outcrop", "Herbaceous Sandbank Vegetation",
-      "Other Non Forest Formations", "Beach, Dune and Sand Spot",
+      "Other Non Forest Formation", "Beach, Dune and Sand Spot",
       "Andinean Herbaceous and Shrubby Vegetation",
       "Flooded Andinean Herbaceous and Shrubby Vegetation",
       "Scrubland", "Open Shrublands", "Steppe", "Fog Oasis", "Peatlands",
@@ -76,9 +77,10 @@ mb_legend <- function(collection = 10, initiative = "brazil") {
       "Perennial Crop", "Coffee", "Citrus", "Palm Oil", "Other Perennial Crops",
       "Mosaic of Uses", "Banana (beta)",
       "Other Crops", "Pinus Plantation", "Eucalyptus Plantation",
-      "Other Forest Plantation",
+      "Other Types of Forest Plantation",
       "Urban Area", "Mining", "Photovoltaic Power Plant (beta)",
-      "Other non Vegetated Areas", "Other Natural Non Vegetated Area", "Salt Flat",
+      "Non Vegetated Area", "Other non Vegetated Areas",
+      "Other Natural Non-Vegetated Area", "Salt Flat",
       "Water", "River, Lake and Ocean", "Aquaculture", "Glacier",
       "Not Observed"
     ),
@@ -99,7 +101,8 @@ mb_legend <- function(collection = 10, initiative = "brazil") {
       "Outras Lavouras", "Plantio de Pinus", "Plantio de Eucalipto",
       "Outros Plantios Florestais",
       "Area Urbanizada", "Mineracao", "Usina Fotovoltaica (beta)",
-      "Outras Areas nao Vegetadas", "Outra Area Natural nao Vegetada", "Salina",
+      "Area nao Vegetada", "Outras Areas nao Vegetadas",
+      "Outra Area Natural nao Vegetada", "Salina",
       "Corpo D'agua", "Rio, Lago e Oceano", "Aquicultura", "Geleira",
       "Nao Observado"
     ),
@@ -109,7 +112,7 @@ mb_legend <- function(collection = 10, initiative = "brazil") {
       "#1f8d49", "#5cb85d", "#c8ffb4",
       # herbaceous / shrubby (+ beach, rocky, Andinean, scrub/steppe/oasis/peat)
       "#d6bc74", "#519799", "#d6bc74", "#fc8114", "#ffaa5f", "#ad5100",
-      "#d6bc74", "#ffa07a", "#dfeb62", "#6fc179",
+      "#d89f5c", "#ffa07a", "#dfeb62", "#6fc179",
       "#a89358", "#86b074", "#c7e0ab", "#be9e00", "#6fc179",
       # farming block (+ banana, other crops, pinus/eucalyptus/other plantation)
       "#ffefc3", "#7a5900", "#edde8e", "#E974ED", "#C27BA0", "#f5b3c8",
@@ -118,8 +121,8 @@ mb_legend <- function(collection = 10, initiative = "brazil") {
       "#be83f7", "#910046", "#67671c", "#886827", "#ab8231",
       # non-vegetated anthropic
       "#d4271e", "#9c0027", "#c12100",
-      # other non-vegetated (anthropic-ambiguous + natural + salt flat)
-      "#db4d4f", "#e97a7a", "#f5d5d5",
+      # other non-vegetated (generic parent + anthropic-ambiguous + natural + salt flat)
+      "#d4271e", "#db4d4f", "#e97a7a", "#f5d5d5",
       # water (+ glacier)
       "#2532e4", "#2532e4", "#091077", "#93dfe6",
       # not observed
@@ -130,7 +133,7 @@ mb_legend <- function(collection = 10, initiative = "brazil") {
       rep("Herbaceous/Shrubby", 15),
       rep("Farming", 21),
       rep("NonVegetated", 3),
-      rep("NonVegetated", 3),
+      rep("NonVegetated", 4),
       rep("Water", 4),
       "NotObserved"
     ),
@@ -139,7 +142,7 @@ mb_legend <- function(collection = 10, initiative = "brazil") {
       rep("natural", 15),     # herbaceous/shrubby + beach/rocky/Andinean/scrub/etc
       rep("anthropic", 21),   # farming block + banana + crops + plantations
       rep("anthropic", 3),    # urban, mining, photovoltaic
-      "other", "other", "other",  # other non-vegetated (ambiguous + natural + salt flat)
+      "other", "other", "other", "other",  # generic non-veg (22) + ambiguous (25) + natural (68) + salt flat (61)
       "water", "water", "anthropic", "water",  # water, river/lake/ocean, aquaculture, glacier
       "not_observed"
     ),
@@ -188,8 +191,8 @@ mb_palette <- function(codes = NULL, collection = 10, initiative = "brazil",
 #' Years available for a MapBiomas initiative/collection
 #'
 #' @inheritParams mb_legend
-#' @return An integer vector of years available for the initiative (Brazil
-#'   1985-2024, Amazonia 1986-2023, Colombia 1985-2024).
+#' @return An integer vector of years available for the initiative (e.g. Brazil
+#'   1985-2024, Amazonia 1986-2023, Paraguay 1985-2023, Uruguay 1985-2022).
 #' @examples
 #' range(mb_years())
 #' range(mb_years(initiative = "amazonia"))

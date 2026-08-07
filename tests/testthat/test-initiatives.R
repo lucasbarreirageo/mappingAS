@@ -7,17 +7,21 @@ test_that("mb_initiatives lists every product with sane metadata", {
   expect_setequal(
     names(ini),
     c("brazil", "amazonia", "colombia", "argentina", "bolivia", "chile",
-      "ecuador", "peru", "venezuela"))
+      "ecuador", "peru", "venezuela", "paraguay", "uruguay"))
   expect_identical(ini$brazil$collection, 10L)
   expect_identical(ini$amazonia$collection, 6L)
   expect_identical(ini$colombia$collection, 3L)
   expect_identical(ini$argentina$collection, 2L)
   expect_identical(ini$chile$collection, 1L)
   expect_identical(ini$venezuela$collection, 2L)
+  expect_identical(ini$paraguay$collection, 2L)
+  expect_identical(ini$uruguay$collection, 1L)
   expect_equal(range(ini$brazil$years), c(1985L, 2024L))
   expect_equal(range(ini$amazonia$years), c(1986L, 2023L))
   expect_equal(range(ini$chile$years), c(2000L, 2022L))
   expect_equal(range(ini$venezuela$years), c(1985L, 2023L))
+  expect_equal(range(ini$paraguay$years), c(1985L, 2023L))
+  expect_equal(range(ini$uruguay$years), c(1985L, 2022L))
 })
 
 test_that("mb_source_url builds per-initiative public bucket URLs", {
@@ -57,6 +61,14 @@ test_that("mb_source_url builds per-initiative public bucket URLs", {
   expect_match(mb_source_url(2023, initiative = "venezuela"),
                "venezuela/collection_2/lulc/integration/mapbiomas_venezuela_collection2_integration_v1-classification_2023\\.tif$")
 
+  # Paraguay uses integration-classification naming under collection_2
+  expect_match(mb_source_url(2023, initiative = "paraguay"),
+               "initiatives/paraguay/collection_2/mapbiomas_paraguay_collection2_integration_v1-classification_2023\\.tif$")
+
+  # Uruguay follows the coverage pattern (Collection 1)
+  expect_match(mb_source_url(2022, initiative = "uruguay"),
+               "initiatives/uruguay/collection_1/coverage/uruguay_coverage_2022\\.tif$")
+
   # collection defaults follow the initiative when NULL
   expect_match(mb_source_url(2023, collection = NULL, initiative = "amazonia"),
                "collection_6")
@@ -66,6 +78,8 @@ test_that("friendly initiative aliases resolve", {
   expect_match(mb_source_url(2023, initiative = "pan-amazonia"), "amazon")
   expect_match(mb_source_url(2024, initiative = "brasil"), "brazil_coverage")
   expect_match(mb_source_url(2024, initiative = "equador"), "ecuador_coverage")
+  expect_match(mb_source_url(2023, initiative = "paraguai"), "paraguay")
+  expect_match(mb_source_url(2022, initiative = "uruguai"), "uruguay_coverage")
 })
 
 test_that("unknown initiative errors", {
@@ -75,6 +89,8 @@ test_that("unknown initiative errors", {
 test_that("mb_years follows the initiative span", {
   expect_equal(range(mb_years(initiative = "amazonia")), c(1986L, 2023L))
   expect_equal(range(mb_years(initiative = "chile")), c(2000L, 2022L))
+  expect_equal(range(mb_years(initiative = "paraguay")), c(1985L, 2023L))
+  expect_equal(range(mb_years(initiative = "uruguay")), c(1985L, 2022L))
   # positional collection still returns Brazil default
   expect_equal(range(mb_years(10)), c(1985L, 2024L))
 })
@@ -90,6 +106,7 @@ test_that("standardised legend adds the country classes without breaking Brazil"
   expect_identical(g(15), "anthropic")
   expect_identical(g(33), "water")
   expect_identical(g(25), "other")
+  expect_identical(g(22), "other")     # generic Non Vegetated Area (parent)
   # Colombia/Amazonia codes
   expect_identical(g(81), "natural")   # Andinean herbaceous/shrubby
   expect_identical(g(34), "water")     # Glacier
@@ -102,12 +119,17 @@ test_that("standardised legend adds the country classes without breaking Brazil"
   expect_identical(g(79), "anthropic") # Pinus plantation (Uruguay code)
   expect_identical(g(72), "anthropic") # Other crops (Peru)
   expect_identical(g(61), "other")     # Salt flat (Peru)
+  # standardised colours (South-America harmonisation table)
+  expect_equal(unname(mb_palette(13)), "#d89f5c")  # Other non forest formation
+  expect_equal(unname(mb_palette(22)), "#d4271e")  # Non vegetated area
 })
 
 test_that("mb_legend does not warn for a valid initiative/collection pair", {
   expect_silent(mb_legend(6, "amazonia"))
   expect_silent(mb_legend(2, "argentina"))
   expect_silent(mb_legend(3, "peru"))
+  expect_silent(mb_legend(2, "paraguay"))
+  expect_silent(mb_legend(1, "uruguay"))
   expect_silent(mb_legend(10, "brazil"))
   # mismatched collection still warns
   expect_warning(mb_legend(9))

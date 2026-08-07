@@ -16,8 +16,8 @@ collection emits a warning and the standardised legend is still returned.}
 returned legend is the same standardised table for every initiative.}
 }
 \value{
-An integer vector of years available for the initiative (Brazil
-1985-2024, Amazonia 1986-2023, Colombia 1985-2024).
+An integer vector of years available for the initiative (e.g. Brazil
+1985-2024, Amazonia 1986-2023, Paraguay 1985-2023, Uruguay 1985-2022).
 }
 \description{
 Years available for a MapBiomas initiative/collection

@@ -23,8 +23,9 @@ and \code{group}.
 \description{
 Returns the \emph{standardised} MapBiomas land-use/land-cover legend used
 across every initiative supported by \pkg{mappingAS} (Brazil, Pan-Amazon /
-Amazonia, Colombia, Argentina, Bolivia, Chile, Ecuador, Peru and Venezuela -
-see \code{\link{mb_initiatives}}), with each pixel class assigned to a
+Amazonia, Colombia, Argentina, Bolivia, Chile, Ecuador, Peru, Venezuela,
+Paraguay and Uruguay - see \code{\link{mb_initiatives}}), with each pixel
+class assigned to a
 conservation-relevant group: \code{"natural"}, \code{"anthropic"},
 \code{"water"}, \code{"not_observed"} or \code{"other"}. The
 \code{"anthropic"} classes are what counts as \emph{converted} habitat;

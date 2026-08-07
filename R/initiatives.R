@@ -21,12 +21,9 @@
 #'   \item{\code{"ecuador"}}{MapBiomas Ecuador, Collection 3 (1985-2024).}
 #'   \item{\code{"peru"}}{MapBiomas Peru, Collection 3 (1985-2024).}
 #'   \item{\code{"venezuela"}}{MapBiomas Venezuela, Collection 2 (1985-2023).}
+#'   \item{\code{"paraguay"}}{MapBiomas Paraguay, Collection 2 (1985-2023).}
+#'   \item{\code{"uruguay"}}{MapBiomas Uruguay, Collection 1 (1985-2022).}
 #' }
-#'
-#' Paraguay and Uruguay also have MapBiomas collections, but their annual maps
-#' are not published as per-year GeoTIFFs on the public bucket (only bundled
-#' downloads / Earth Engine assets), so they cannot be streamed the same way and
-#' are not included here.
 #'
 #' @return A named list, one element per initiative, each a list with
 #'   \code{label} (human-readable name), \code{collection} (default collection
@@ -102,7 +99,17 @@ mb_initiatives <- function() {
       build = function(year, collection)
         sprintf(paste0("venezuela/collection_%d/lulc/integration/",
                        "mapbiomas_venezuela_collection%d_integration_v1-classification_%d.tif"),
-                collection, collection, year))
+                collection, collection, year)),
+    paraguay = list(
+      key = "paraguay", label = "MapBiomas Paraguay",
+      collection = 2L, years = 1985:2023,
+      build = function(year, collection)
+        sprintf(paste0("paraguay/collection_%d/",
+                       "mapbiomas_paraguay_collection%d_integration_v1-classification_%d.tif"),
+                collection, collection, year)),
+    uruguay = list(
+      key = "uruguay", label = "MapBiomas Uruguay",
+      collection = 1L, years = 1985:2022, build = cov("uruguay"))
   )
 }
 
@@ -121,6 +128,8 @@ mb_initiatives <- function() {
                 "panamazonia" = "amazonia",
                 "pan_amazonia" = "amazonia",
                 "equador" = "ecuador",
+                "paraguai" = "paraguay",
+                "uruguai" = "uruguay",
                 key)
   reg <- .mb_registry()
   if (!key %in% names(reg)) {

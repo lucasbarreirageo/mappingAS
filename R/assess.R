@@ -9,13 +9,15 @@
 #'
 #' @param occ An \code{sf} of POINT geometries from \code{\link{read_occurrences}}.
 #' @param initiative MapBiomas initiative: \code{"brazil"} (default),
-#'   \code{"amazonia"} (Pan-Amazon / RAISG) or \code{"colombia"}. Selects the
-#'   land-cover product, its default collection and the standardised legend, so a
-#'   species in the Amazon basin or Colombia can be assessed without Google Earth
-#'   Engine (see \code{\link{mb_initiatives}}).
+#'   \code{"amazonia"} (Pan-Amazon / RAISG), \code{"colombia"} or any of the
+#'   other South-American products (Argentina, Bolivia, Chile, Ecuador, Peru,
+#'   Venezuela, Paraguay, Uruguay). Selects the land-cover product, its default
+#'   collection and the standardised legend, so a species anywhere these
+#'   products cover can be assessed without Google Earth Engine (see
+#'   \code{\link{mb_initiatives}}).
 #' @param year Integer MapBiomas year. \code{NULL} (default) uses the most recent
-#'   year available for the initiative (2024 for Brazil/Colombia, 2023 for
-#'   Amazonia).
+#'   year available for the initiative (e.g. 2024 for Brazil/Colombia, 2023 for
+#'   Amazonia/Paraguay, 2022 for Uruguay).
 #' @param collection Integer MapBiomas collection number. \code{NULL} (default)
 #'   uses the initiative default (10/6/3 for Brazil/Amazonia/Colombia).
 #' @param backend Habitat backend: \code{"local"} (default) or \code{"gee"}.

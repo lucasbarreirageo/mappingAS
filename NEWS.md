@@ -1,3 +1,26 @@
+# mappingAS 1.10.0
+
+* **Paraguay and Uruguay added.** `assess_species()` (and the whole pipeline)
+  now accepts `initiative = "paraguay"` (MapBiomas Paraguay, Collection 2,
+  1985-2023) and `initiative = "uruguay"` (MapBiomas Uruguay, Collection 1,
+  1985-2022). Both are streamed as annual Cloud-Optimized GeoTIFFs from the
+  public MapBiomas bucket via GDAL `/vsicurl/` - **no Google Earth Engine and no
+  Google Drive** - just like the other initiatives. Paraguay uses the
+  integration-classification layout
+  (`paraguay/collection_2/mapbiomas_paraguay_collection2_integration_v1-classification_YYYY.tif`)
+  and Uruguay the coverage layout
+  (`uruguay/collection_1/coverage/uruguay_coverage_YYYY.tif`). This supersedes
+  the note in 1.9.0: MapBiomas has since published both products as per-year
+  GeoTIFFs on the public bucket, so they can now be streamed the same way.
+  `mb_initiatives()` now lists eleven products.
+* **Legend reconciled with the South-America harmonisation table.** Verified
+  `mb_legend()` against the official standardised legend and closed two gaps:
+  added the generic **Non Vegetated Area** class (code 22, group `"other"`),
+  which some products emit at the parent level, and corrected the colour of
+  **Other Non Forest Formation** (code 13) to the standard `#d89f5c`. A few
+  class names were also aligned to the standard wording (codes 13, 68, 83).
+  Conservation groups for the existing classes are unchanged.
+
 # mappingAS 1.9.0
 
 * **Six more MapBiomas countries.** `assess_species()` (and the whole pipeline)

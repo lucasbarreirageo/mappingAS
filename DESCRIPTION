@@ -1,7 +1,7 @@
 Package: mappingAS
 Type: Package
 Title: Spatial Metrics and Habitat Conversion for Extinction Risk Assessment
-Version: 1.9.0
+Version: 1.10.0
 Authors@R:
     person("Antônio Lucas Barreira", email = "barreira_rodrigues@hotmail.com", role = c("aut", "cre"))
 Author: Antônio Lucas Barreira [aut, cre]
@@ -16,7 +16,8 @@ Description: A spatial analytical framework for preliminary species
     per-class breakdowns and land-cover time series. Several MapBiomas
     initiatives are supported through one standardised legend - MapBiomas
     Brazil, the Pan-Amazon / Amazonia collection (RAISG), Colombia, Argentina,
-    Bolivia, Chile, Ecuador, Peru and Venezuela - so a species anywhere these
+    Bolivia, Chile, Ecuador, Peru, Venezuela, Paraguay and Uruguay - so a
+    species anywhere these
     products cover can be screened as readily as a Brazilian one. It also
     integrates MapBiomas Fire to compute burned-area metrics and fire time
     series, and quantifies the overlap of the range with protected areas from
