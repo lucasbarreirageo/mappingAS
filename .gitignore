@@ -15,3 +15,7 @@ Meta/
 ..Rcheck/
 *.Rcheck/
 *.tar.gz
+
+# patch files
+*.diff
+*.patch
