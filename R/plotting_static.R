@@ -102,9 +102,14 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
 
   # ---- MapBiomas land-cover raster (clipped to EOO or AOO) ----
   if (draw_lulc) {
+    # Use the product actually used for this species (Sentinel-2/Esri fallback
+    # when the range fell outside MapBiomas coverage).
+    lc_ini  <- obj$initiative %||% st$initiative %||% "brazil"
+    lc_year <- obj$year %||% st$year
+    lc_coll <- obj$collection %||% st$collection
     rdf <- tryCatch(
-      .mb_display_df(clip_geom, st$year, st$collection, src, max_pixels, crs, lang,
-                     initiative = st$initiative %||% "brazil"),
+      .mb_display_df(clip_geom, lc_year, lc_coll, src, max_pixels, crs, lang,
+                     initiative = lc_ini),
       error = function(e) {
         warning("MapBiomas layer skipped: ", conditionMessage(e), call. = FALSE)
         NULL
@@ -117,8 +122,8 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
           ggplot2::aes(x = .data[["x"]], y = .data[["y"]], fill = .data[["class"]])) +
         ggplot2::scale_fill_manual(
           values = rdf$cols, drop = FALSE,
-          name = sprintf(if (lang == "en") "MapBiomas %s (in %s)"
-                         else "MapBiomas %s (no %s)", st$year, lbl_clip))
+          name = sprintf(if (lang == "en") "Land cover %s (in %s)"
+                         else "Cobertura %s (no %s)", lc_year, lbl_clip))
     } else {
       draw_lulc <- FALSE
     }

@@ -37,7 +37,8 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
   lang <- match.arg(lang)
   clip <- match.arg(clip)
   lulc_col   <- if (lang == "en") "class_en" else "class_pt"
-  lbl_mb     <- if (lang == "en") "MapBiomas %s" else "MapBiomas %s"
+  lbl_mb     <- if (lang == "en") "Land cover %s" else "Cobertura %s"
+  grp_lc     <- if (lang == "en") "Land cover" else "Cobertura"
   lbl_fire   <- if (lang == "en") "Fire frequency<br>(years, 1985-2024)"
                 else "Frequencia de fogo<br>(anos, 1985-2024)"
   grp_fire   <- if (lang == "en") "Fire frequency" else "Frequencia de fogo"
@@ -62,13 +63,18 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
   mb_on <- FALSE
   if (isTRUE(mapbiomas) && !is.null(clip_geom) &&
       requireNamespace("terra", quietly = TRUE)) {
+    # Prefer the product actually used for this species (may differ from the
+    # assessment default when the range fell back to global Sentinel-2/Esri).
+    lc_ini  <- obj$initiative %||% st$initiative %||% "brazil"
+    lc_year <- obj$year %||% st$year
+    lc_coll <- obj$collection %||% st$collection
     rr <- tryCatch({
-      r <- .mb_raster_display(clip_geom, st$year, st$collection, src,
+      r <- .mb_raster_display(clip_geom, lc_year, lc_coll, src,
                               max_pixels = max_pixels, crs = NULL,
-                              initiative = st$initiative %||% "brazil")
-      leg <- mb_legend(st$collection, st$initiative %||% "brazil")
+                              initiative = lc_ini)
+      leg <- mb_legend(lc_coll, lc_ini)
       vals <- terra::unique(r)[, 1]; vals <- vals[!is.na(vals)]
-      list(r = r, keep = leg[leg$code %in% vals, , drop = FALSE], year = st$year)
+      list(r = r, keep = leg[leg$code %in% vals, , drop = FALSE], year = lc_year)
     }, error = function(e) {
       warning("MapBiomas layer skipped: ", conditionMessage(e), call. = FALSE)
       NULL
@@ -78,12 +84,12 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
                                   na.color = "transparent")
       m <- leaflet::addRasterImage(m, rr$r, colors = pal, opacity = 0.75,
                                    method = "ngb", project = TRUE,
-                                   group = "MapBiomas")
+                                   group = grp_lc)
       m <- leaflet::addLegend(m, position = "bottomright",
                               colors = rr$keep$hex, labels = rr$keep[[lulc_col]],
                               opacity = 0.75,
                               title = sprintf(lbl_mb, rr$year),
-                              group = "MapBiomas")
+                              group = grp_lc)
       mb_on <- TRUE
     }
   }
@@ -166,7 +172,7 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
   overlay <- c("Occurrences", "EOO (hull)", "AOO (2 km cells)")
   if (pa_on)   overlay <- c(grp_uc, overlay)
    if (fire_on) overlay <- c(grp_fire, overlay)
-  if (mb_on)   overlay <- c("MapBiomas", overlay)
+  if (mb_on)   overlay <- c(grp_lc, overlay)
   m <- leaflet::addLayersControl(
     m, baseGroups = c("Light", "Satellite"), overlayGroups = overlay,
     options = leaflet::layersControlOptions(collapsed = FALSE))
@@ -209,11 +215,11 @@ plot_conversion <- function(assessment, species = NULL, lang = c("en", "pt")) {
   other_lab <- grp[4]
   if (lang == "en") {
     xlab <- "% of mapped (observed) area"
-    main_fmt <- "%s - composition (MapBiomas %s)"
+    main_fmt <- "%s - composition (land cover %s)"
     sub_fmt  <- "Converted (terrestrial): EOO %s  |  AOO %s"
   } else {
     xlab <- "% da area mapeada (observada)"
-    main_fmt <- "%s - composicao (MapBiomas %s)"
+    main_fmt <- "%s - composicao (cobertura %s)"
     sub_fmt  <- "Convertido (terrestre): EOO %s  |  AOO %s"
   }
 
@@ -229,7 +235,7 @@ plot_conversion <- function(assessment, species = NULL, lang = c("en", "pt")) {
 
   fmt <- function(cv) { v <- if (is.null(cv)) NA_real_ else cv$converted_pct
     if (is.finite(v)) sprintf("%.0f%%", v) else "-" }
-  title <- sprintf(main_fmt, species, assessment$settings$year)
+  title <- sprintf(main_fmt, species, obj$year %||% assessment$settings$year)
   subtitle <- sprintf(sub_fmt, fmt(obj$eoo_conversion), fmt(obj$aoo_conversion))
 
   # --- ggplot2 (interactive-ready) ---

@@ -90,28 +90,34 @@ ui <- bslib::page_sidebar(
       )
     ),
     hr(),
-    selectInput("initiative", "MapBiomas initiative",
-                choices = c("Brazil (Collection 10)" = "brazil",
-                            "Amazonia / Pan-Amazon (Collection 6)" = "amazonia",
-                            "Colombia (Collection 3)" = "colombia",
-                            "Argentina (Collection 2)" = "argentina",
-                            "Bolivia (Collection 3)" = "bolivia",
-                            "Chile (Collection 1, 2000-2022)" = "chile",
-                            "Ecuador (Collection 3)" = "ecuador",
-                            "Peru (Collection 3)" = "peru",
-                            "Venezuela (Collection 2)" = "venezuela",
-                            "Paraguay (Collection 2, 1985-2023)" = "paraguay",
-                            "Uruguay (Collection 1, 1985-2022)" = "uruguay"),
-                selected = "brazil"),
-    selectInput("year", "MapBiomas Year", choices = 2024:1985, selected = 2024),
+    selectInput("initiative", "Land-cover product",
+                choices = c(
+                  "Auto" = "auto",
+                  "Sentinel-2 / Esri global 10 m (2017-2023)" = "sentinel2",
+                  "Brazil (Collection 10)" = "brazil",
+                  "Amazonia / Pan-Amazon (Collection 6)" = "amazonia",
+                  "Colombia (Collection 3)" = "colombia",
+                  "Argentina (Collection 2)" = "argentina",
+                  "Bolivia (Collection 3)" = "bolivia",
+                  "Chile (Collection 1, 2000-2022)" = "chile",
+                  "Ecuador (Collection 3)" = "ecuador",
+                  "Peru (Collection 3)" = "peru",
+                  "Venezuela (Collection 2)" = "venezuela",
+                  "Paraguay (Collection 2, 1985-2023)" = "paraguay",
+                  "Uruguay (Collection 1, 1985-2022)" = "uruguay"),
+                selected = "auto"),
+    helpText(paste("Auto picks MapBiomas for occurrences in South America",
+                   "(by country) and the global Sentinel-2/Esri layer",
+                   "elsewhere. Pick a specific product to override.")),
+    selectInput("year", "Year (land cover)", choices = 2024:1985, selected = 2024),
     numericInput("cell_km", "AOO Cell (km)", value = 2, min = 0.5, step = 0.5),
-    radioButtons("backend", "MapBiomas Source",
+    radioButtons("backend", "Land cover source",
                  choices = c("Local (no GEE account)" = "local",
                              "Google Earth Engine" = "gee"),
                  selected = "local"),
     checkboxInput("water_denom", "Include water as natural in denominator", FALSE),
-    checkboxInput("do_mb", "Calculate MapBiomas conversion", TRUE),
-    checkboxInput("do_fire", "Calculate fire (MapBiomas burned area, Brazil only)", FALSE),
+    checkboxInput("do_mb", "Calculate land-cover conversion", TRUE),
+    checkboxInput("do_fire", "Calculate fire (burned area, Brazil only)", FALSE),
     checkboxInput("do_pa", "Overlap with Protected areas (WDPA)", FALSE),
     radioButtons("lang", "Legend language",
                  choices = c("English" = "en", "Portuguese" = "pt"),
@@ -153,8 +159,8 @@ ui <- bslib::page_sidebar(
           downloadButton("dl_map_static", "Publishable map (PNG)", class = "mb-2"),
           hr(),
           checkboxGroupInput("raster_layers", "GeoTIFF rasters to export",
-                             choices = c("MapBiomas land use" = "lulc",
-                                         "MapBiomas fire (accumulated)" = "fire"),
+                             choices = c("Land cover" = "lulc",
+                                         "Fire (accumulated, Brazil)" = "fire"),
                              selected = "lulc"),
           downloadButton("dl_rasters", "Download rasters (GeoTIFF .zip)",
                          class = "mb-1"),
@@ -184,9 +190,9 @@ ui <- bslib::page_sidebar(
       div(style = "height:460px; min-height:460px;",
           plotly::plotlyOutput("chart", height = "100%")),
       tags$hr(),
-      h5("MapBiomas composition (donut)"),
-      helpText("Share of each MapBiomas class (or conservation group) inside the",
-               "EOO and AOO, in the official MapBiomas colours."),
+      h5("Land-cover composition (donut)"),
+      helpText("Share of each land-cover class (or conservation group) inside the",
+               "EOO and AOO, in the official land-cover colours."),
       fluidRow(
         column(6, radioButtons(
           "donut_by", "Breakdown",
@@ -201,7 +207,7 @@ ui <- bslib::page_sidebar(
     bslib::nav_panel(
       "Classes", icon = icon("list"),
       selectInput("class_species", "Species", choices = NULL),
-      helpText("Area and % of each MapBiomas class within EOO and AOO."),
+      helpText("Area and % of each land-cover class within EOO and AOO."),
       downloadButton("dl_classes", "Download classes (CSV)", class = "mb-3"),
       DT::DTOutput("class_tbl")
     ),
@@ -238,7 +244,7 @@ ui <- bslib::page_sidebar(
         downloadButton("dl_ts", "Download series (CSV)"),
         downloadButton("dl_ts_png", "Save image (PNG)")
       ),
-      helpText("Complete MapBiomas history (annual by default). A 1-year step reads all years and may be slow; increase the step to speed up."),
+      helpText("Complete land-cover history (annual by default). A 1-year step reads all years and may be slow; increase the step to speed up."),
       uiOutput("ts_summary"),
       div(style = "height:480px; min-height:480px;",
           plotly::plotlyOutput("ts_plot", height = "100%")),
@@ -298,7 +304,7 @@ ui <- bslib::page_sidebar(
               cells &times; 4 km<sup>2</sup> (IUCN reference scale). The occupied-cell
               count is the minimum over several randomly translated grids.</li>
           <li><b>% converted</b> = anthropic / (anthropic + natural) within the
-              EOO and AOO, from MapBiomas land cover. <b>% natural</b> (current)
+              EOO and AOO, from the land-cover product. <b>% natural</b> (current)
               is the complement. Water and unobserved areas are excluded from the
               denominator by default.</li>
           <li><b>Burned area &amp; fire frequency</b>: percentage of the EOO/AOO
@@ -317,13 +323,19 @@ ui <- bslib::page_sidebar(
 
         <h4>Data sources</h4>
         <ul>
-          <li><b>MapBiomas Brazil — Land Use and Land Cover</b> (Collection 10,
-              1985&ndash;2024). The local backend streams a window of the national
-              GeoTIFF via <code>/vsicurl/</code>; the GEE backend computes per-class
-              areas server-side.</li>
+          <li><b>MapBiomas — Land Use and Land Cover</b> (Brazil, Amazonia and the
+              South-American country collections, 1985&ndash;2024). The local
+              backend streams a window of the national GeoTIFF via
+              <code>/vsicurl/</code>; the GEE backend computes per-class areas
+              server-side. Used for occurrences within South America.</li>
+          <li><b>Esri / Impact Observatory 10 m Annual Land Use Land Cover</b>
+              (Sentinel-2, 9-class, 2017&ndash;2023): the global layer behind the
+              ArcGIS Living Atlas Land Cover Explorer, streamed as public COGs via
+              <code>/vsicurl/</code>. Used automatically for occurrences outside
+              MapBiomas coverage.</li>
           <li><b>MapBiomas Fire (Fogo)</b> (Collection 4): annual burned area,
               accumulated burned area and fire-frequency layers
-              (1985&ndash;2024).</li>
+              (1985&ndash;2024, Brazil only).</li>
         </ul>
 
         <h4>Key references</h4>
@@ -352,15 +364,22 @@ ui <- bslib::page_sidebar(
           <i>Remote Sensing</i>, 14(11), 2510.
           <a href='https://doi.org/10.3390/rs14112510' target='_blank' rel='noopener'>doi:10.3390/rs14112510</a>.
           <br><br>
-          Project MapBiomas — Collection 10 of the Annual Land Use and Land Cover
-          Maps of Brazil, and MapBiomas Fire Collection 4.
+          Project MapBiomas — Annual Land Use and Land Cover Maps (Brazil and
+          South-American collections) and MapBiomas Fire Collection 4.
           <a href='https://brasil.mapbiomas.org' target='_blank' rel='noopener'>brasil.mapbiomas.org</a>.
+          <br><br>
+          Karra, K. <i>et al.</i> (2021). Global land use/land cover with
+          Sentinel-2 and deep learning. <i>IGARSS 2021</i>.
+          <a href='https://doi.org/10.1109/IGARSS47720.2021.9553499' target='_blank' rel='noopener'>doi:10.1109/IGARSS47720.2021.9553499</a>.
+          Esri, Impact Observatory &amp; Microsoft — Sentinel-2 10m Land Use/Land
+          Cover Time Series (ArcGIS Living Atlas).
         </p>
 
         <h4>How to cite</h4>
         <p style='font-size:.92rem'>When using results from this application,
-        please cite the MapBiomas Land Cover and MapBiomas Fire collections, the
-        IUCN Red List guidelines.</p>
+        please cite the land-cover source used (MapBiomas collections, or the
+        Esri/Impact Observatory Sentinel-2 series for areas outside MapBiomas),
+        MapBiomas Fire where applicable, and the IUCN Red List guidelines.</p>
 
         </div>"
       )
@@ -527,8 +546,9 @@ server <- function(input, output, session) {
       c("eoo_cat_B1", L("Provisional category by EOO size (sub-criterion B1).", "Categoria provisoria pelo tamanho da EOO (subcriterio B1).")),
       c("aoo_cat_B2", L("Provisional category by AOO size (sub-criterion B2).", "Categoria provisoria pelo tamanho da AOO (subcriterio B2).")),
       c("provisional_cat", L("Combined provisional category (the more threatened of B1/B2). Screening only.", "Categoria provisoria combinada (a mais ameacada entre B1/B2). Apenas triagem.")),
-      c("mapbiomas_year", L("MapBiomas land-cover year used.", "Ano da cobertura MapBiomas usada.")),
-      c("mapbiomas_collection", L("MapBiomas collection number.", "Numero da colecao MapBiomas.")),
+      c("mapbiomas_initiative", L("Land-cover product used (a MapBiomas country, or 'sentinel2' for the global Esri/Sentinel-2 layer).", "Produto de cobertura usado (um pais do MapBiomas, ou 'sentinel2' para a camada global Esri/Sentinel-2).")),
+      c("mapbiomas_year", L("Land-cover year used.", "Ano da cobertura usada.")),
+      c("mapbiomas_collection", L("Land-cover collection number (NA for Sentinel-2).", "Numero da colecao de cobertura (NA para Sentinel-2).")),
       c("eoo_burned_pct", L("% of the EOO burned at least once (1985-2024).", "% da EOO queimada ao menos uma vez (1985-2024).")),
       c("aoo_burned_pct", L("% of the AOO burned at least once (1985-2024).", "% da AOO queimada ao menos uma vez (1985-2024).")),
       c("fire_collection", L("MapBiomas Fire collection number.", "Numero da colecao MapBiomas Fogo.")),
@@ -649,14 +669,17 @@ server <- function(input, output, session) {
       tmp <- file.path(tempdir(), paste0("rasters_", as.integer(Sys.time())))
       dir.create(tmp, showWarnings = FALSE, recursive = TRUE)
       files <- character(0)
-      withProgress(message = "Preparing rasters (reading MapBiomas)...", value = 0, {
+      withProgress(message = "Preparing rasters (reading land cover)...", value = 0, {
         if ("lulc" %in% layers) {
-          r <- tryCatch(mappingAS::mb_raster_local(geom, year = st$year,
-                          collection = st$collection,
-                          initiative = st$initiative %||% "brazil"),
+          lc_ini  <- obj$initiative %||% st$initiative %||% "brazil"
+          lc_year <- obj$year %||% st$year
+          lc_coll <- obj$collection %||% st$collection
+          r <- tryCatch(mappingAS::mb_raster_local(geom, year = lc_year,
+                          collection = lc_coll,
+                          initiative = lc_ini),
                         error = function(e) NULL)
           if (!is.null(r)) {
-            f <- file.path(tmp, sprintf("mapbiomas_lulc_%s_%s.tif", clip, st$year))
+            f <- file.path(tmp, sprintf("mapbiomas_lulc_%s_%s.tif", clip, lc_year))
             terra::writeRaster(r, f, overwrite = TRUE, datatype = "INT1U",
                                gdal = "COMPRESS=LZW"); files <- c(files, f)
           }
@@ -764,7 +787,7 @@ server <- function(input, output, session) {
         by = input$donut_by %||% "class", lang = input$lang %||% "en"),
       error = function(e) e)
     validate(need(!inherits(p, "error"),
-                  "No class data available. Enable 'Calculate MapBiomas conversion' and reassess."))
+                  "No class data available. Enable 'Calculate land-cover conversion' and reassess."))
     mappingAS::mas_plotly(p)
   })
 
@@ -822,14 +845,14 @@ server <- function(input, output, session) {
       mappingAS::class_table(result(), species = input$class_species, range = "both"),
       error = function(e) data.frame())
     validate(need(nrow(df) > 0,
-                  "No class data available. Enable 'Calculate MapBiomas conversion' and reassess."))
+                  "No class data available. Enable 'Calculate land-cover conversion' and reassess."))
 
     lg <- input$lang %||% "en"
     if (lg == "en") df$class_pt <- NULL else df$class_en <- NULL
     names(df)[names(df) %in% c("class_pt", "class_en")] <- "class"
 
     .mas_dt(df, page = 25,
-            caption = "Area and % by MapBiomas class (EOO and AOO)")
+            caption = "Area and % by land-cover class (EOO and AOO)")
   })
 
   output$dl_classes <- downloadHandler(
@@ -907,7 +930,7 @@ server <- function(input, output, session) {
     req(result(), input$fire_species)
     obj <- result()$detail[[input$fire_species]]
     validate(need(!is.null(obj$eoo_fire) || !is.null(obj$aoo_fire),
-                  "Enable 'Calculate fire (MapBiomas burned area)' in the side panel and reassess."))
+                  "Enable 'Calculate fire (burned area)' in the side panel and reassess."))
     fmt <- function(f, lab) {
       if (is.null(f)) return(sprintf("<li>%s: no data</li>", lab))
       sprintf("<li><b>%s:</b> %.1f%% of the area has burned at least once (1985-2024).</li>",

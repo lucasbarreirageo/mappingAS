@@ -1,0 +1,1772 @@
+diff --git a/DESCRIPTION b/DESCRIPTION
+index 6453408..93f2657 100644
+--- a/DESCRIPTION
++++ b/DESCRIPTION
+@@ -1,7 +1,7 @@
+ Package: mappingAS
+ Type: Package
+ Title: Spatial Metrics and Habitat Conversion for Extinction Risk Assessment
+-Version: 1.10.0
++Version: 1.11.0
+ Authors@R:
+     person("Antônio Lucas Barreira", email = "barreira_rodrigues@hotmail.com", role = c("aut", "cre"))
+ Author: Antônio Lucas Barreira [aut, cre]
+@@ -18,7 +18,11 @@ Description: A spatial analytical framework for preliminary species
+     Brazil, the Pan-Amazon / Amazonia collection (RAISG), Colombia, Argentina,
+     Bolivia, Chile, Ecuador, Peru, Venezuela, Paraguay and Uruguay - so a
+     species anywhere these
+-    products cover can be screened as readily as a Brazilian one. It also
++    products cover can be screened as readily as a Brazilian one. For ranges
++    outside MapBiomas coverage it can fall back to the global Esri /
++    Impact Observatory 10 m annual land cover derived from Sentinel-2 (the
++    product behind the ArcGIS Living Atlas Land Cover Explorer), so a species
++    anywhere on Earth can be screened. It also
+     integrates MapBiomas Fire to compute burned-area metrics and fire time
+     series, and quantifies the overlap of the range with protected areas from
+     the global World Database on Protected Areas (WDPA). MapBiomas data are
+diff --git a/NAMESPACE b/NAMESPACE
+index aef1ec0..4801e2b 100644
+--- a/NAMESPACE
++++ b/NAMESPACE
+@@ -7,6 +7,7 @@ export(calc_aoo)
+ export(calc_eoo)
+ export(class_table)
+ export(cover_timeseries)
++export(esri_legend)
+ export(export_ranges)
+ export(fire_areas)
+ export(fire_palette)
+@@ -37,6 +38,9 @@ export(plot_timeseries)
+ export(protected_areas)
+ export(read_occurrences)
+ export(run_app)
++export(s2_raster_local)
++export(s2_source_url)
++export(s2_years)
+ export(summarise_conversion)
+ export(summarise_fire)
+ export(summarise_protected)
+diff --git a/NEWS.md b/NEWS.md
+index a0d7115..69090db 100644
+--- a/NEWS.md
++++ b/NEWS.md
+@@ -1,3 +1,29 @@
++# mappingAS 1.11.0
++
++* **Global Sentinel-2 fallback for ranges outside MapBiomas.** When a species'
++  occurrences fall outside every supported MapBiomas country, `assess_species()`
++  can now quantify habitat conversion from the **Esri / Impact Observatory 10 m
++  Annual Land Use Land Cover** product - the global, Sentinel-2-derived data
++  behind the ArcGIS Living Atlas Land Cover Explorer
++  (<https://livingatlas.arcgis.com/landcoverexplorer/>). Like MapBiomas, it is
++  streamed as public Cloud-Optimized GeoTIFFs via GDAL `/vsicurl/` - **no Google
++  Earth Engine and no account**. Two ways to use it:
++    - `assess_species(occ, initiative = "auto")` tries MapBiomas first and
++      **falls back automatically** to Sentinel-2 wherever MapBiomas has no data.
++      This is also on by default (`fallback = "sentinel2"`) for any MapBiomas
++      initiative, so an out-of-coverage species no longer returns `NA` - set
++      `fallback = "none"` to restore the old behaviour.
++    - `assess_species(occ, initiative = "sentinel2")` forces the global layer
++      everywhere (aliases: `"esri"`, `"s2"`, `"global"`, ...).
++  The 9-class product is mapped to the same conservation groups as MapBiomas
++  (Trees/Rangeland/Flooded vegetation = natural; Crops/Built area = anthropic;
++  Water excluded; Bare ground/Snow/Ice excluded as ambiguous; Clouds =
++  not observed), so conversion percentages, per-class tables, donut charts,
++  maps and the written report all work unchanged. New helpers: `esri_legend()`,
++  `s2_source_url()`, `s2_raster_local()` and `s2_years()` (2017-2023). The
++  product actually used is recorded per species in the `mapbiomas_initiative`
++  column of `$summary`.
++
+ # mappingAS 1.10.0
+ 
+ * **Paraguay and Uruguay added.** `assess_species()` (and the whole pipeline)
+diff --git a/R/assess.R b/R/assess.R
+index fa4e69b..80a7dc7 100644
+--- a/R/assess.R
++++ b/R/assess.R
+@@ -8,13 +8,23 @@
+ #' recurrence, from the MapBiomas Fire accumulated layer.
+ #'
+ #' @param occ An \code{sf} of POINT geometries from \code{\link{read_occurrences}}.
+-#' @param initiative MapBiomas initiative: \code{"brazil"} (default),
+-#'   \code{"amazonia"} (Pan-Amazon / RAISG), \code{"colombia"} or any of the
+-#'   other South-American products (Argentina, Bolivia, Chile, Ecuador, Peru,
+-#'   Venezuela, Paraguay, Uruguay). Selects the land-cover product, its default
+-#'   collection and the standardised legend, so a species anywhere these
+-#'   products cover can be assessed without Google Earth Engine (see
+-#'   \code{\link{mb_initiatives}}).
++#' @param initiative Land-cover product. A MapBiomas initiative -
++#'   \code{"brazil"} (default), \code{"amazonia"} (Pan-Amazon / RAISG),
++#'   \code{"colombia"} or any of the other South-American products (Argentina,
++#'   Bolivia, Chile, Ecuador, Peru, Venezuela, Paraguay, Uruguay) - selects that
++#'   product, its default collection and the standardised legend (see
++#'   \code{\link{mb_initiatives}}). Two extra keys unlock coverage anywhere on
++#'   Earth: \code{"sentinel2"} forces the global Esri / Impact Observatory 10 m
++#'   land cover (Sentinel-2, the data behind the ArcGIS Living Atlas Land Cover
++#'   Explorer; see \code{\link{esri_legend}}), and \code{"auto"} tries MapBiomas
++#'   first and automatically falls back to Sentinel-2 for ranges outside
++#'   MapBiomas coverage. All backends stream public Cloud-Optimized GeoTIFFs -
++#'   no Google Earth Engine and no account.
++#' @param fallback What to do when the chosen MapBiomas product has no data over
++#'   a species' range (i.e. the occurrences fall outside every supported
++#'   country): \code{"sentinel2"} (default) recomputes that species with the
++#'   global Sentinel-2 / Esri layer; \code{"none"} leaves its conversion as
++#'   \code{NA}. Ignored when \code{initiative = "sentinel2"}.
+ #' @param year Integer MapBiomas year. \code{NULL} (default) uses the most recent
+ #'   year available for the initiative (e.g. 2024 for Brazil/Colombia, 2023 for
+ #'   Amazonia/Paraguay, 2022 for Uruguay).
+@@ -56,6 +66,7 @@
+ assess_species <- function(occ, initiative = "brazil",
+                            year = NULL, collection = NULL,
+                            backend = c("local", "gee"),
++                           fallback = c("sentinel2", "none"),
+                            cell_km = 2, mapbiomas = TRUE,
+                            fire = FALSE, fire_collection = 4,
+                            fire_host_collection = 9,
+@@ -65,12 +76,32 @@ assess_species <- function(occ, initiative = "brazil",
+                            min_records = 1, verbose = TRUE) {
+   .assert_points(occ, "occ")
+   backend <- match.arg(backend)
++  fallback <- match.arg(fallback)
++
++  # "auto" = try MapBiomas (Brazil-flagship spatial coverage) then fall back to
++  # the global Sentinel-2 / Esri layer wherever MapBiomas has no data.
++  requested <- if (length(initiative) == 1L) as.character(initiative) else "brazil"
++  is_auto <- length(initiative) == 1L &&
++    tolower(trimws(as.character(initiative))) %in%
++      c("auto", "automatic", "auto-detect", "autodetect")
++  if (is_auto) {
++    initiative <- "brazil"
++    fallback <- "sentinel2"
++  }
++
+   ini <- .mb_resolve_initiative(initiative)
+   initiative <- ini$key
+   if (is.null(collection)) collection <- ini$collection
+   if (is.null(year)) year <- max(ini$years)
+   year <- as.integer(year)
+   collection <- as.integer(collection)
++  # The global Sentinel-2/Esri layer only covers 2017-2023: clamp the requested
++  # year into range so an explicit initiative = "sentinel2" never asks for a
++  # nonexistent tile (e.g. 2024).
++  if (identical(ini$provider, "esri")) year <- .s2_clamp_year(year)
++  # Fallback only applies when starting from a MapBiomas product.
++  do_fallback <- identical(fallback, "sentinel2") &&
++    !identical(ini$provider, "esri")
+   if (backend == "gee" && initiative != "brazil") {
+     warning("The GEE backend is only wired for initiative = 'brazil'; ",
+             "using the local (/vsicurl/) backend for ", initiative, ".",
+@@ -107,36 +138,68 @@ assess_species <- function(occ, initiative = "brazil",
+     
+     eoo <- calc_eoo(pts)
+     aoo <- calc_aoo(pts, cell_km = cell_km)
++    aoo_geom <- .st_union_quiet(aoo$cells)
+     cats <- iucn_category_B(eoo$area_km2, aoo$area_km2)
+-    
++
++    # Per-species land-cover product actually used (may switch on fallback).
++    eff_ini <- initiative; eff_year <- year; eff_coll <- collection
++    eff_prov <- ini$provider
++
++    # "auto": pick the product from this species' coordinates - a MapBiomas
++    # country when the points fall in South America, else global Sentinel-2.
++    if (is_auto) {
++      eff_ini  <- .auto_initiative(pts)
++      ri       <- .mb_resolve_initiative(eff_ini)
++      eff_prov <- ri$provider
++      eff_coll <- ri$collection
++      eff_year <- .clamp_year(year, ri$years)
++      if (verbose) message("  auto: ", ri$label, ".")
++    }
++
+     eoo_conv <- aoo_conv <- NULL
+     if (mapbiomas) {
+-      eoo_conv <- .conversion_for(eoo$hull, year, collection, initiative, backend,
++      eoo_conv <- .conversion_for(eoo$hull, eff_year, eff_coll, eff_ini, backend,
+                                   src, water_in_denominator, verbose, "EOO")
+-      aoo_conv <- .conversion_for(.st_union_quiet(aoo$cells), year, collection,
+-                            initiative, backend, src, water_in_denominator,
+-                            verbose, "AOO")
++      aoo_conv <- .conversion_for(aoo_geom, eff_year, eff_coll, eff_ini, backend,
++                                  src, water_in_denominator, verbose, "AOO")
++
++      # No MapBiomas data over this range -> fall back to global Sentinel-2/Esri.
++      if (do_fallback && !identical(eff_prov, "esri") &&
++          .terr_area(eoo_conv) == 0 && .terr_area(aoo_conv) == 0) {
++        if (verbose) message("  outside ", ini$label,
++                             " coverage; using global Sentinel-2/Esri land cover.")
++        eff_ini <- "sentinel2"; eff_prov <- "esri"
++        eff_coll <- NA_integer_; eff_year <- .s2_clamp_year(year)
++        eoo_conv <- .conversion_for(eoo$hull, eff_year, eff_coll, eff_ini,
++                                    "local", NULL, water_in_denominator,
++                                    verbose, "EOO")
++        aoo_conv <- .conversion_for(aoo_geom, eff_year, eff_coll, eff_ini,
++                                    "local", NULL, water_in_denominator,
++                                    verbose, "AOO")
++      }
+     }
+-    
++
+     eoo_fire <- aoo_fire <- NULL
+     if (fire) {
+       eoo_fire <- .fire_for(eoo$hull, eoo$area_km2, fire_collection,
+                             fire_host_collection, fire_src, verbose, "EOO")
+-      aoo_fire <- .fire_for(.st_union_quiet(aoo$cells), aoo$area_km2,
++      aoo_fire <- .fire_for(aoo_geom, aoo$area_km2,
+                       fire_collection, fire_host_collection, fire_src,
+                       verbose, "AOO")
+     }
+ 
++    # Land cover inside protected areas must use the same product as the range.
++    pa_src_lc <- if (identical(eff_prov, "esri")) NULL else src
+     pa <- NULL
+     if (protected) {
+       pa <- .protected_for(pts, eoo, aoo, src = pa_src, verbose = verbose)
+     }
+     if (protected && mapbiomas && !is.null(pa) && !is.null(pa$layer)) {
+       uc_u <- .st_union_quiet(sf::st_geometry(pa$layer))
+-      e_nat <- .nat_in_uc(eoo$hull, uc_u, eoo_conv, year, collection, initiative,
+-                          backend, src, water_in_denominator, verbose, "EOO")
+-      a_nat <- .nat_in_uc(.st_union_quiet(aoo$cells), uc_u, aoo_conv, year,
+-                          collection, initiative, backend, src,
++      e_nat <- .nat_in_uc(eoo$hull, uc_u, eoo_conv, eff_year, eff_coll, eff_ini,
++                          backend, pa_src_lc, water_in_denominator, verbose, "EOO")
++      a_nat <- .nat_in_uc(aoo_geom, uc_u, aoo_conv, eff_year,
++                          eff_coll, eff_ini, backend, pa_src_lc,
+                           water_in_denominator, verbose, "AOO")
+       pa$eoo_nat_uc_pct <- e_nat$nat_pct_total
+       pa$eoo_alt_uc_pct <- e_nat$alt_pct_total
+@@ -160,9 +223,9 @@ assess_species <- function(occ, initiative = "brazil",
+       eoo_cat_B1 = cats$eoo_category,
+       aoo_cat_B2 = cats$aoo_category,
+       provisional_cat = cats$combined,
+-      mapbiomas_initiative = initiative,
+-      mapbiomas_year = year,
+-      mapbiomas_collection = collection,
++      mapbiomas_initiative = eff_ini,
++      mapbiomas_year = eff_year,
++      mapbiomas_collection = eff_coll,
+       stringsAsFactors = FALSE
+     )
+     if (fire) {
+@@ -185,7 +248,9 @@ assess_species <- function(occ, initiative = "brazil",
+     rows[[i]] <- row
+     detail[[sp]] <- list(points = pts, eoo = eoo, aoo = aoo,
+                          eoo_conversion = eoo_conv, aoo_conversion = aoo_conv,
+-                         eoo_fire = eoo_fire, aoo_fire = aoo_fire, pa = pa)
++                         eoo_fire = eoo_fire, aoo_fire = aoo_fire, pa = pa,
++                         initiative = eff_ini, year = eff_year,
++                         collection = eff_coll)
+   }
+   
+   summary_df <- do.call(rbind, rows)
+@@ -193,6 +258,8 @@ assess_species <- function(occ, initiative = "brazil",
+   structure(list(summary = summary_df, detail = detail,
+                  settings = list(initiative = initiative, year = year,
+                                  collection = collection,
++                                 requested_initiative = requested,
++                                 fallback = fallback, auto = is_auto,
+                                  backend = backend, cell_km = cell_km,
+                                  mapbiomas = mapbiomas, fire = fire,
+                                  fire_collection = fire_collection,
+@@ -206,6 +273,26 @@ assess_species <- function(occ, initiative = "brazil",
+ #' @noRd
+ .pp <- function(x) if (is.null(x) || length(x) == 0) NA_real_ else round(x, 1)
+ 
++#' Terrestrial area (natural + anthropic) of a conversion result; 0 if empty.
++#' Used to detect a range that falls outside the MapBiomas product's coverage.
++#' @keywords internal
++#' @noRd
++.terr_area <- function(conv) {
++  if (is.null(conv)) return(0)
++  a <- suppressWarnings(as.numeric(conv$natural_km2) +
++                          as.numeric(conv$anthropic_km2))
++  if (length(a) == 0 || is.na(a)) 0 else a
++}
++
++#' Clamp a year into an initiative's available range (defaults to its latest).
++#' @keywords internal
++#' @noRd
++.clamp_year <- function(year, yrs) {
++  y <- suppressWarnings(as.integer(year))
++  if (length(y) != 1L || is.na(y)) return(max(yrs))
++  min(max(y, min(yrs)), max(yrs))
++}
++
+ #' @keywords internal
+ #' @noRd
+ .conversion_for <- function(geom, year, collection, initiative, backend, src,
+@@ -215,8 +302,12 @@ assess_species <- function(occ, initiative = "brazil",
+                                  label), "conversion = NA.")
+     return(NULL)
+   }
++  prov <- tryCatch(.mb_resolve_initiative(initiative)$provider,
++                   error = function(e) "mapbiomas")
+   out <- tryCatch({
+-    if (backend == "gee") {
++    if (identical(prov, "esri")) {
++      ca <- .s2_class_areas(geom, year = year, src = src)
++    } else if (backend == "gee") {
+       ca <- mb_class_areas_gee(geom, year = year, collection = collection)
+     } else {
+       r <- mb_raster_local(geom, year = year, collection = collection,
+diff --git a/R/donut.R b/R/donut.R
+index ddf2c17..b60e0c6 100644
+--- a/R/donut.R
++++ b/R/donut.R
+@@ -25,7 +25,13 @@
+     error = function(e) data.frame())
+   if (!nrow(ct)) return(data.frame())
+ 
+-  leg <- mb_legend()
++  # Use the legend of the product actually used for this species (Sentinel-2 /
++  # Esri when the range fell back outside MapBiomas coverage).
++  obj <- assessment$detail[[species]]
++  st  <- assessment$settings
++  lc_ini  <- obj$initiative %||% st$initiative %||% "brazil"
++  lc_coll <- obj$collection %||% st$collection
++  leg <- mb_legend(lc_coll, lc_ini)
+   ct$hex <- leg$hex[match(ct$code, leg$code)]
+   ct$hex[is.na(ct$hex)] <- "#bdbdbd"
+ 
+@@ -101,15 +107,15 @@ plot_conversion_donut <- function(assessment, species = NULL,
+ 
+   df <- .donut_data(assessment, species = species, by = by, lang = lang)
+   if (!nrow(df)) {
+-    stop("No MapBiomas class data available (run assess_species(mapbiomas = TRUE)).",
++    stop("No land-cover class data available (run assess_species(mapbiomas = TRUE)).",
+          call. = FALSE)
+   }
+ 
+   ttl <- if (lang == "en")
+-    sprintf("%s - MapBiomas composition by %s",
++    sprintf("%s - land-cover composition by %s",
+             species, if (by == "group") "group" else "class")
+   else
+-    sprintf("%s - composicao MapBiomas por %s",
++    sprintf("%s - composicao da cobertura por %s",
+             species, if (by == "group") "grupo" else "classe")
+ 
+   pal <- tapply(df$hex, df$label, function(v) v[1])
+diff --git a/R/initiatives.R b/R/initiatives.R
+index 172b970..d12aeba 100644
+--- a/R/initiatives.R
++++ b/R/initiatives.R
+@@ -123,6 +123,11 @@ mb_initiatives <- function() {
+   # a few friendly aliases
+   key <- switch(key,
+                 "brasil" = "brazil",
++                # "auto" is handled specially by assess_species (try MapBiomas
++                # then fall back to Sentinel-2); for direct helper calls
++                # (mb_years, mb_legend, ...) treat it as the Brazil default.
++                "auto" = "brazil",
++                "automatic" = "brazil",
+                 "amazon" = "amazonia",
+                 "pan-amazonia" = "amazonia",
+                 "panamazonia" = "amazonia",
+@@ -131,13 +136,24 @@ mb_initiatives <- function() {
+                 "paraguai" = "paraguay",
+                 "uruguai" = "uruguay",
+                 key)
++  # Global Sentinel-2 / Esri (Impact Observatory) fallback layer. Not a
++  # MapBiomas product, so it is resolved separately (provider = "esri").
++  if (key %in% c("sentinel2", "sentinel-2", "sentinel_2", "sentinel", "s2",
++                 "esri", "esri10", "io", "io-lulc", "iolulc",
++                 "impact-observatory", "impactobservatory",
++                 "global", "world", "worldwide")) {
++    return(.s2_initiative())
++  }
+   reg <- .mb_registry()
+   if (!key %in% names(reg)) {
+     stop("Unknown MapBiomas initiative: '", initiative,
+-         "'. Use one of: ", paste(names(reg), collapse = ", "), ".",
++         "'. Use one of: ", paste(names(reg), collapse = ", "),
++         " (or 'sentinel2' for the global fallback).",
+          call. = FALSE)
+   }
+-  reg[[key]]
++  ent <- reg[[key]]
++  ent$provider <- "mapbiomas"
++  ent
+ }
+ 
+ #' @keywords internal
+diff --git a/R/legend.R b/R/legend.R
+index 4e7d69a..cf724ac 100644
+--- a/R/legend.R
++++ b/R/legend.R
+@@ -38,6 +38,9 @@
+ #' @export
+ mb_legend <- function(collection = 10, initiative = "brazil") {
+   ini <- .mb_resolve_initiative(initiative)
++  # Global Sentinel-2 / Esri fallback uses its own 9-class legend, mapped to the
++  # same conservation groups so the downstream pipeline is unchanged.
++  if (identical(ini$provider, "esri")) return(esri_legend())
+   if (!identical(as.integer(collection), as.integer(ini$collection))) {
+     warning(sprintf(
+       "mappingAS ships the standardised legend for %s Collection %d; using it.",
+diff --git a/R/mapbiomas_local.R b/R/mapbiomas_local.R
+index 4ccc2c5..8badebe 100644
+--- a/R/mapbiomas_local.R
++++ b/R/mapbiomas_local.R
+@@ -20,6 +20,10 @@
+ #' @export
+ mb_source_url <- function(year = 2024, collection = NULL, initiative = "brazil") {
+   ini <- .mb_resolve_initiative(initiative)
++  if (identical(ini$provider, "esri")) {
++    stop("mb_source_url() builds MapBiomas URLs; the global Sentinel-2/Esri ",
++         "layer is tiled - use s2_source_url() instead.", call. = FALSE)
++  }
+   if (is.null(collection)) collection <- ini$collection
+   collection <- as.integer(collection)
+   year <- as.integer(year)
+@@ -89,6 +93,11 @@ mb_raster_local <- function(aoi, year = 2024, collection = NULL,
+     stop("Package 'terra' is required.", call. = FALSE)
+   }
+   ini <- .mb_resolve_initiative(initiative)
++  # Global Sentinel-2 / Esri fallback: read the tiled global mosaic instead.
++  if (identical(ini$provider, "esri")) {
++    return(s2_raster_local(aoi, year = year, src = src, mask = mask,
++                           cache = cache, cache_dir = cache_dir))
++  }
+   if (is.null(collection)) collection <- ini$collection
+   aoi <- sf::st_geometry(aoi)
+   if (is.na(sf::st_crs(aoi))) sf::st_crs(aoi) <- 4326
+@@ -144,6 +153,10 @@ mb_raster_local <- function(aoi, year = 2024, collection = NULL,
+ #' @noRd
+ .mb_raster_display <- function(aoi, year, collection, src, max_pixels = 600,
+                                crs = NULL, cache = TRUE, initiative = "brazil") {
++  if (.s2_is_esri(initiative)) {
++    return(.s2_raster_display(aoi, year = year, src = src,
++                              max_pixels = max_pixels, crs = crs, cache = cache))
++  }
+   r <- tryCatch(
+     .mb_display_read(aoi, year, collection, src, max_pixels, initiative),
+     error = function(e) NULL)
+diff --git a/R/plotting.R b/R/plotting.R
+index ea37240..12485a6 100644
+--- a/R/plotting.R
++++ b/R/plotting.R
+@@ -37,7 +37,8 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
+   lang <- match.arg(lang)
+   clip <- match.arg(clip)
+   lulc_col   <- if (lang == "en") "class_en" else "class_pt"
+-  lbl_mb     <- if (lang == "en") "MapBiomas %s" else "MapBiomas %s"
++  lbl_mb     <- if (lang == "en") "Land cover %s" else "Cobertura %s"
++  grp_lc     <- if (lang == "en") "Land cover" else "Cobertura"
+   lbl_fire   <- if (lang == "en") "Fire frequency<br>(years, 1985-2024)"
+                 else "Frequencia de fogo<br>(anos, 1985-2024)"
+   grp_fire   <- if (lang == "en") "Fire frequency" else "Frequencia de fogo"
+@@ -62,13 +63,18 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
+   mb_on <- FALSE
+   if (isTRUE(mapbiomas) && !is.null(clip_geom) &&
+       requireNamespace("terra", quietly = TRUE)) {
++    # Prefer the product actually used for this species (may differ from the
++    # assessment default when the range fell back to global Sentinel-2/Esri).
++    lc_ini  <- obj$initiative %||% st$initiative %||% "brazil"
++    lc_year <- obj$year %||% st$year
++    lc_coll <- obj$collection %||% st$collection
+     rr <- tryCatch({
+-      r <- .mb_raster_display(clip_geom, st$year, st$collection, src,
++      r <- .mb_raster_display(clip_geom, lc_year, lc_coll, src,
+                               max_pixels = max_pixels, crs = NULL,
+-                              initiative = st$initiative %||% "brazil")
+-      leg <- mb_legend(st$collection, st$initiative %||% "brazil")
++                              initiative = lc_ini)
++      leg <- mb_legend(lc_coll, lc_ini)
+       vals <- terra::unique(r)[, 1]; vals <- vals[!is.na(vals)]
+-      list(r = r, keep = leg[leg$code %in% vals, , drop = FALSE], year = st$year)
++      list(r = r, keep = leg[leg$code %in% vals, , drop = FALSE], year = lc_year)
+     }, error = function(e) {
+       warning("MapBiomas layer skipped: ", conditionMessage(e), call. = FALSE)
+       NULL
+@@ -78,12 +84,12 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
+                                   na.color = "transparent")
+       m <- leaflet::addRasterImage(m, rr$r, colors = pal, opacity = 0.75,
+                                    method = "ngb", project = TRUE,
+-                                   group = "MapBiomas")
++                                   group = grp_lc)
+       m <- leaflet::addLegend(m, position = "bottomright",
+                               colors = rr$keep$hex, labels = rr$keep[[lulc_col]],
+                               opacity = 0.75,
+                               title = sprintf(lbl_mb, rr$year),
+-                              group = "MapBiomas")
++                              group = grp_lc)
+       mb_on <- TRUE
+     }
+   }
+@@ -166,7 +172,7 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
+   overlay <- c("Occurrences", "EOO (hull)", "AOO (2 km cells)")
+   if (pa_on)   overlay <- c(grp_uc, overlay)
+    if (fire_on) overlay <- c(grp_fire, overlay)
+-  if (mb_on)   overlay <- c("MapBiomas", overlay)
++  if (mb_on)   overlay <- c(grp_lc, overlay)
+   m <- leaflet::addLayersControl(
+     m, baseGroups = c("Light", "Satellite"), overlayGroups = overlay,
+     options = leaflet::layersControlOptions(collapsed = FALSE))
+@@ -209,11 +215,11 @@ plot_conversion <- function(assessment, species = NULL, lang = c("en", "pt")) {
+   other_lab <- grp[4]
+   if (lang == "en") {
+     xlab <- "% of mapped (observed) area"
+-    main_fmt <- "%s - composition (MapBiomas %s)"
++    main_fmt <- "%s - composition (land cover %s)"
+     sub_fmt  <- "Converted (terrestrial): EOO %s  |  AOO %s"
+   } else {
+     xlab <- "% da area mapeada (observada)"
+-    main_fmt <- "%s - composicao (MapBiomas %s)"
++    main_fmt <- "%s - composicao (cobertura %s)"
+     sub_fmt  <- "Convertido (terrestre): EOO %s  |  AOO %s"
+   }
+ 
+@@ -229,7 +235,7 @@ plot_conversion <- function(assessment, species = NULL, lang = c("en", "pt")) {
+ 
+   fmt <- function(cv) { v <- if (is.null(cv)) NA_real_ else cv$converted_pct
+     if (is.finite(v)) sprintf("%.0f%%", v) else "-" }
+-  title <- sprintf(main_fmt, species, assessment$settings$year)
++  title <- sprintf(main_fmt, species, obj$year %||% assessment$settings$year)
+   subtitle <- sprintf(sub_fmt, fmt(obj$eoo_conversion), fmt(obj$aoo_conversion))
+ 
+   # --- ggplot2 (interactive-ready) ---
+diff --git a/R/plotting_static.R b/R/plotting_static.R
+index cd5651b..2d021e6 100644
+--- a/R/plotting_static.R
++++ b/R/plotting_static.R
+@@ -102,9 +102,14 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
+ 
+   # ---- MapBiomas land-cover raster (clipped to EOO or AOO) ----
+   if (draw_lulc) {
++    # Use the product actually used for this species (Sentinel-2/Esri fallback
++    # when the range fell outside MapBiomas coverage).
++    lc_ini  <- obj$initiative %||% st$initiative %||% "brazil"
++    lc_year <- obj$year %||% st$year
++    lc_coll <- obj$collection %||% st$collection
+     rdf <- tryCatch(
+-      .mb_display_df(clip_geom, st$year, st$collection, src, max_pixels, crs, lang,
+-                     initiative = st$initiative %||% "brazil"),
++      .mb_display_df(clip_geom, lc_year, lc_coll, src, max_pixels, crs, lang,
++                     initiative = lc_ini),
+       error = function(e) {
+         warning("MapBiomas layer skipped: ", conditionMessage(e), call. = FALSE)
+         NULL
+@@ -117,8 +122,8 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
+           ggplot2::aes(x = .data[["x"]], y = .data[["y"]], fill = .data[["class"]])) +
+         ggplot2::scale_fill_manual(
+           values = rdf$cols, drop = FALSE,
+-          name = sprintf(if (lang == "en") "MapBiomas %s (in %s)"
+-                         else "MapBiomas %s (no %s)", st$year, lbl_clip))
++          name = sprintf(if (lang == "en") "Land cover %s (in %s)"
++                         else "Cobertura %s (no %s)", lc_year, lbl_clip))
+     } else {
+       draw_lulc <- FALSE
+     }
+diff --git a/R/report.R b/R/report.R
+index 68f3bf5..83b1731 100644
+--- a/R/report.R
++++ b/R/report.R
+@@ -120,9 +120,22 @@ assessment_report <- function(assessment, species = NULL,
+     stop("Species not found in assessment: ", species, call. = FALSE)
+   r <- r[1, , drop = FALSE]
+   st  <- assessment$settings
+-  mb_label <- tryCatch(.mb_resolve_initiative(st$initiative %||% "brazil")$label,
+-                       error = function(e) "MapBiomas Brazil")
+   det <- assessment$detail[[species]]
++  # Label the land-cover source actually used for this species (Sentinel-2/Esri
++  # when the range fell back outside MapBiomas coverage).
++  lc_ini <- (if (!is.null(det)) det$initiative else NULL) %||%
++    st$initiative %||% "brazil"
++  mb_label <- tryCatch(.mb_resolve_initiative(lc_ini)$label,
++                       error = function(e) "MapBiomas Brazil")
++  lc_is_esri <- identical(as.character(lc_ini), "sentinel2")
++  lc_coll <- if (!is.null(r$mapbiomas_collection)) r$mapbiomas_collection
++             else st$collection
++  lc_year <- if (!is.null(r$mapbiomas_year)) r$mapbiomas_year else st$year
++  # Source descriptor for prose: "<product> Collection <n>", or just the
++  # product name when there is no collection (the Sentinel-2/Esri layer).
++  lc_src_desc <- if (is.null(lc_coll) ||
++                     (length(lc_coll) == 1 && is.na(lc_coll)))
++    mb_label else paste0(mb_label, L(" Collection ", " Colecao "), lc_coll)
+   pa  <- if (!is.null(det)) det$pa else NULL
+   # cover_series / fire_series may be a single data frame (one range) or a list
+   # of them (e.g. EOO and AOO): normalise to a list of per-range trends.
+@@ -199,9 +212,9 @@ assessment_report <- function(assessment, species = NULL,
+   if (isTRUE(st$mapbiomas) &&
+       (!is.na(r$eoo_converted_pct) || !is.na(r$aoo_converted_pct))) {
+     conv_p <- sprintf(L(
+-      "Based on %s Collection %s (%s), converted (anthropic) land cover accounts for %s of the terrestrial EOO and %s of the AOO; the remaining natural habitat is %s (EOO) and %s (AOO). Water and unobserved areas are excluded from the terrestrial denominator.",
+-      "Com base em %s Colecao %s (%s), a cobertura convertida (antropica) corresponde a %s da EOO terrestre e a %s da AOO; o habitat natural remanescente e de %s (EOO) e %s (AOO). Corpos d'agua e areas nao observadas sao excluidos do denominador terrestre."),
+-      mb_label, st$collection, st$year,
++      "Based on %s (%s), converted (anthropic) land cover accounts for %s of the terrestrial EOO and %s of the AOO; the remaining natural habitat is %s (EOO) and %s (AOO). Water and unobserved areas are excluded from the terrestrial denominator.",
++      "Com base em %s (%s), a cobertura convertida (antropica) corresponde a %s da EOO terrestre e a %s da AOO; o habitat natural remanescente e de %s (EOO) e %s (AOO). Corpos d'agua e areas nao observadas sao excluidos do denominador terrestre."),
++      lc_src_desc, lc_year,
+       fmt_pct(r$eoo_converted_pct), fmt_pct(r$aoo_converted_pct),
+       fmt_pct(r$eoo_natural_pct), fmt_pct(r$aoo_natural_pct))
+     if (length(cover_trs)) {
+@@ -355,9 +368,13 @@ assessment_report <- function(assessment, species = NULL,
+     "IUCN Standards and Petitions Committee (2024). Guidelines for Using the IUCN Red List Categories and Criteria, Version 16. Prepared by the Standards and Petitions Committee. https://www.iucnredlist.org/documents/RedListGuidelines.pdf",
+     "IUCN (2012). IUCN Red List Categories and Criteria: Version 3.1, Second edition. IUCN, Gland, Switzerland and Cambridge, UK."
+   )
+-  if (isTRUE(st$mapbiomas))
++  if (isTRUE(st$mapbiomas) && lc_is_esri)
++    refs <- c(refs,
++      "Karra, K. et al. (2021). Global land use/land cover with Sentinel-2 and deep learning. IGARSS 2021. doi:10.1109/IGARSS47720.2021.9553499",
++      "Esri, Impact Observatory & Microsoft. Sentinel-2 10m Land Use/Land Cover Time Series. ArcGIS Living Atlas of the World. https://livingatlas.arcgis.com/landcoverexplorer/")
++  else if (isTRUE(st$mapbiomas))
+     refs <- c(refs,
+-      sprintf("Project %s - Collection %s of the Annual Series of Land Use and Land Cover Maps. https://mapbiomas.org", mb_label, st$collection),
++      sprintf("Project %s - Collection %s of the Annual Series of Land Use and Land Cover Maps. https://mapbiomas.org", mb_label, lc_coll),
+       "Souza, C.M. et al. (2020). Reconstructing Three Decades of Land Use and Land Cover Changes in Brazilian Biomes with Landsat Archive and Earth Engine. Remote Sensing 12(17): 2735. doi:10.3390/rs12172735")
+   if (isTRUE(st$fire))
+     refs <- c(refs,
+@@ -375,8 +392,8 @@ assessment_report <- function(assessment, species = NULL,
+       if (inherits(g, "ggplot")) figs[[length(figs) + 1L]] <<- list(cap = cap, gg = g)
+     }
+     if (isTRUE(st$mapbiomas))
+-      add_fig(L("Habitat composition of the EOO and AOO (MapBiomas).",
+-                "Composicao do habitat na EOO e na AOO (MapBiomas)."),
++      add_fig(L("Habitat composition of the EOO and AOO (land cover).",
++                "Composicao do habitat na EOO e na AOO (cobertura)."),
+               plot_conversion(assessment, species = species, lang = lang))
+     if (isTRUE(st$protected) && !is.null(pa))
+       add_fig(L("Range protection by protected areas (EOO and AOO).",
+diff --git a/R/sentinel2.R b/R/sentinel2.R
+new file mode 100644
+index 0000000..4ab2a88
+--- /dev/null
++++ b/R/sentinel2.R
+@@ -0,0 +1,449 @@
++# ----------------------------------------------------------------------------
++# Sentinel-2 / Esri global 10 m land cover (fallback outside MapBiomas)
++# ----------------------------------------------------------------------------
++# When a species' occurrences fall outside every MapBiomas product shipped with
++# mappingAS (i.e. outside the supported South-American countries), the package
++# can fall back to the Esri / Impact Observatory / Microsoft "10 m Annual Land
++# Use Land Cover" (9-class) series derived from ESA Sentinel-2 - the global
++# product behind the ArcGIS Living Atlas Land Cover Explorer
++# (https://livingatlas.arcgis.com/landcoverexplorer/).
++#
++# It follows the same philosophy as the MapBiomas backend: public
++# Cloud-Optimized GeoTIFFs streamed with GDAL's /vsicurl/ driver, no Google
++# Earth Engine and no account. The global mosaic is tiled by MGRS grid-zone
++# designator (e.g. "47P") on a public Azure bucket, so an area of interest is
++# read from the one or few tiles it intersects; per-class areas are computed in
++# each tile's native UTM projection and summed, which keeps the geodesic area
++# statistics correct and avoids double counting across tiles.
++
++#' @keywords internal
++#' @noRd
++.s2_years <- function() 2017:2023
++
++#' @keywords internal
++#' @noRd
++.s2_default_base_url <- function() {
++  # Public AWS Open Data bucket of the Esri / Impact Observatory 9-class
++  # 10 m Annual LULC (COGs, no token). Objects are flat: "<GZD>_<YYYY>.tif"
++  # (e.g. "15S_2023.tif"). Registry: https://registry.opendata.aws/io-lulc/
++  "https://io-10m-annual-lulc.s3.us-west-2.amazonaws.com"
++}
++
++#' Internal descriptor for the Sentinel-2 / Esri initiative
++#'
++#' Mirrors the shape of a MapBiomas registry entry (\code{key}, \code{label},
++#' \code{collection}, \code{years}) so it can flow through the same code paths,
++#' but carries \code{provider = "esri"} to route reading and legend selection.
++#' @keywords internal
++#' @noRd
++.s2_initiative <- function() {
++  list(key = "sentinel2",
++       label = "Sentinel-2 / Esri 10 m Land Cover (Impact Observatory)",
++       collection = NA_integer_, years = .s2_years(),
++       provider = "esri", build = NULL)
++}
++
++#' @keywords internal
++#' @noRd
++.s2_is_esri <- function(initiative) {
++  prov <- tryCatch(.mb_resolve_initiative(initiative)$provider,
++                   error = function(e) NA_character_)
++  identical(prov, "esri")
++}
++
++#' Clamp a year to the Sentinel-2 / Esri available range
++#' @keywords internal
++#' @noRd
++.s2_clamp_year <- function(year) {
++  y <- suppressWarnings(as.integer(year))
++  yy <- .s2_years()
++  if (length(y) != 1L || is.na(y)) return(max(yy))
++  min(max(y, min(yy)), max(yy))
++}
++
++#' Approximate national bounding boxes (lon/lat) of the MapBiomas products
++#'
++#' Used by \code{\link{.auto_initiative}} to pick the right MapBiomas country
++#' product from occurrence coordinates. Each is \code{c(xmin, xmax, ymin, ymax)}.
++#' @keywords internal
++#' @noRd
++.mb_country_bboxes <- function() list(
++  brazil    = c(-74.0, -34.0, -34.0,   5.3),
++  argentina = c(-74.0, -53.0, -55.5, -21.0),
++  bolivia   = c(-70.0, -57.0, -23.0,  -9.5),
++  chile     = c(-76.0, -66.0, -56.0, -17.0),
++  colombia  = c(-79.5, -66.8,  -4.3,  13.5),
++  ecuador   = c(-81.2, -75.0,  -5.1,   1.7),
++  peru      = c(-81.4, -68.6, -18.4,   0.1),
++  venezuela = c(-73.4, -59.8,   0.6,  12.3),
++  paraguay  = c(-62.7, -54.2, -27.6, -19.3),
++  uruguay   = c(-58.5, -53.0, -35.0, -30.0)
++)
++
++#' Auto-select the land-cover product from occurrence coordinates
++#'
++#' If the occurrences fall (mostly) within South America, returns the most
++#' likely MapBiomas country product (so MapBiomas is prioritised there); each
++#' point is assigned to the smallest-area national box that contains it, and the
++#' modal country wins. Otherwise returns \code{"sentinel2"} so the global
++#' Esri / Sentinel-2 layer is used directly. Points in South America but outside
++#' every national box (e.g. the Guianas) default to \code{"brazil"}, which the
++#' assessment's data-driven fallback still switches to Sentinel-2 if that
++#' product has no data there.
++#' @param pts An \code{sf}/\code{sfc} of occurrence points (any CRS).
++#' @return A single initiative key (a MapBiomas country or \code{"sentinel2"}).
++#' @keywords internal
++#' @noRd
++.auto_initiative <- function(pts) {
++  if (!requireNamespace("sf", quietly = TRUE)) return("sentinel2")
++  g <- sf::st_geometry(pts)
++  if (is.na(sf::st_crs(g))) sf::st_crs(g) <- 4326
++  g <- suppressWarnings(sf::st_transform(g, 4326))
++  co <- sf::st_coordinates(g)
++  if (!nrow(co)) return("sentinel2")
++  lon <- co[, 1]; lat <- co[, 2]
++  in_sa <- lon >= -82 & lon <= -34 & lat >= -56 & lat <= 13
++  if (mean(in_sa, na.rm = TRUE) < 0.5) return("sentinel2")  # mostly outside SA
++  boxes <- .mb_country_bboxes()
++  areas <- vapply(boxes, function(b) (b[2] - b[1]) * (b[4] - b[3]), numeric(1))
++  assign1 <- function(lo, la) {
++    hit <- names(boxes)[vapply(boxes, function(b)
++      lo >= b[1] && lo <= b[2] && la >= b[3] && la <= b[4], logical(1))]
++    if (!length(hit)) return(NA_character_)
++    hit[which.min(areas[hit])]
++  }
++  cc <- mapply(assign1, lon[in_sa], lat[in_sa])
++  cc <- cc[!is.na(cc)]
++  if (!length(cc)) return("brazil")
++  names(sort(table(cc), decreasing = TRUE))[1]
++}
++
++#' Years available for the global Sentinel-2 / Esri land-cover series
++#'
++#' @return An integer vector of the years covered by the Esri / Impact
++#'   Observatory 10 m Annual Land Use Land Cover product (currently
++#'   2017-2023).
++#' @examples
++#' range(s2_years())
++#' @seealso \code{\link{esri_legend}}, \code{\link{s2_source_url}},
++#'   \code{\link{assess_species}}
++#' @export
++s2_years <- function() as.integer(.s2_years())
++
++#' Sentinel-2 / Esri global 10 m land-cover legend
++#'
++#' Returns the 9-class legend of the Esri / Impact Observatory / Microsoft
++#' "10 m Annual Land Use Land Cover" product (derived from ESA Sentinel-2, the
++#' data behind the ArcGIS Living Atlas Land Cover Explorer), with each pixel
++#' class mapped to the same conservation groups used by \pkg{mappingAS} for
++#' MapBiomas (\code{"natural"}, \code{"anthropic"}, \code{"water"},
++#' \code{"other"}, \code{"not_observed"}). This lets a range assessed with the
++#' global fallback flow through the exact same conversion, plotting and report
++#' pipeline as a MapBiomas one (see \code{\link{summarise_conversion}}).
++#'
++#' Group mapping: Trees, Rangeland and Flooded Vegetation are \code{natural};
++#' Crops and Built Area are \code{anthropic} (converted habitat); Water is
++#' \code{water}; Bare Ground and Snow/Ice are \code{other} (ambiguous, excluded
++#' from the conversion denominator by default); Clouds are \code{not_observed}.
++#'
++#' @return A \code{data.frame} with columns \code{code}, \code{class_en},
++#'   \code{class_pt}, \code{hex} (official Esri colour), \code{level1} and
++#'   \code{group}.
++#' @examples
++#' esri_legend()
++#' subset(esri_legend(), group == "anthropic")$class_en
++#' @seealso \code{\link{mb_legend}}, \code{\link{summarise_conversion}}
++#' @export
++esri_legend <- function() {
++  data.frame(
++    code     = c(1L, 2L, 4L, 5L, 7L, 8L, 9L, 10L, 11L),
++    class_en = c("Water", "Trees", "Flooded Vegetation", "Crops",
++                 "Built Area", "Bare Ground", "Snow/Ice", "Clouds",
++                 "Rangeland"),
++    class_pt = c("Agua", "Arvores", "Vegetacao Alagavel", "Agricultura",
++                 "Area Construida", "Solo Exposto", "Neve/Gelo", "Nuvens",
++                 "Vegetacao Campestre"),
++    hex      = c("#1A5BAB", "#358221", "#87D19E", "#FFDB5C",
++                 "#ED022A", "#EDE9E4", "#F2FAFF", "#C8C8C8",
++                 "#C6AD8D"),
++    level1   = c("Water", "Forest", "Herbaceous/Shrubby", "Farming",
++                 "NonVegetated", "NonVegetated", "Water", "NotObserved",
++                 "Herbaceous/Shrubby"),
++    group    = c("water", "natural", "natural", "anthropic",
++                 "anthropic", "other", "other", "not_observed",
++                 "natural"),
++    stringsAsFactors = FALSE
++  )
++}
++
++#' Build the Sentinel-2 / Esri land-cover GeoTIFF URL for a tile and year
++#'
++#' Returns the public Cloud-Optimized GeoTIFF URL of one MGRS grid-zone tile of
++#' the Esri / Impact Observatory 10 m Annual Land Use Land Cover product. The
++#' global mosaic is tiled by MGRS grid-zone designator (e.g. \code{"47P"}); an
++#' area of interest usually intersects one or a few tiles, which the local
++#' backend resolves automatically (see \code{\link{s2_raster_local}}).
++#'
++#' @param tile MGRS grid-zone designator (UTM zone number + latitude band
++#'   letter), e.g. \code{"47P"}. The public bucket zero-pads the zone to two
++#'   digits (e.g. \code{"01C"}).
++#' @param year Integer year (2017-2023).
++#' @param base_url Base URL of the public bucket holding the per-tile COGs.
++#'   Defaults to the public AWS Open Data bucket \code{io-10m-annual-lulc};
++#'   kept overridable so a mirror or an updated layout can be used without
++#'   changing the package.
++#' @return A length-1 character URL of the form \code{<base>/<tile>_<year>.tif}.
++#' @examples
++#' s2_source_url("47P", 2023)
++#' @seealso \code{\link{s2_raster_local}}, \code{\link{esri_legend}}
++#' @export
++s2_source_url <- function(tile, year = 2023, base_url = NULL) {
++  if (is.null(base_url)) base_url <- .s2_default_base_url()
++  y <- as.integer(year)
++  sprintf("%s/%s_%d.tif", sub("/+$", "", base_url), tile, y)
++}
++
++# ---- MGRS grid-zone helpers -------------------------------------------------
++
++#' @keywords internal
++#' @noRd
++.s2_bands <- function() {
++  c("C", "D", "E", "F", "G", "H", "J", "K", "L", "M",
++    "N", "P", "Q", "R", "S", "T", "U", "V", "W", "X")
++}
++
++#' UTM zone number (1-60) for a longitude
++#' @keywords internal
++#' @noRd
++.s2_utm_zone <- function(lon) {
++  lon <- ((lon + 180) %% 360) - 180            # wrap to [-180, 180)
++  z <- as.integer(floor((lon + 180) / 6) + 1L)
++  ((z - 1L) %% 60L) + 1L
++}
++
++#' MGRS latitude band letter (C-X) for a latitude
++#' @keywords internal
++#' @noRd
++.s2_lat_band <- function(lat) {
++  bands <- .s2_bands()
++  lat <- max(min(lat, 84 - 1e-9), -80)
++  idx <- as.integer(floor((lat + 80) / 8) + 1L)
++  idx <- max(1L, min(idx, length(bands)))
++  bands[idx]
++}
++
++#' Geographic bounds (lon/lat) of one MGRS grid-zone cell
++#' @keywords internal
++#' @noRd
++.s2_cell_bounds <- function(zone, band) {
++  bands <- .s2_bands()
++  i <- match(band, bands)
++  south <- -80 + (i - 1L) * 8
++  north <- if (identical(band, "X")) 84 else south + 8
++  west <- -180 + (zone - 1L) * 6
++  east <- west + 6
++  c(xmin = west, ymin = south, xmax = east, ymax = north)
++}
++
++#' Enumerate the MGRS tiles intersecting an AOI (in lon/lat)
++#' @keywords internal
++#' @noRd
++.s2_tiles_for_aoi <- function(aoi_ll) {
++  bb <- as.numeric(sf::st_bbox(aoi_ll))          # xmin ymin xmax ymax
++  step <- 3                                       # sample bbox to catch all zones
++  xs <- unique(c(seq(bb[1], bb[3], by = step), bb[3]))
++  ys <- unique(c(seq(bb[2], bb[4], by = step), bb[4]))
++  grid <- expand.grid(lon = xs, lat = ys)
++  keys <- unique(mapply(function(lo, la)
++    paste(.s2_utm_zone(lo), .s2_lat_band(la), sep = "|"),
++    grid$lon, grid$lat))
++  lapply(strsplit(keys, "|", fixed = TRUE), function(zb) {
++    zone <- as.integer(zb[1]); band <- zb[2]
++    list(zone = zone, band = band, cell = .s2_cell_bounds(zone, band))
++  })
++}
++
++#' Candidate tile URLs (padded and unpadded zone) or an explicit source
++#'
++#' \code{src} may be an explicit single GeoTIFF (ends in \code{.tif}), used
++#' as-is, or a base-URL prefix that overrides the default bucket. The tile's
++#' MGRS designator is tried both zero-padded (\code{"01C"}, Sentinel-2 style)
++#' and unpadded (\code{"1C"}) so the reader is tolerant of either layout.
++#' @keywords internal
++#' @noRd
++.s2_tile_urls <- function(tile, year, src, base_url) {
++  if (!is.null(src) && grepl("\\.tif+$", src, ignore.case = TRUE)) return(src)
++  bu <- if (!is.null(src)) src
++        else if (!is.null(base_url)) base_url
++        else .s2_default_base_url()
++  padded <- sprintf("%02d%s", tile$zone, tile$band)
++  unpad  <- sprintf("%d%s", tile$zone, tile$band)
++  urls <- s2_source_url(padded, year, bu)
++  if (!identical(unpad, padded)) urls <- c(urls, s2_source_url(unpad, year, bu))
++  unique(urls)
++}
++
++#' Clip an AOI to one MGRS cell so tiles never double-count overlaps
++#' @keywords internal
++#' @noRd
++.s2_clip_to_cell <- function(aoi_ll, cell) {
++  bb <- sf::st_bbox(c(xmin = unname(cell["xmin"]), ymin = unname(cell["ymin"]),
++                      xmax = unname(cell["xmax"]), ymax = unname(cell["ymax"])),
++                    crs = 4326)
++  cellpoly <- sf::st_as_sfc(bb)
++  inter <- tryCatch(
++    suppressWarnings(sf::st_intersection(sf::st_geometry(aoi_ll), cellpoly)),
++    error = function(e) NULL)
++  if (is.null(inter) || length(inter) == 0 || all(sf::st_is_empty(inter)))
++    return(NULL)
++  inter
++}
++
++#' Read (and crop/mask) one Sentinel-2/Esri tile to the AOI
++#' @keywords internal
++#' @noRd
++.s2_read_tile <- function(tile, aoi_ll, year, src, base_url,
++                          cache = TRUE, cache_dir = NULL) {
++  clip <- .s2_clip_to_cell(aoi_ll, tile$cell)
++  if (is.null(clip)) return(NULL)
++
++  urls <- .s2_tile_urls(tile, year, src, base_url)
++  r <- NULL; used <- NA_character_
++  for (u in urls) {
++    path <- if (grepl("^https?://", u)) paste0("/vsicurl/", u) else u
++    r <- tryCatch(terra::rast(path), error = function(e) NULL)
++    if (!is.null(r)) { used <- u; break }
++  }
++  if (is.null(r)) return(NULL)
++
++  clip_r <- sf::st_transform(clip, terra::crs(r))
++  vect <- terra::vect(clip_r)
++  rc <- .mb_window(r, terra::ext(vect), used, year, 0L, cache, cache_dir)
++  rc <- terra::mask(rc, vect)
++  names(rc) <- "esri_class"
++  rc
++}
++
++#' Crop a Sentinel-2 / Esri LULC mosaic to an area of interest
++#'
++#' Global analogue of \code{\link{mb_raster_local}} for the Esri / Impact
++#' Observatory 10 m Annual Land Use Land Cover product. Determines the MGRS
++#' grid-zone tile(s) intersecting \code{aoi}, streams a windowed read of each
++#' via GDAL's \code{/vsicurl/} driver (no Google Earth Engine, no account),
++#' masks to the polygon and, when the AOI spans more than one tile, merges the
++#' pieces (reprojected to geographic coordinates for display). For accurate area
++#' statistics the assessment path tabulates each tile in its native projection
++#' and sums, rather than reprojecting; use \code{\link{summarise_conversion}} on
++#' the class areas for that.
++#'
++#' @param aoi An \code{sf}/\code{sfc} polygon (any CRS), e.g. an EOO hull or the
++#'   union of AOO cells.
++#' @param year Integer year (2017-2023, default \code{2023}).
++#' @param src Optional path/URL to a single Esri LULC GeoTIFF (ends in
++#'   \code{.tif}, used as-is), or a base-URL prefix that replaces the default
++#'   bucket. If \code{NULL} (default) the public bucket is used through
++#'   \code{/vsicurl/}.
++#' @param base_url Base URL of the public bucket (see \code{\link{s2_source_url}}).
++#' @param mask Logical; if \code{TRUE} (default) pixels outside the polygon are
++#'   set to \code{NA}.
++#' @param cache Logical; cache the windowed crops on disk (default \code{TRUE}).
++#' @param cache_dir Directory for the crop cache (default under \code{tempdir()}).
++#' @return A \pkg{terra} \code{SpatRaster} of Esri land-cover codes for the AOI.
++#' @seealso \code{\link{esri_legend}}, \code{\link{s2_source_url}},
++#'   \code{\link{mb_raster_local}}
++#' @export
++s2_raster_local <- function(aoi, year = 2023, src = NULL, base_url = NULL,
++                            mask = TRUE, cache = TRUE, cache_dir = NULL) {
++  if (!requireNamespace("terra", quietly = TRUE) ||
++      !requireNamespace("sf", quietly = TRUE)) {
++    stop("Packages 'terra' and 'sf' are required.", call. = FALSE)
++  }
++  aoi <- sf::st_geometry(aoi)
++  if (is.na(sf::st_crs(aoi))) sf::st_crs(aoi) <- 4326
++  aoi_ll <- sf::st_transform(aoi, 4326)
++
++  old <- .mb_set_gdal()
++  on.exit(for (k in names(old)) terra::setGDALconfig(k, old[[k]]), add = TRUE)
++
++  tiles <- .s2_tiles_for_aoi(aoi_ll)
++  parts <- lapply(tiles, .s2_read_tile, aoi_ll = aoi_ll, year = year,
++                  src = src, base_url = base_url, cache = cache,
++                  cache_dir = cache_dir)
++  parts <- parts[!vapply(parts, is.null, logical(1))]
++  if (!length(parts)) {
++    stop("Could not read any Sentinel-2/Esri land-cover tile for this area ",
++         "(year ", year, ").\nIf you are offline or the host is blocked, ",
++         "download the GeoTIFF and pass it via `src=`.", call. = FALSE)
++  }
++  parts <- lapply(parts, function(r)
++    if (terra::same.crs(r, "EPSG:4326")) r
++    else terra::project(r, "EPSG:4326", method = "near"))
++  if (length(parts) == 1L) {
++    r <- parts[[1]]
++  } else {
++    # Independently projected tiles have different origins; project each onto a
++    # single common geographic grid so they align, then merge (tiles are
++    # disjoint MGRS cells, so there is nothing to double-count).
++    exs  <- lapply(parts, function(r) as.vector(terra::ext(r)))
++    tmpl <- terra::rast(
++      terra::ext(min(vapply(exs, `[`, 0, 1)), max(vapply(exs, `[`, 0, 2)),
++                 min(vapply(exs, `[`, 0, 3)), max(vapply(exs, `[`, 0, 4))),
++      resolution = terra::res(parts[[1]]), crs = "EPSG:4326")
++    parts <- lapply(parts, function(r) terra::project(r, tmpl, method = "near"))
++    r <- do.call(terra::merge, parts)
++  }
++  names(r) <- "esri_class"
++  if (isTRUE(mask)) r <- terra::mask(r, terra::vect(aoi_ll))
++  r
++}
++
++#' Per-class Esri land-cover areas over an AOI (native-projection sum)
++#'
++#' Reads each intersecting MGRS tile in its native UTM projection, tabulates the
++#' geodesic area per pixel class and sums across tiles. Because each AOI pixel is
++#' clipped to exactly one MGRS cell, tiles never double-count. Returned in the
++#' \code{code}/\code{area_km2} shape expected by \code{\link{summarise_conversion}}.
++#' @keywords internal
++#' @noRd
++.s2_class_areas <- function(aoi, year = 2023, src = NULL, base_url = NULL,
++                            cache = TRUE, cache_dir = NULL) {
++  if (!requireNamespace("terra", quietly = TRUE) ||
++      !requireNamespace("sf", quietly = TRUE)) {
++    stop("Packages 'terra' and 'sf' are required.", call. = FALSE)
++  }
++  aoi <- sf::st_geometry(aoi)
++  if (is.na(sf::st_crs(aoi))) sf::st_crs(aoi) <- 4326
++  aoi_ll <- sf::st_transform(aoi, 4326)
++
++  old <- .mb_set_gdal()
++  on.exit(for (k in names(old)) terra::setGDALconfig(k, old[[k]]), add = TRUE)
++
++  tiles <- .s2_tiles_for_aoi(aoi_ll)
++  tabs <- lapply(tiles, function(t) {
++    r <- .s2_read_tile(t, aoi_ll, year, src, base_url, cache, cache_dir)
++    if (is.null(r)) return(NULL)
++    mb_class_areas_raster(r)
++  })
++  tabs <- tabs[!vapply(tabs, is.null, logical(1))]
++  if (!length(tabs)) return(data.frame(code = integer(0), area_km2 = numeric(0)))
++  all <- do.call(rbind, tabs)
++  agg <- stats::aggregate(area_km2 ~ code, data = all, FUN = sum)
++  agg$code <- as.integer(agg$code)
++  agg[is.finite(agg$area_km2) & agg$area_km2 > 0, , drop = FALSE]
++}
++
++#' Downsampled Sentinel-2/Esri raster for display (not area calc)
++#' @keywords internal
++#' @noRd
++.s2_raster_display <- function(aoi, year, src, max_pixels = 600,
++                               crs = NULL, cache = TRUE, base_url = NULL) {
++  r <- s2_raster_local(aoi, year = year, src = src, base_url = base_url,
++                       mask = TRUE, cache = cache)
++  d <- max(dim(r)[1:2])
++  if (d > max_pixels)
++    r <- terra::aggregate(r, fact = ceiling(d / max_pixels),
++                          fun = "modal", na.rm = TRUE)
++  if (!is.null(crs)) r <- terra::project(r, crs, method = "near")
++  names(r) <- "esri_class"
++  r
++}
+diff --git a/R/timeseries.R b/R/timeseries.R
+index fd3e88e..3cdfe70 100644
+--- a/R/timeseries.R
++++ b/R/timeseries.R
+@@ -169,8 +169,12 @@ timeseries_for_species <- function(assessment, species = NULL,
+     stop(sprintf("No %s geometry for '%s'.", toupper(range), species), call. = FALSE)
+ 
+   s <- assessment$settings
+-  ts <- cover_timeseries(geom, years = years, collection = s$collection,
+-                         initiative = s$initiative %||% "brazil",
++  # Prefer the product actually used for this species (Sentinel-2 / Esri when the
++  # range fell back outside MapBiomas coverage).
++  lc_ini  <- obj$initiative %||% s$initiative %||% "brazil"
++  lc_coll <- obj$collection %||% s$collection
++  ts <- cover_timeseries(geom, years = years, collection = lc_coll,
++                         initiative = lc_ini,
+                          backend = s$backend, src = src, by = by,
+                          verbose = verbose)
+   attr(ts, "species") <- species
+@@ -210,11 +214,11 @@ plot_timeseries <- function(ts, title = NULL, legend = TRUE,
+   lab <- if (lang == "en") {
+     list(x = "Year", y = "Percentage (%)",
+          fill = "Land-cover classes", legend = "Classes",
+-         title = "land cover over time (MapBiomas)")
++         title = "land cover over time")
+   } else {
+     list(x = "Ano", y = "Porcentagem (%)",
+          fill = "Classes de cobertura do solo", legend = "Classes",
+-         title = "cobertura ao longo do tempo (MapBiomas)")
++         title = "cobertura ao longo do tempo")
+   }
+ 
+   # guarantee a rectangular series (every label in every year) so a class that
+diff --git a/README.md b/README.md
+index 507aa9c..04a6326 100644
+--- a/README.md
++++ b/README.md
+@@ -190,7 +190,7 @@ Key columns (`res$summary`, also shown with a glossary in the app's **Results**
+ | `eoo_converted_pct` / `eoo_natural_pct` | % converted / natural within the EOO |
+ | `aoo_converted_pct` / `aoo_natural_pct` | % converted / natural within the AOO |
+ | `eoo_cat_B1`, `aoo_cat_B2`, `provisional_cat` | Provisional categories (size only) |
+-| `mapbiomas_initiative`, `mapbiomas_year`, `mapbiomas_collection` | Land-cover source used (Brazil / Amazonia / Colombia) |
++| `mapbiomas_initiative`, `mapbiomas_year`, `mapbiomas_collection` | Land-cover source used per species (a MapBiomas product, or `sentinel2` when the range fell back to the global Esri/Sentinel-2 layer) |
+ | `eoo_burned_pct`, `aoo_burned_pct` | % of the EOO/AOO burned at least once *(fire = TRUE)* |
+ | `occ_in_uc_pct`, `eoo_uc_pct`, `aoo_uc_pct`, `n_uc` | Overlap with protected areas *(protected = TRUE)* |
+ | `eoo_nat_uc_pct`, `aoo_nat_uc_pct` | Share of the range that is natural *and* protected |
+@@ -244,6 +244,23 @@ res_az <- assess_species(occ, initiative = "amazonia")
+ 
+ **One standardised legend.** MapBiomas harmonises its pixel codes across initiatives, so `mb_legend()` returns a single *standardised* table (same class names, colours and conservation groups) that labels every country's raster consistently — this is what lets a range spanning more than one country be assessed coherently. The country-specific classes (Andinean formations, Glacier, primary/secondary/dwarf forest, scrubland/steppe/fog oasis/peatlands, Pinus/Eucalyptus plantations, salt flat, …) are included; a code absent from a given product simply contributes zero area. MapBiomas **Fire** is published for Brazil only and is skipped (with a warning) for the other initiatives.
+ 
++## Outside MapBiomas: global Sentinel-2 land cover
++
++For a species whose range falls **outside every MapBiomas country**, `assess_species()` can fall back to the global **Esri / Impact Observatory 10 m Annual Land Use Land Cover** product — the Sentinel-2-derived data behind the [ArcGIS Living Atlas Land Cover Explorer](https://livingatlas.arcgis.com/landcoverexplorer/). It is streamed the same way as MapBiomas (public Cloud-Optimized GeoTIFFs via GDAL `/vsicurl/`, **no Google Earth Engine and no account**), tiled by MGRS grid zone and read only over each range.
++
++```r
++# Automatic: try MapBiomas, fall back to Sentinel-2 where it has no data
++res <- assess_species(occ, initiative = "auto")
++
++# Force the global Sentinel-2/Esri layer everywhere
++res <- assess_species(occ, initiative = "sentinel2")
++
++# Turn the automatic fallback off (out-of-coverage ranges return NA, as before)
++res <- assess_species(occ, initiative = "brazil", fallback = "none")
++```
++
++The automatic fallback is **on by default** (`fallback = "sentinel2"`). The 9 Sentinel-2 classes are mapped to the same conservation groups as MapBiomas — Trees / Rangeland / Flooded vegetation → *natural*; Crops / Built area → *anthropic* (converted); Water excluded; Bare ground and Snow/Ice excluded as ambiguous; Clouds → *not observed* — so the conversion percentages, per-class tables, donut charts, maps and report all work unchanged. The product actually used is recorded per species in the `mapbiomas_initiative` column. Years available: 2017–2023 (`s2_years()`). Helpers: `esri_legend()`, `s2_source_url()`, `s2_raster_local()`.
++
+ ---
+ 
+ ## Protected areas: WDPA (global)
+diff --git a/inst/shiny/app.R b/inst/shiny/app.R
+index 6eb037e..c9c329d 100644
+--- a/inst/shiny/app.R
++++ b/inst/shiny/app.R
+@@ -90,28 +90,34 @@ ui <- bslib::page_sidebar(
+       )
+     ),
+     hr(),
+-    selectInput("initiative", "MapBiomas initiative",
+-                choices = c("Brazil (Collection 10)" = "brazil",
+-                            "Amazonia / Pan-Amazon (Collection 6)" = "amazonia",
+-                            "Colombia (Collection 3)" = "colombia",
+-                            "Argentina (Collection 2)" = "argentina",
+-                            "Bolivia (Collection 3)" = "bolivia",
+-                            "Chile (Collection 1, 2000-2022)" = "chile",
+-                            "Ecuador (Collection 3)" = "ecuador",
+-                            "Peru (Collection 3)" = "peru",
+-                            "Venezuela (Collection 2)" = "venezuela",
+-                            "Paraguay (Collection 2, 1985-2023)" = "paraguay",
+-                            "Uruguay (Collection 1, 1985-2022)" = "uruguay"),
+-                selected = "brazil"),
+-    selectInput("year", "MapBiomas Year", choices = 2024:1985, selected = 2024),
++    selectInput("initiative", "Land-cover product",
++                choices = c(
++                  "Auto" = "auto",
++                  "Sentinel-2 / Esri global 10 m (2017-2023)" = "sentinel2",
++                  "Brazil (Collection 10)" = "brazil",
++                  "Amazonia / Pan-Amazon (Collection 6)" = "amazonia",
++                  "Colombia (Collection 3)" = "colombia",
++                  "Argentina (Collection 2)" = "argentina",
++                  "Bolivia (Collection 3)" = "bolivia",
++                  "Chile (Collection 1, 2000-2022)" = "chile",
++                  "Ecuador (Collection 3)" = "ecuador",
++                  "Peru (Collection 3)" = "peru",
++                  "Venezuela (Collection 2)" = "venezuela",
++                  "Paraguay (Collection 2, 1985-2023)" = "paraguay",
++                  "Uruguay (Collection 1, 1985-2022)" = "uruguay"),
++                selected = "auto"),
++    helpText(paste("Auto picks MapBiomas for occurrences in South America",
++                   "(by country) and the global Sentinel-2/Esri layer",
++                   "elsewhere. Pick a specific product to override.")),
++    selectInput("year", "Year (land cover)", choices = 2024:1985, selected = 2024),
+     numericInput("cell_km", "AOO Cell (km)", value = 2, min = 0.5, step = 0.5),
+-    radioButtons("backend", "MapBiomas Source",
++    radioButtons("backend", "Land cover source",
+                  choices = c("Local (no GEE account)" = "local",
+                              "Google Earth Engine" = "gee"),
+                  selected = "local"),
+     checkboxInput("water_denom", "Include water as natural in denominator", FALSE),
+-    checkboxInput("do_mb", "Calculate MapBiomas conversion", TRUE),
+-    checkboxInput("do_fire", "Calculate fire (MapBiomas burned area, Brazil only)", FALSE),
++    checkboxInput("do_mb", "Calculate land-cover conversion", TRUE),
++    checkboxInput("do_fire", "Calculate fire (burned area, Brazil only)", FALSE),
+     checkboxInput("do_pa", "Overlap with Protected areas (WDPA)", FALSE),
+     radioButtons("lang", "Legend language",
+                  choices = c("English" = "en", "Portuguese" = "pt"),
+@@ -153,8 +159,8 @@ ui <- bslib::page_sidebar(
+           downloadButton("dl_map_static", "Publishable map (PNG)", class = "mb-2"),
+           hr(),
+           checkboxGroupInput("raster_layers", "GeoTIFF rasters to export",
+-                             choices = c("MapBiomas land use" = "lulc",
+-                                         "MapBiomas fire (accumulated)" = "fire"),
++                             choices = c("Land cover" = "lulc",
++                                         "Fire (accumulated, Brazil)" = "fire"),
+                              selected = "lulc"),
+           downloadButton("dl_rasters", "Download rasters (GeoTIFF .zip)",
+                          class = "mb-1"),
+@@ -184,9 +190,9 @@ ui <- bslib::page_sidebar(
+       div(style = "height:460px; min-height:460px;",
+           plotly::plotlyOutput("chart", height = "100%")),
+       tags$hr(),
+-      h5("MapBiomas composition (donut)"),
+-      helpText("Share of each MapBiomas class (or conservation group) inside the",
+-               "EOO and AOO, in the official MapBiomas colours."),
++      h5("Land-cover composition (donut)"),
++      helpText("Share of each land-cover class (or conservation group) inside the",
++               "EOO and AOO, in the official land-cover colours."),
+       fluidRow(
+         column(6, radioButtons(
+           "donut_by", "Breakdown",
+@@ -201,7 +207,7 @@ ui <- bslib::page_sidebar(
+     bslib::nav_panel(
+       "Classes", icon = icon("list"),
+       selectInput("class_species", "Species", choices = NULL),
+-      helpText("Area and % of each MapBiomas class within EOO and AOO."),
++      helpText("Area and % of each land-cover class within EOO and AOO."),
+       downloadButton("dl_classes", "Download classes (CSV)", class = "mb-3"),
+       DT::DTOutput("class_tbl")
+     ),
+@@ -238,7 +244,7 @@ ui <- bslib::page_sidebar(
+         downloadButton("dl_ts", "Download series (CSV)"),
+         downloadButton("dl_ts_png", "Save image (PNG)")
+       ),
+-      helpText("Complete MapBiomas history (annual by default). A 1-year step reads all years and may be slow; increase the step to speed up."),
++      helpText("Complete land-cover history (annual by default). A 1-year step reads all years and may be slow; increase the step to speed up."),
+       uiOutput("ts_summary"),
+       div(style = "height:480px; min-height:480px;",
+           plotly::plotlyOutput("ts_plot", height = "100%")),
+@@ -298,7 +304,7 @@ ui <- bslib::page_sidebar(
+               cells &times; 4 km<sup>2</sup> (IUCN reference scale). The occupied-cell
+               count is the minimum over several randomly translated grids.</li>
+           <li><b>% converted</b> = anthropic / (anthropic + natural) within the
+-              EOO and AOO, from MapBiomas land cover. <b>% natural</b> (current)
++              EOO and AOO, from the land-cover product. <b>% natural</b> (current)
+               is the complement. Water and unobserved areas are excluded from the
+               denominator by default.</li>
+           <li><b>Burned area &amp; fire frequency</b>: percentage of the EOO/AOO
+@@ -317,13 +323,19 @@ ui <- bslib::page_sidebar(
+ 
+         <h4>Data sources</h4>
+         <ul>
+-          <li><b>MapBiomas Brazil — Land Use and Land Cover</b> (Collection 10,
+-              1985&ndash;2024). The local backend streams a window of the national
+-              GeoTIFF via <code>/vsicurl/</code>; the GEE backend computes per-class
+-              areas server-side.</li>
++          <li><b>MapBiomas — Land Use and Land Cover</b> (Brazil, Amazonia and the
++              South-American country collections, 1985&ndash;2024). The local
++              backend streams a window of the national GeoTIFF via
++              <code>/vsicurl/</code>; the GEE backend computes per-class areas
++              server-side. Used for occurrences within South America.</li>
++          <li><b>Esri / Impact Observatory 10 m Annual Land Use Land Cover</b>
++              (Sentinel-2, 9-class, 2017&ndash;2023): the global layer behind the
++              ArcGIS Living Atlas Land Cover Explorer, streamed as public COGs via
++              <code>/vsicurl/</code>. Used automatically for occurrences outside
++              MapBiomas coverage.</li>
+           <li><b>MapBiomas Fire (Fogo)</b> (Collection 4): annual burned area,
+               accumulated burned area and fire-frequency layers
+-              (1985&ndash;2024).</li>
++              (1985&ndash;2024, Brazil only).</li>
+         </ul>
+ 
+         <h4>Key references</h4>
+@@ -352,15 +364,22 @@ ui <- bslib::page_sidebar(
+           <i>Remote Sensing</i>, 14(11), 2510.
+           <a href='https://doi.org/10.3390/rs14112510' target='_blank' rel='noopener'>doi:10.3390/rs14112510</a>.
+           <br><br>
+-          Project MapBiomas — Collection 10 of the Annual Land Use and Land Cover
+-          Maps of Brazil, and MapBiomas Fire Collection 4.
++          Project MapBiomas — Annual Land Use and Land Cover Maps (Brazil and
++          South-American collections) and MapBiomas Fire Collection 4.
+           <a href='https://brasil.mapbiomas.org' target='_blank' rel='noopener'>brasil.mapbiomas.org</a>.
++          <br><br>
++          Karra, K. <i>et al.</i> (2021). Global land use/land cover with
++          Sentinel-2 and deep learning. <i>IGARSS 2021</i>.
++          <a href='https://doi.org/10.1109/IGARSS47720.2021.9553499' target='_blank' rel='noopener'>doi:10.1109/IGARSS47720.2021.9553499</a>.
++          Esri, Impact Observatory &amp; Microsoft — Sentinel-2 10m Land Use/Land
++          Cover Time Series (ArcGIS Living Atlas).
+         </p>
+ 
+         <h4>How to cite</h4>
+         <p style='font-size:.92rem'>When using results from this application,
+-        please cite the MapBiomas Land Cover and MapBiomas Fire collections, the
+-        IUCN Red List guidelines.</p>
++        please cite the land-cover source used (MapBiomas collections, or the
++        Esri/Impact Observatory Sentinel-2 series for areas outside MapBiomas),
++        MapBiomas Fire where applicable, and the IUCN Red List guidelines.</p>
+ 
+         </div>"
+       )
+@@ -527,8 +546,9 @@ server <- function(input, output, session) {
+       c("eoo_cat_B1", L("Provisional category by EOO size (sub-criterion B1).", "Categoria provisoria pelo tamanho da EOO (subcriterio B1).")),
+       c("aoo_cat_B2", L("Provisional category by AOO size (sub-criterion B2).", "Categoria provisoria pelo tamanho da AOO (subcriterio B2).")),
+       c("provisional_cat", L("Combined provisional category (the more threatened of B1/B2). Screening only.", "Categoria provisoria combinada (a mais ameacada entre B1/B2). Apenas triagem.")),
+-      c("mapbiomas_year", L("MapBiomas land-cover year used.", "Ano da cobertura MapBiomas usada.")),
+-      c("mapbiomas_collection", L("MapBiomas collection number.", "Numero da colecao MapBiomas.")),
++      c("mapbiomas_initiative", L("Land-cover product used (a MapBiomas country, or 'sentinel2' for the global Esri/Sentinel-2 layer).", "Produto de cobertura usado (um pais do MapBiomas, ou 'sentinel2' para a camada global Esri/Sentinel-2).")),
++      c("mapbiomas_year", L("Land-cover year used.", "Ano da cobertura usada.")),
++      c("mapbiomas_collection", L("Land-cover collection number (NA for Sentinel-2).", "Numero da colecao de cobertura (NA para Sentinel-2).")),
+       c("eoo_burned_pct", L("% of the EOO burned at least once (1985-2024).", "% da EOO queimada ao menos uma vez (1985-2024).")),
+       c("aoo_burned_pct", L("% of the AOO burned at least once (1985-2024).", "% da AOO queimada ao menos uma vez (1985-2024).")),
+       c("fire_collection", L("MapBiomas Fire collection number.", "Numero da colecao MapBiomas Fogo.")),
+@@ -649,14 +669,17 @@ server <- function(input, output, session) {
+       tmp <- file.path(tempdir(), paste0("rasters_", as.integer(Sys.time())))
+       dir.create(tmp, showWarnings = FALSE, recursive = TRUE)
+       files <- character(0)
+-      withProgress(message = "Preparing rasters (reading MapBiomas)...", value = 0, {
++      withProgress(message = "Preparing rasters (reading land cover)...", value = 0, {
+         if ("lulc" %in% layers) {
+-          r <- tryCatch(mappingAS::mb_raster_local(geom, year = st$year,
+-                          collection = st$collection,
+-                          initiative = st$initiative %||% "brazil"),
++          lc_ini  <- obj$initiative %||% st$initiative %||% "brazil"
++          lc_year <- obj$year %||% st$year
++          lc_coll <- obj$collection %||% st$collection
++          r <- tryCatch(mappingAS::mb_raster_local(geom, year = lc_year,
++                          collection = lc_coll,
++                          initiative = lc_ini),
+                         error = function(e) NULL)
+           if (!is.null(r)) {
+-            f <- file.path(tmp, sprintf("mapbiomas_lulc_%s_%s.tif", clip, st$year))
++            f <- file.path(tmp, sprintf("mapbiomas_lulc_%s_%s.tif", clip, lc_year))
+             terra::writeRaster(r, f, overwrite = TRUE, datatype = "INT1U",
+                                gdal = "COMPRESS=LZW"); files <- c(files, f)
+           }
+@@ -764,7 +787,7 @@ server <- function(input, output, session) {
+         by = input$donut_by %||% "class", lang = input$lang %||% "en"),
+       error = function(e) e)
+     validate(need(!inherits(p, "error"),
+-                  "No class data available. Enable 'Calculate MapBiomas conversion' and reassess."))
++                  "No class data available. Enable 'Calculate land-cover conversion' and reassess."))
+     mappingAS::mas_plotly(p)
+   })
+ 
+@@ -822,14 +845,14 @@ server <- function(input, output, session) {
+       mappingAS::class_table(result(), species = input$class_species, range = "both"),
+       error = function(e) data.frame())
+     validate(need(nrow(df) > 0,
+-                  "No class data available. Enable 'Calculate MapBiomas conversion' and reassess."))
++                  "No class data available. Enable 'Calculate land-cover conversion' and reassess."))
+ 
+     lg <- input$lang %||% "en"
+     if (lg == "en") df$class_pt <- NULL else df$class_en <- NULL
+     names(df)[names(df) %in% c("class_pt", "class_en")] <- "class"
+ 
+     .mas_dt(df, page = 25,
+-            caption = "Area and % by MapBiomas class (EOO and AOO)")
++            caption = "Area and % by land-cover class (EOO and AOO)")
+   })
+ 
+   output$dl_classes <- downloadHandler(
+@@ -907,7 +930,7 @@ server <- function(input, output, session) {
+     req(result(), input$fire_species)
+     obj <- result()$detail[[input$fire_species]]
+     validate(need(!is.null(obj$eoo_fire) || !is.null(obj$aoo_fire),
+-                  "Enable 'Calculate fire (MapBiomas burned area)' in the side panel and reassess."))
++                  "Enable 'Calculate fire (burned area)' in the side panel and reassess."))
+     fmt <- function(f, lab) {
+       if (is.null(f)) return(sprintf("<li>%s: no data</li>", lab))
+       sprintf("<li><b>%s:</b> %.1f%% of the area has burned at least once (1985-2024).</li>",
+diff --git a/man/assess_species.Rd b/man/assess_species.Rd
+index f5cdf6e..6b6efc8 100644
+--- a/man/assess_species.Rd
++++ b/man/assess_species.Rd
+@@ -10,6 +10,7 @@ assess_species(
+   year = NULL,
+   collection = NULL,
+   backend = c("local", "gee"),
++  fallback = c("sentinel2", "none"),
+   cell_km = 2,
+   mapbiomas = TRUE,
+   fire = FALSE,
+@@ -27,13 +28,18 @@ assess_species(
+ \arguments{
+ \item{occ}{An \code{sf} of POINT geometries from \code{\link{read_occurrences}}.}
+ 
+-\item{initiative}{MapBiomas initiative: \code{"brazil"} (default),
+-\code{"amazonia"} (Pan-Amazon / RAISG), \code{"colombia"} or any of the
+-other South-American products (Argentina, Bolivia, Chile, Ecuador, Peru,
+-Venezuela, Paraguay, Uruguay). Selects the land-cover product, its default
+-collection and the standardised legend, so a species anywhere these
+-products cover can be assessed without Google Earth Engine (see
+-\code{\link{mb_initiatives}}).}
++\item{initiative}{Land-cover product. A MapBiomas initiative -
++\code{"brazil"} (default), \code{"amazonia"} (Pan-Amazon / RAISG),
++\code{"colombia"} or any of the other South-American products (Argentina,
++Bolivia, Chile, Ecuador, Peru, Venezuela, Paraguay, Uruguay) - selects that
++product, its default collection and the standardised legend (see
++\code{\link{mb_initiatives}}). Two extra keys unlock coverage anywhere on
++Earth: \code{"sentinel2"} forces the global Esri / Impact Observatory 10 m
++land cover (Sentinel-2, the data behind the ArcGIS Living Atlas Land Cover
++Explorer; see \code{\link{esri_legend}}), and \code{"auto"} tries MapBiomas
++first and automatically falls back to Sentinel-2 for ranges outside
++MapBiomas coverage. All backends stream public Cloud-Optimized GeoTIFFs -
++no Google Earth Engine and no account.}
+ 
+ \item{year}{Integer MapBiomas year. \code{NULL} (default) uses the most recent
+ year available for the initiative (e.g. 2024 for Brazil/Colombia, 2023 for
+@@ -45,6 +51,12 @@ uses the initiative default (10/6/3 for Brazil/Amazonia/Colombia).}
+ \item{backend}{Habitat backend: \code{"local"} (default) or \code{"gee"}.
+ The \code{"gee"} backend is only wired for \code{initiative = "brazil"}.}
+ 
++\item{fallback}{What to do when the chosen MapBiomas product has no data over
++a species' range (i.e. the occurrences fall outside every supported
++country): \code{"sentinel2"} (default) recomputes that species with the
++global Sentinel-2 / Esri layer; \code{"none"} leaves its conversion as
++\code{NA}. Ignored when \code{initiative = "sentinel2"}.}
++
+ \item{cell_km}{AOO grid cell size in km (default \code{2}).}
+ 
+ \item{mapbiomas}{Logical; if \code{FALSE}, only EOO/AOO are computed.}
+diff --git a/man/esri_legend.Rd b/man/esri_legend.Rd
+new file mode 100644
+index 0000000..7257bcd
+--- /dev/null
++++ b/man/esri_legend.Rd
+@@ -0,0 +1,36 @@
++% Generated by roxygen2: do not edit by hand
++% Please edit documentation in R/sentinel2.R
++\name{esri_legend}
++\alias{esri_legend}
++\title{Sentinel-2 / Esri global 10 m land-cover legend}
++\usage{
++esri_legend()
++}
++\value{
++A \code{data.frame} with columns \code{code}, \code{class_en},
++\code{class_pt}, \code{hex} (official Esri colour), \code{level1} and
++\code{group}.
++}
++\description{
++Returns the 9-class legend of the Esri / Impact Observatory / Microsoft
++"10 m Annual Land Use Land Cover" product (derived from ESA Sentinel-2, the
++data behind the ArcGIS Living Atlas Land Cover Explorer), with each pixel
++class mapped to the same conservation groups used by \pkg{mappingAS} for
++MapBiomas (\code{"natural"}, \code{"anthropic"}, \code{"water"},
++\code{"other"}, \code{"not_observed"}). This lets a range assessed with the
++global fallback flow through the exact same conversion, plotting and report
++pipeline as a MapBiomas one (see \code{\link{summarise_conversion}}).
++}
++\details{
++Group mapping: Trees, Rangeland and Flooded Vegetation are \code{natural};
++Crops and Built Area are \code{anthropic} (converted habitat); Water is
++\code{water}; Bare Ground and Snow/Ice are \code{other} (ambiguous, excluded
++from the conversion denominator by default); Clouds are \code{not_observed}.
++}
++\examples{
++esri_legend()
++subset(esri_legend(), group == "anthropic")$class_en
++}
++\seealso{
++\code{\link{mb_legend}}, \code{\link{summarise_conversion}}
++}
+diff --git a/man/s2_raster_local.Rd b/man/s2_raster_local.Rd
+new file mode 100644
+index 0000000..eeb5605
+--- /dev/null
++++ b/man/s2_raster_local.Rd
+@@ -0,0 +1,54 @@
++% Generated by roxygen2: do not edit by hand
++% Please edit documentation in R/sentinel2.R
++\name{s2_raster_local}
++\alias{s2_raster_local}
++\title{Crop a Sentinel-2 / Esri LULC mosaic to an area of interest}
++\usage{
++s2_raster_local(
++  aoi,
++  year = 2023,
++  src = NULL,
++  base_url = NULL,
++  mask = TRUE,
++  cache = TRUE,
++  cache_dir = NULL
++)
++}
++\arguments{
++\item{aoi}{An \code{sf}/\code{sfc} polygon (any CRS), e.g. an EOO hull or the
++union of AOO cells.}
++
++\item{year}{Integer year (2017-2023, default \code{2023}).}
++
++\item{src}{Optional path/URL to a single Esri LULC GeoTIFF (ends in
++\code{.tif}, used as-is), or a base-URL prefix that replaces the default
++bucket. If \code{NULL} (default) the public bucket is used through
++\code{/vsicurl/}.}
++
++\item{base_url}{Base URL of the public bucket (see \code{\link{s2_source_url}}).}
++
++\item{mask}{Logical; if \code{TRUE} (default) pixels outside the polygon are
++set to \code{NA}.}
++
++\item{cache}{Logical; cache the windowed crops on disk (default \code{TRUE}).}
++
++\item{cache_dir}{Directory for the crop cache (default under \code{tempdir()}).}
++}
++\value{
++A \pkg{terra} \code{SpatRaster} of Esri land-cover codes for the AOI.
++}
++\description{
++Global analogue of \code{\link{mb_raster_local}} for the Esri / Impact
++Observatory 10 m Annual Land Use Land Cover product. Determines the MGRS
++grid-zone tile(s) intersecting \code{aoi}, streams a windowed read of each
++via GDAL's \code{/vsicurl/} driver (no Google Earth Engine, no account),
++masks to the polygon and, when the AOI spans more than one tile, merges the
++pieces (reprojected to geographic coordinates for display). For accurate area
++statistics the assessment path tabulates each tile in its native projection
++and sums, rather than reprojecting; use \code{\link{summarise_conversion}} on
++the class areas for that.
++}
++\seealso{
++\code{\link{esri_legend}}, \code{\link{s2_source_url}},
++\code{\link{mb_raster_local}}
++}
+diff --git a/man/s2_source_url.Rd b/man/s2_source_url.Rd
+new file mode 100644
+index 0000000..6867956
+--- /dev/null
++++ b/man/s2_source_url.Rd
+@@ -0,0 +1,35 @@
++% Generated by roxygen2: do not edit by hand
++% Please edit documentation in R/sentinel2.R
++\name{s2_source_url}
++\alias{s2_source_url}
++\title{Build the Sentinel-2 / Esri land-cover GeoTIFF URL for a tile and year}
++\usage{
++s2_source_url(tile, year = 2023, base_url = NULL)
++}
++\arguments{
++\item{tile}{MGRS grid-zone designator (UTM zone number + latitude band
++letter), e.g. \code{"47P"}.}
++
++\item{year}{Integer year (2017-2023). The public bucket zero-pads the zone to two digits (e.g. "01C").}
++
++\item{base_url}{Base URL of the public bucket holding the per-tile COGs.
++Defaults to the public Impact Observatory / Esri time-series bucket; kept
++overridable so a mirror or an updated layout can be used without changing
++the package.}
++}
++\value{
++A length-1 character URL.
++}
++\description{
++Returns the public Cloud-Optimized GeoTIFF URL of one MGRS grid-zone tile of
++the Esri / Impact Observatory 10 m Annual Land Use Land Cover product. The
++global mosaic is tiled by MGRS grid-zone designator (e.g. \code{"47P"}); an
++area of interest usually intersects one or a few tiles, which the local
++backend resolves automatically (see \code{\link{s2_raster_local}}).
++}
++\examples{
++s2_source_url("47P", 2023)
++}
++\seealso{
++\code{\link{s2_raster_local}}, \code{\link{esri_legend}}
++}
+diff --git a/man/s2_years.Rd b/man/s2_years.Rd
+new file mode 100644
+index 0000000..42b6de0
+--- /dev/null
++++ b/man/s2_years.Rd
+@@ -0,0 +1,23 @@
++% Generated by roxygen2: do not edit by hand
++% Please edit documentation in R/sentinel2.R
++\name{s2_years}
++\alias{s2_years}
++\title{Years available for the global Sentinel-2 / Esri land-cover series}
++\usage{
++s2_years()
++}
++\value{
++An integer vector of the years covered by the Esri / Impact
++Observatory 10 m Annual Land Use Land Cover product (currently
++2017-2023).
++}
++\description{
++Years available for the global Sentinel-2 / Esri land-cover series
++}
++\examples{
++range(s2_years())
++}
++\seealso{
++\code{\link{esri_legend}}, \code{\link{s2_source_url}},
++\code{\link{assess_species}}
++}
+diff --git a/tests/testthat/test-sentinel2.R b/tests/testthat/test-sentinel2.R
+new file mode 100644
+index 0000000..d2ecb91
+--- /dev/null
++++ b/tests/testthat/test-sentinel2.R
+@@ -0,0 +1,159 @@
++# Global Sentinel-2 / Esri (Impact Observatory) fallback layer used when a
++# range falls outside every MapBiomas product. Pure-logic / pure-table checks
++# (no network).
++
++test_that("esri_legend has the expected structure and groupings", {
++  leg <- esri_legend()
++  expect_true(all(c("code", "class_en", "class_pt", "hex", "level1", "group")
++                  %in% names(leg)))
++  expect_false(any(duplicated(leg$code)))
++  expect_setequal(unique(leg$group),
++                  c("natural", "anthropic", "water", "other", "not_observed"))
++  g <- function(code) leg$group[leg$code == code]
++  expect_identical(g(2),  "natural")       # Trees
++  expect_identical(g(11), "natural")       # Rangeland
++  expect_identical(g(4),  "natural")       # Flooded vegetation
++  expect_identical(g(5),  "anthropic")     # Crops
++  expect_identical(g(7),  "anthropic")     # Built area
++  expect_identical(g(1),  "water")         # Water
++  expect_identical(g(8),  "other")         # Bare ground
++  expect_identical(g(9),  "other")         # Snow/Ice
++  expect_identical(g(10), "not_observed")  # Clouds
++  expect_true(all(grepl("^#", leg$hex)))
++})
++
++test_that("sentinel2 aliases resolve to the Esri provider", {
++  res <- function(x) mappingAS:::.mb_resolve_initiative(x)
++  for (a in c("sentinel2", "sentinel-2", "s2", "esri", "io-lulc", "global",
++              "world")) {
++    ini <- res(a)
++    expect_identical(ini$provider, "esri")
++    expect_identical(ini$key, "sentinel2")
++  }
++  expect_equal(range(res("sentinel2")$years), c(2017L, 2023L))
++  # MapBiomas products keep provider = "mapbiomas"
++  expect_identical(res("brazil")$provider, "mapbiomas")
++})
++
++test_that("mb_legend / mb_groups / mb_palette route to the Esri legend", {
++  leg <- mb_legend(initiative = "sentinel2")
++  expect_identical(leg, esri_legend())
++  grp <- mb_groups(initiative = "sentinel2")
++  expect_true(2 %in% grp$natural)
++  expect_true(5 %in% grp$anthropic)
++  pal <- mb_palette(c(2, 5), initiative = "sentinel2")
++  expect_identical(unname(pal[as.character(2)]), esri_legend()$hex[
++    esri_legend()$code == 2])
++})
++
++test_that("mb_legend does not warn for the Esri layer regardless of collection", {
++  expect_silent(mb_legend(initiative = "sentinel2"))
++  expect_silent(mb_legend(99, "esri"))
++})
++
++test_that("s2_source_url builds the tiled public COG URL", {
++  u <- s2_source_url("47P", 2023)
++  expect_type(u, "character")
++  expect_length(u, 1L)
++  expect_match(u, "io-10m-annual-lulc.*/47P_2023\\.tif$")
++  expect_match(s2_source_url("10T", 2017), "/10T_2017\\.tif$")
++  # base_url is overridable
++  expect_match(s2_source_url("47P", 2023, base_url = "https://mirror/x"),
++               "^https://mirror/x/47P_2023\\.tif$")
++})
++
++test_that("mb_source_url refuses the Esri layer and points to s2_source_url", {
++  expect_error(mb_source_url(2024, initiative = "sentinel2"), "s2_source_url")
++})
++
++test_that("MGRS helpers map lon/lat to the right grid zone", {
++  zone <- mappingAS:::.s2_utm_zone
++  band <- mappingAS:::.s2_lat_band
++  expect_equal(zone(-51),   as.integer((floor((-51 + 180) / 6) + 1)))  # Brazil
++  expect_equal(zone(0),     31L)
++  expect_equal(zone(-180),  1L)
++  expect_equal(band(0),     "N")   # equator -> band N
++  expect_identical(band(-10), "L")
++  expect_identical(band(80),  "X") # high north -> extended X band
++  expect_identical(band(-80), "C")
++})
++
++test_that(".s2_cell_bounds returns a 6x8 degree cell", {
++  cb <- mappingAS:::.s2_cell_bounds(31L, "N")
++  expect_equal(unname(cb["xmin"]), 0)
++  expect_equal(unname(cb["xmax"]), 6)
++  expect_equal(unname(cb["ymin"]), 0)
++  expect_equal(unname(cb["ymax"]), 8)
++  # X band is extended to 84 N
++  expect_equal(unname(mappingAS:::.s2_cell_bounds(31L, "X")["ymax"]), 84)
++})
++
++test_that(".s2_tiles_for_aoi enumerates intersecting tiles", {
++  skip_if_not_installed("sf")
++  # A small AOI in France (~ lon 2, lat 48) -> UTM zone 31, band U
++  bb <- sf::st_bbox(c(xmin = 2, ymin = 48, xmax = 2.4, ymax = 48.3),
++                    crs = 4326)
++  aoi <- sf::st_as_sfc(bb)
++  tiles <- mappingAS:::.s2_tiles_for_aoi(aoi)
++  expect_true(length(tiles) >= 1L)
++  gzd <- vapply(tiles, function(t) sprintf("%02d%s", t$zone, t$band),
++                character(1))
++  expect_true("31U" %in% gzd)
++})
++
++test_that(".s2_clamp_year keeps years within the available range", {
++  cy <- mappingAS:::.s2_clamp_year
++  expect_equal(cy(2023), 2023L)
++  expect_equal(cy(2024), 2023L)   # beyond series end -> last year
++  expect_equal(cy(1990), 2017L)   # before series start -> first year
++  expect_equal(cy(3000), 2023L)   # after series end -> last year
++  expect_equal(cy(NA),   2023L)
++})
++
++test_that("summarise_conversion works with Esri codes via initiative", {
++  # Trees(2)=natural 60, Crops(5)=anthropic 30, Built(7)=anthropic 10, Water(1)=5
++  ca <- data.frame(code = c(2, 5, 7, 1), area_km2 = c(60, 30, 10, 5))
++  cv <- summarise_conversion(ca, initiative = "sentinel2")
++  expect_equal(cv$natural_km2, 60)
++  expect_equal(cv$anthropic_km2, 40)
++  expect_equal(cv$water_km2, 5)
++  # terrestrial denominator excludes water: 40 / 100 = 40%
++  expect_equal(cv$converted_pct, 40)
++  expect_equal(cv$natural_pct, 60)
++  expect_true(all(c("class_en", "group") %in% names(cv$by_class)))
++})
++
++test_that(".terr_area detects empty (out-of-coverage) conversion results", {
++  ta <- mappingAS:::.terr_area
++  expect_equal(ta(NULL), 0)
++  expect_equal(ta(list(natural_km2 = 0, anthropic_km2 = 0)), 0)
++  expect_equal(ta(list(natural_km2 = 12, anthropic_km2 = 3)), 15)
++})
++
++test_that(".auto_initiative picks MapBiomas in South America, Sentinel-2 outside", {
++  skip_if_not_installed("sf")
++  mk <- function(lon, lat) sf::st_as_sf(
++    data.frame(lon = lon, lat = lat),
++    coords = c("lon", "lat"), crs = 4326)
++  ai <- mappingAS:::.auto_initiative
++  # Brazil (Rio de Janeiro-ish)
++  expect_identical(ai(mk(c(-43.2, -43.3), c(-22.9, -22.8))), "brazil")
++  # Peru (Lima-ish) -> peru product, not brazil
++  expect_identical(ai(mk(c(-77.0, -76.9), c(-12.0, -12.1))), "peru")
++  # Outside South America (Kenya / USA) -> global Sentinel-2
++  expect_identical(ai(mk(c(36.8, 36.9), c(-1.3, -1.2))), "sentinel2")
++  expect_identical(ai(mk(c(-92.4, -92.5), c(39.7, 39.8))), "sentinel2")
++})
++
++test_that("auto resolves as a Brazil-default alias for direct helper calls", {
++  # assess_species detects "auto" itself; other helpers should not error on it.
++  expect_identical(mappingAS:::.mb_resolve_initiative("auto")$key, "brazil")
++  expect_equal(range(mb_years(initiative = "auto")), c(1985L, 2024L))
++})
++
++test_that("assess_species accepts the fallback argument and sentinel2/auto keys", {
++  # signature exposes `fallback`
++  expect_true("fallback" %in% names(formals(assess_species)))
++  # unknown initiative still errors and mentions the global fallback
++  expect_error(mb_source_url(2024, initiative = "narnia"), "sentinel2")
++})

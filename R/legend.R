@@ -38,6 +38,9 @@
 #' @export
 mb_legend <- function(collection = 10, initiative = "brazil") {
   ini <- .mb_resolve_initiative(initiative)
+  # Global Sentinel-2 / Esri fallback uses its own 9-class legend, mapped to the
+  # same conservation groups so the downstream pipeline is unchanged.
+  if (identical(ini$provider, "esri")) return(esri_legend())
   if (!identical(as.integer(collection), as.integer(ini$collection))) {
     warning(sprintf(
       "mappingAS ships the standardised legend for %s Collection %d; using it.",

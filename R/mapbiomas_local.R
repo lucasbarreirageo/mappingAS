@@ -20,6 +20,10 @@
 #' @export
 mb_source_url <- function(year = 2024, collection = NULL, initiative = "brazil") {
   ini <- .mb_resolve_initiative(initiative)
+  if (identical(ini$provider, "esri")) {
+    stop("mb_source_url() builds MapBiomas URLs; the global Sentinel-2/Esri ",
+         "layer is tiled - use s2_source_url() instead.", call. = FALSE)
+  }
   if (is.null(collection)) collection <- ini$collection
   collection <- as.integer(collection)
   year <- as.integer(year)
@@ -89,6 +93,11 @@ mb_raster_local <- function(aoi, year = 2024, collection = NULL,
     stop("Package 'terra' is required.", call. = FALSE)
   }
   ini <- .mb_resolve_initiative(initiative)
+  # Global Sentinel-2 / Esri fallback: read the tiled global mosaic instead.
+  if (identical(ini$provider, "esri")) {
+    return(s2_raster_local(aoi, year = year, src = src, mask = mask,
+                           cache = cache, cache_dir = cache_dir))
+  }
   if (is.null(collection)) collection <- ini$collection
   aoi <- sf::st_geometry(aoi)
   if (is.na(sf::st_crs(aoi))) sf::st_crs(aoi) <- 4326
@@ -144,6 +153,10 @@ mb_raster_local <- function(aoi, year = 2024, collection = NULL,
 #' @noRd
 .mb_raster_display <- function(aoi, year, collection, src, max_pixels = 600,
                                crs = NULL, cache = TRUE, initiative = "brazil") {
+  if (.s2_is_esri(initiative)) {
+    return(.s2_raster_display(aoi, year = year, src = src,
+                              max_pixels = max_pixels, crs = crs, cache = cache))
+  }
   r <- tryCatch(
     .mb_display_read(aoi, year, collection, src, max_pixels, initiative),
     error = function(e) NULL)

@@ -1,3 +1,29 @@
+# mappingAS 1.11.0
+
+* **Global Sentinel-2 fallback for ranges outside MapBiomas.** When a species'
+  occurrences fall outside every supported MapBiomas country, `assess_species()`
+  can now quantify habitat conversion from the **Esri / Impact Observatory 10 m
+  Annual Land Use Land Cover** product - the global, Sentinel-2-derived data
+  behind the ArcGIS Living Atlas Land Cover Explorer
+  (<https://livingatlas.arcgis.com/landcoverexplorer/>). Like MapBiomas, it is
+  streamed as public Cloud-Optimized GeoTIFFs via GDAL `/vsicurl/` - **no Google
+  Earth Engine and no account**. Two ways to use it:
+    - `assess_species(occ, initiative = "auto")` tries MapBiomas first and
+      **falls back automatically** to Sentinel-2 wherever MapBiomas has no data.
+      This is also on by default (`fallback = "sentinel2"`) for any MapBiomas
+      initiative, so an out-of-coverage species no longer returns `NA` - set
+      `fallback = "none"` to restore the old behaviour.
+    - `assess_species(occ, initiative = "sentinel2")` forces the global layer
+      everywhere (aliases: `"esri"`, `"s2"`, `"global"`, ...).
+  The 9-class product is mapped to the same conservation groups as MapBiomas
+  (Trees/Rangeland/Flooded vegetation = natural; Crops/Built area = anthropic;
+  Water excluded; Bare ground/Snow/Ice excluded as ambiguous; Clouds =
+  not observed), so conversion percentages, per-class tables, donut charts,
+  maps and the written report all work unchanged. New helpers: `esri_legend()`,
+  `s2_source_url()`, `s2_raster_local()` and `s2_years()` (2017-2023). The
+  product actually used is recorded per species in the `mapbiomas_initiative`
+  column of `$summary`.
+
 # mappingAS 1.10.0
 
 * **Paraguay and Uruguay added.** `assess_species()` (and the whole pipeline)

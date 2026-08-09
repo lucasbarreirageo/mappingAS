@@ -120,9 +120,22 @@ assessment_report <- function(assessment, species = NULL,
     stop("Species not found in assessment: ", species, call. = FALSE)
   r <- r[1, , drop = FALSE]
   st  <- assessment$settings
-  mb_label <- tryCatch(.mb_resolve_initiative(st$initiative %||% "brazil")$label,
-                       error = function(e) "MapBiomas Brazil")
   det <- assessment$detail[[species]]
+  # Label the land-cover source actually used for this species (Sentinel-2/Esri
+  # when the range fell back outside MapBiomas coverage).
+  lc_ini <- (if (!is.null(det)) det$initiative else NULL) %||%
+    st$initiative %||% "brazil"
+  mb_label <- tryCatch(.mb_resolve_initiative(lc_ini)$label,
+                       error = function(e) "MapBiomas Brazil")
+  lc_is_esri <- identical(as.character(lc_ini), "sentinel2")
+  lc_coll <- if (!is.null(r$mapbiomas_collection)) r$mapbiomas_collection
+             else st$collection
+  lc_year <- if (!is.null(r$mapbiomas_year)) r$mapbiomas_year else st$year
+  # Source descriptor for prose: "<product> Collection <n>", or just the
+  # product name when there is no collection (the Sentinel-2/Esri layer).
+  lc_src_desc <- if (is.null(lc_coll) ||
+                     (length(lc_coll) == 1 && is.na(lc_coll)))
+    mb_label else paste0(mb_label, L(" Collection ", " Colecao "), lc_coll)
   pa  <- if (!is.null(det)) det$pa else NULL
   # cover_series / fire_series may be a single data frame (one range) or a list
   # of them (e.g. EOO and AOO): normalise to a list of per-range trends.
@@ -199,9 +212,9 @@ assessment_report <- function(assessment, species = NULL,
   if (isTRUE(st$mapbiomas) &&
       (!is.na(r$eoo_converted_pct) || !is.na(r$aoo_converted_pct))) {
     conv_p <- sprintf(L(
-      "Based on %s Collection %s (%s), converted (anthropic) land cover accounts for %s of the terrestrial EOO and %s of the AOO; the remaining natural habitat is %s (EOO) and %s (AOO). Water and unobserved areas are excluded from the terrestrial denominator.",
-      "Com base em %s Colecao %s (%s), a cobertura convertida (antropica) corresponde a %s da EOO terrestre e a %s da AOO; o habitat natural remanescente e de %s (EOO) e %s (AOO). Corpos d'agua e areas nao observadas sao excluidos do denominador terrestre."),
-      mb_label, st$collection, st$year,
+      "Based on %s (%s), converted (anthropic) land cover accounts for %s of the terrestrial EOO and %s of the AOO; the remaining natural habitat is %s (EOO) and %s (AOO). Water and unobserved areas are excluded from the terrestrial denominator.",
+      "Com base em %s (%s), a cobertura convertida (antropica) corresponde a %s da EOO terrestre e a %s da AOO; o habitat natural remanescente e de %s (EOO) e %s (AOO). Corpos d'agua e areas nao observadas sao excluidos do denominador terrestre."),
+      lc_src_desc, lc_year,
       fmt_pct(r$eoo_converted_pct), fmt_pct(r$aoo_converted_pct),
       fmt_pct(r$eoo_natural_pct), fmt_pct(r$aoo_natural_pct))
     if (length(cover_trs)) {
@@ -355,9 +368,13 @@ assessment_report <- function(assessment, species = NULL,
     "IUCN Standards and Petitions Committee (2024). Guidelines for Using the IUCN Red List Categories and Criteria, Version 16. Prepared by the Standards and Petitions Committee. https://www.iucnredlist.org/documents/RedListGuidelines.pdf",
     "IUCN (2012). IUCN Red List Categories and Criteria: Version 3.1, Second edition. IUCN, Gland, Switzerland and Cambridge, UK."
   )
-  if (isTRUE(st$mapbiomas))
+  if (isTRUE(st$mapbiomas) && lc_is_esri)
     refs <- c(refs,
-      sprintf("Project %s - Collection %s of the Annual Series of Land Use and Land Cover Maps. https://mapbiomas.org", mb_label, st$collection),
+      "Karra, K. et al. (2021). Global land use/land cover with Sentinel-2 and deep learning. IGARSS 2021. doi:10.1109/IGARSS47720.2021.9553499",
+      "Esri, Impact Observatory & Microsoft. Sentinel-2 10m Land Use/Land Cover Time Series. ArcGIS Living Atlas of the World. https://livingatlas.arcgis.com/landcoverexplorer/")
+  else if (isTRUE(st$mapbiomas))
+    refs <- c(refs,
+      sprintf("Project %s - Collection %s of the Annual Series of Land Use and Land Cover Maps. https://mapbiomas.org", mb_label, lc_coll),
       "Souza, C.M. et al. (2020). Reconstructing Three Decades of Land Use and Land Cover Changes in Brazilian Biomes with Landsat Archive and Earth Engine. Remote Sensing 12(17): 2735. doi:10.3390/rs12172735")
   if (isTRUE(st$fire))
     refs <- c(refs,
@@ -375,8 +392,8 @@ assessment_report <- function(assessment, species = NULL,
       if (inherits(g, "ggplot")) figs[[length(figs) + 1L]] <<- list(cap = cap, gg = g)
     }
     if (isTRUE(st$mapbiomas))
-      add_fig(L("Habitat composition of the EOO and AOO (MapBiomas).",
-                "Composicao do habitat na EOO e na AOO (MapBiomas)."),
+      add_fig(L("Habitat composition of the EOO and AOO (land cover).",
+                "Composicao do habitat na EOO e na AOO (cobertura)."),
               plot_conversion(assessment, species = species, lang = lang))
     if (isTRUE(st$protected) && !is.null(pa))
       add_fig(L("Range protection by protected areas (EOO and AOO).",

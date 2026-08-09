@@ -25,7 +25,13 @@
     error = function(e) data.frame())
   if (!nrow(ct)) return(data.frame())
 
-  leg <- mb_legend()
+  # Use the legend of the product actually used for this species (Sentinel-2 /
+  # Esri when the range fell back outside MapBiomas coverage).
+  obj <- assessment$detail[[species]]
+  st  <- assessment$settings
+  lc_ini  <- obj$initiative %||% st$initiative %||% "brazil"
+  lc_coll <- obj$collection %||% st$collection
+  leg <- mb_legend(lc_coll, lc_ini)
   ct$hex <- leg$hex[match(ct$code, leg$code)]
   ct$hex[is.na(ct$hex)] <- "#bdbdbd"
 
@@ -101,15 +107,15 @@ plot_conversion_donut <- function(assessment, species = NULL,
 
   df <- .donut_data(assessment, species = species, by = by, lang = lang)
   if (!nrow(df)) {
-    stop("No MapBiomas class data available (run assess_species(mapbiomas = TRUE)).",
+    stop("No land-cover class data available (run assess_species(mapbiomas = TRUE)).",
          call. = FALSE)
   }
 
   ttl <- if (lang == "en")
-    sprintf("%s - MapBiomas composition by %s",
+    sprintf("%s - land-cover composition by %s",
             species, if (by == "group") "group" else "class")
   else
-    sprintf("%s - composicao MapBiomas por %s",
+    sprintf("%s - composicao da cobertura por %s",
             species, if (by == "group") "grupo" else "classe")
 
   pal <- tapply(df$hex, df$label, function(v) v[1])

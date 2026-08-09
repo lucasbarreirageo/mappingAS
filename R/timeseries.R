@@ -169,8 +169,12 @@ timeseries_for_species <- function(assessment, species = NULL,
     stop(sprintf("No %s geometry for '%s'.", toupper(range), species), call. = FALSE)
 
   s <- assessment$settings
-  ts <- cover_timeseries(geom, years = years, collection = s$collection,
-                         initiative = s$initiative %||% "brazil",
+  # Prefer the product actually used for this species (Sentinel-2 / Esri when the
+  # range fell back outside MapBiomas coverage).
+  lc_ini  <- obj$initiative %||% s$initiative %||% "brazil"
+  lc_coll <- obj$collection %||% s$collection
+  ts <- cover_timeseries(geom, years = years, collection = lc_coll,
+                         initiative = lc_ini,
                          backend = s$backend, src = src, by = by,
                          verbose = verbose)
   attr(ts, "species") <- species
@@ -210,11 +214,11 @@ plot_timeseries <- function(ts, title = NULL, legend = TRUE,
   lab <- if (lang == "en") {
     list(x = "Year", y = "Percentage (%)",
          fill = "Land-cover classes", legend = "Classes",
-         title = "land cover over time (MapBiomas)")
+         title = "land cover over time")
   } else {
     list(x = "Ano", y = "Porcentagem (%)",
          fill = "Classes de cobertura do solo", legend = "Classes",
-         title = "cobertura ao longo do tempo (MapBiomas)")
+         title = "cobertura ao longo do tempo")
   }
 
   # guarantee a rectangular series (every label in every year) so a class that

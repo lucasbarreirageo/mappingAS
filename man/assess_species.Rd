@@ -10,6 +10,7 @@ assess_species(
   year = NULL,
   collection = NULL,
   backend = c("local", "gee"),
+  fallback = c("sentinel2", "none"),
   cell_km = 2,
   mapbiomas = TRUE,
   fire = FALSE,
@@ -27,13 +28,18 @@ assess_species(
 \arguments{
 \item{occ}{An \code{sf} of POINT geometries from \code{\link{read_occurrences}}.}
 
-\item{initiative}{MapBiomas initiative: \code{"brazil"} (default),
-\code{"amazonia"} (Pan-Amazon / RAISG), \code{"colombia"} or any of the
-other South-American products (Argentina, Bolivia, Chile, Ecuador, Peru,
-Venezuela, Paraguay, Uruguay). Selects the land-cover product, its default
-collection and the standardised legend, so a species anywhere these
-products cover can be assessed without Google Earth Engine (see
-\code{\link{mb_initiatives}}).}
+\item{initiative}{Land-cover product. A MapBiomas initiative -
+\code{"brazil"} (default), \code{"amazonia"} (Pan-Amazon / RAISG),
+\code{"colombia"} or any of the other South-American products (Argentina,
+Bolivia, Chile, Ecuador, Peru, Venezuela, Paraguay, Uruguay) - selects that
+product, its default collection and the standardised legend (see
+\code{\link{mb_initiatives}}). Two extra keys unlock coverage anywhere on
+Earth: \code{"sentinel2"} forces the global Esri / Impact Observatory 10 m
+land cover (Sentinel-2, the data behind the ArcGIS Living Atlas Land Cover
+Explorer; see \code{\link{esri_legend}}), and \code{"auto"} tries MapBiomas
+first and automatically falls back to Sentinel-2 for ranges outside
+MapBiomas coverage. All backends stream public Cloud-Optimized GeoTIFFs -
+no Google Earth Engine and no account.}
 
 \item{year}{Integer MapBiomas year. \code{NULL} (default) uses the most recent
 year available for the initiative (e.g. 2024 for Brazil/Colombia, 2023 for
@@ -44,6 +50,12 @@ uses the initiative default (10/6/3 for Brazil/Amazonia/Colombia).}
 
 \item{backend}{Habitat backend: \code{"local"} (default) or \code{"gee"}.
 The \code{"gee"} backend is only wired for \code{initiative = "brazil"}.}
+
+\item{fallback}{What to do when the chosen MapBiomas product has no data over
+a species' range (i.e. the occurrences fall outside every supported
+country): \code{"sentinel2"} (default) recomputes that species with the
+global Sentinel-2 / Esri layer; \code{"none"} leaves its conversion as
+\code{NA}. Ignored when \code{initiative = "sentinel2"}.}
 
 \item{cell_km}{AOO grid cell size in km (default \code{2}).}
 

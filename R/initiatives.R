@@ -123,6 +123,11 @@ mb_initiatives <- function() {
   # a few friendly aliases
   key <- switch(key,
                 "brasil" = "brazil",
+                # "auto" is handled specially by assess_species (try MapBiomas
+                # then fall back to Sentinel-2); for direct helper calls
+                # (mb_years, mb_legend, ...) treat it as the Brazil default.
+                "auto" = "brazil",
+                "automatic" = "brazil",
                 "amazon" = "amazonia",
                 "pan-amazonia" = "amazonia",
                 "panamazonia" = "amazonia",
@@ -131,13 +136,24 @@ mb_initiatives <- function() {
                 "paraguai" = "paraguay",
                 "uruguai" = "uruguay",
                 key)
+  # Global Sentinel-2 / Esri (Impact Observatory) fallback layer. Not a
+  # MapBiomas product, so it is resolved separately (provider = "esri").
+  if (key %in% c("sentinel2", "sentinel-2", "sentinel_2", "sentinel", "s2",
+                 "esri", "esri10", "io", "io-lulc", "iolulc",
+                 "impact-observatory", "impactobservatory",
+                 "global", "world", "worldwide")) {
+    return(.s2_initiative())
+  }
   reg <- .mb_registry()
   if (!key %in% names(reg)) {
     stop("Unknown MapBiomas initiative: '", initiative,
-         "'. Use one of: ", paste(names(reg), collapse = ", "), ".",
+         "'. Use one of: ", paste(names(reg), collapse = ", "),
+         " (or 'sentinel2' for the global fallback).",
          call. = FALSE)
   }
-  reg[[key]]
+  ent <- reg[[key]]
+  ent$provider <- "mapbiomas"
+  ent
 }
 
 #' @keywords internal

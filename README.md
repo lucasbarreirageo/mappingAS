@@ -190,7 +190,7 @@ Key columns (`res$summary`, also shown with a glossary in the app's **Results** 
 | `eoo_converted_pct` / `eoo_natural_pct` | % converted / natural within the EOO |
 | `aoo_converted_pct` / `aoo_natural_pct` | % converted / natural within the AOO |
 | `eoo_cat_B1`, `aoo_cat_B2`, `provisional_cat` | Provisional categories (size only) |
-| `mapbiomas_initiative`, `mapbiomas_year`, `mapbiomas_collection` | Land-cover source used (Brazil / Amazonia / Colombia) |
+| `mapbiomas_initiative`, `mapbiomas_year`, `mapbiomas_collection` | Land-cover source used per species (a MapBiomas product, or `sentinel2` when the range fell back to the global Esri/Sentinel-2 layer) |
 | `eoo_burned_pct`, `aoo_burned_pct` | % of the EOO/AOO burned at least once *(fire = TRUE)* |
 | `occ_in_uc_pct`, `eoo_uc_pct`, `aoo_uc_pct`, `n_uc` | Overlap with protected areas *(protected = TRUE)* |
 | `eoo_nat_uc_pct`, `aoo_nat_uc_pct` | Share of the range that is natural *and* protected |
@@ -243,6 +243,23 @@ res_az <- assess_species(occ, initiative = "amazonia")
 `year` and `collection` default to each initiative's latest year and native collection. `mb_initiatives()` lists the products; `mb_source_url()`, `mb_raster_local()`, `mb_years()`, `mb_legend()`, `summarise_conversion()` and `cover_timeseries()` all accept `initiative`.
 
 **One standardised legend.** MapBiomas harmonises its pixel codes across initiatives, so `mb_legend()` returns a single *standardised* table (same class names, colours and conservation groups) that labels every country's raster consistently — this is what lets a range spanning more than one country be assessed coherently. The country-specific classes (Andinean formations, Glacier, primary/secondary/dwarf forest, scrubland/steppe/fog oasis/peatlands, Pinus/Eucalyptus plantations, salt flat, …) are included; a code absent from a given product simply contributes zero area. MapBiomas **Fire** is published for Brazil only and is skipped (with a warning) for the other initiatives.
+
+## Outside MapBiomas: global Sentinel-2 land cover
+
+For a species whose range falls **outside every MapBiomas country**, `assess_species()` can fall back to the global **Esri / Impact Observatory 10 m Annual Land Use Land Cover** product — the Sentinel-2-derived data behind the [ArcGIS Living Atlas Land Cover Explorer](https://livingatlas.arcgis.com/landcoverexplorer/). It is streamed the same way as MapBiomas (public Cloud-Optimized GeoTIFFs via GDAL `/vsicurl/`, **no Google Earth Engine and no account**), tiled by MGRS grid zone and read only over each range.
+
+```r
+# Automatic: try MapBiomas, fall back to Sentinel-2 where it has no data
+res <- assess_species(occ, initiative = "auto")
+
+# Force the global Sentinel-2/Esri layer everywhere
+res <- assess_species(occ, initiative = "sentinel2")
+
+# Turn the automatic fallback off (out-of-coverage ranges return NA, as before)
+res <- assess_species(occ, initiative = "brazil", fallback = "none")
+```
+
+The automatic fallback is **on by default** (`fallback = "sentinel2"`). The 9 Sentinel-2 classes are mapped to the same conservation groups as MapBiomas — Trees / Rangeland / Flooded vegetation → *natural*; Crops / Built area → *anthropic* (converted); Water excluded; Bare ground and Snow/Ice excluded as ambiguous; Clouds → *not observed* — so the conversion percentages, per-class tables, donut charts, maps and report all work unchanged. The product actually used is recorded per species in the `mapbiomas_initiative` column. Years available: 2017–2023 (`s2_years()`). Helpers: `esri_legend()`, `s2_source_url()`, `s2_raster_local()`.
 
 ---
 
