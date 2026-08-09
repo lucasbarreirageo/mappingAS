@@ -8,9 +8,9 @@
 [![Codecov test coverage](https://codecov.io/gh/lucasbarreirageo/mappingAS/branch/main/graph/badge.svg)](https://app.codecov.io/gh/lucasbarreirageo/mappingAS?branch=main)
 <!-- badges: end -->
 
-> **mappingAS** — *Mapping Area of Species.* Geographic range metrics (EOO / AOO), MapBiomas habitat conversion and fire, and protected-area overlap for extinction-risk screening — from raw occurrence points to an interactive app and a written assessment report.
+> **mappingAS** — *Mapping Area of Species.* Geographic range metrics (EOO / AOO), land-cover conversion and fire, and protected-area overlap for extinction-risk screening — from raw occurrence points to an interactive app and a written assessment report.
 
-`mappingAS` is an R package, with an accompanying **Shiny** application, for screening species against **Criterion B** of the IUCN Red List. Starting from a set of occurrence points, it estimates each species' geographic range, measures how much of that range has been converted to anthropic land cover and how much has burned (using **MapBiomas**), quantifies the overlap with protected areas (global WDPA), and packages everything for mapping, inspection, export and reporting. It feels familiar to anyone who has used [GeoCAT](https://geocat.iucnredlist.org/), while adding habitat-conversion, fire and protection layers driven by MapBiomas and the World Database on Protected Areas.
+`mappingAS` is an R package, with an accompanying **Shiny** application, for screening species against **Criterion B** of the IUCN Red List. Starting from a set of occurrence points, it estimates each species' geographic range (EOO / AOO), measures how much of that range has been converted to anthropic land cover and how much has burned, quantifies the overlap with protected areas (global WDPA), and packages everything for mapping, inspection, export and reporting. Land-cover conversion is driven by **MapBiomas** across South America and by the global **Esri / Impact Observatory (Sentinel-2)** 10 m land cover elsewhere, so a species anywhere on Earth can be screened with the same workflow — no Google Earth Engine account required.
 
 > **Screening only.** The categories produced are **provisional** — they rest solely on the EOO/AOO *size* thresholds of Criterion B. They **do not replace** a formal IUCN assessment, which also requires the sub-conditions of fragmentation/few locations, continuing decline and extreme fluctuation.
 
@@ -278,13 +278,26 @@ Protected-area overlap (`assess_species(protected = TRUE)`) reads the global **W
 
 ---
 
+## Related tools
+
+`mappingAS` complements other R packages for preliminary, area-based conservation
+assessment — among them [**ConR**](https://cran.r-project.org/package=ConR),
+[**red**](https://cran.r-project.org/package=red) and
+[**rCAT**](https://cran.r-project.org/package=rCAT), as well as the
+[**GeoCAT**](https://geocat.iucnredlist.org/) web tool. Its distinguishing focus
+is coupling the EOO/AOO range metrics with **habitat-conversion, fire and
+protected-area** layers (MapBiomas, global Sentinel-2/Esri land cover, and WDPA)
+in a single reproducible workflow and Shiny app.
+
+---
+
 ## Citation
 
 When using this package, please also cite the underlying data and methods:
 
 - **MapBiomas** — Projeto MapBiomas (Brazil, Amazonia/RAISG, Colombia, Argentina, Bolivia, Chile, Ecuador, Peru, Venezuela, Paraguay and Uruguay collections; <https://mapbiomas.org>) and MapBiomas Fire Collection 4.
+- **Esri / Impact Observatory** — Karra, K. *et al.* (2021). *Global land use/land cover with Sentinel-2 and deep learning.* IGARSS 2021. The 10 m Annual Land Use Land Cover time series (behind the ArcGIS Living Atlas Land Cover Explorer), used outside MapBiomas coverage.
 - **IUCN** — Standards and Petitions Committee. *Guidelines for Using the IUCN Red List Categories and Criteria.*
-- **GeoCAT** — Bachman, S. *et al.* (2011). *Supporting Red List threat assessments with GeoCAT.* ZooKeys 150: 117–126.
 - **WDPA** — UNEP-WCMC and IUCN, Protected Planet: The World Database on Protected Areas (<https://www.protectedplanet.net/en>).
 
 ---
