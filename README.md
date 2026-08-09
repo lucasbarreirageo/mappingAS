@@ -22,14 +22,14 @@
 |---|---|---|
 | **Occurrence import** | Read points from spreadsheets or spatial files, auto-detecting the species/lon/lat columns | `read_occurrences()` |
 | **Range metrics** | Extent of Occurrence (EOO, convex hull) and Area of Occupancy (AOO, 2 km grid) on an equal-area projection, with provisional Criterion B categories | `assess_species()`, `calc_eoo()`, `calc_aoo()`, `iucn_category_B()` |
-| **Habitat conversion** | % converted (anthropic) vs. natural within the EOO/AOO, plus the full per-class MapBiomas breakdown | `assess_species()`, `class_table()`, `plot_conversion()` |
-| **Land-cover time series** | Composition (% × year, 1985–2024) as a MapBiomas-style stacked-area chart | `timeseries_for_species()`, `cover_timeseries()`, `plot_timeseries()` |
-| **Fire** | % of the range burned at least once and burned-area time series, from MapBiomas Fire | `assess_species(fire = TRUE)`, `fire_timeseries_for_species()`, `plot_fire_timeseries()` |
+| **Habitat conversion** | % converted (anthropic) vs. natural within the EOO/AOO, plus the full per-class land-cover breakdown | `assess_species()`, `class_table()`, `plot_conversion()` |
+| **Land-cover time series** | Composition (% × year) as a stacked-area chart | `timeseries_for_species()`, `cover_timeseries()`, `plot_timeseries()` |
+| **Fire** | % of the range burned at least once and burned-area time series, from MapBiomas Fire (Brazil) | `assess_species(fire = TRUE)`, `fire_timeseries_for_species()`, `plot_fire_timeseries()` |
 | **Protected areas** | Overlap of occurrences/EOO/AOO with protected areas (global WDPA), incl. the natural-and-protected share | `assess_species(protected = TRUE)`, `pa_table()`, `plot_protection()`, `protected_areas()` |
-| **Maps** | Interactive Leaflet map and a publication-ready static map (points + EOO + AOO + MapBiomas/fire) | `map_species()`, `map_static()` |
+| **Maps** | Interactive Leaflet map and a publication-ready static map (points + EOO + AOO + land cover/fire) | `map_species()`, `map_static()` |
 | **Interactive charts** | Every chart as an interactive plotly widget (hover, zoom) | `mas_plotly()` |
 | **Reporting** | A written, referenced assessment report (HTML / text / **Word .docx**) | `assessment_report()` |
-| **Export** | EOO/AOO polygons as **shapefile/GeoPackage** and MapBiomas **rasters (GeoTIFF)** | `export_ranges()` |
+| **Export** | EOO/AOO polygons as **shapefile/GeoPackage** and land-cover **rasters (GeoTIFF)** | `export_ranges()` |
 | **Interactive app** | A Shiny GUI that runs the whole workflow with no code | `run_app()` |
 
 ---
@@ -43,7 +43,7 @@ remotes::install_github("lucasbarreirageo/mappingAS")
 
 The core dependencies (`sf`, `terra`, `leaflet`, `DT`, `shiny`, `bslib`, `ggplot2`, `plotly`, `officer`, `readxl`) are installed automatically — including `officer`, so the Word report works out of the box.
 
-The **local** MapBiomas backend uses **GDAL with `/vsicurl/`** (shipped with `terra`/`sf`), so **no Google Earth Engine account and no full national-mosaic download are needed** — only the window covering each species' range is read (and cached on disk).
+The **local** land-cover backend uses **GDAL with `/vsicurl/`** (shipped with `terra`/`sf`), so **no Google Earth Engine account and no full-mosaic download are needed** — only the window covering each species' range is read (and cached on disk). This applies to both MapBiomas and the global Sentinel-2/Esri layer.
 
 The optional Earth Engine backend needs a configured `rgee`:
 
@@ -63,18 +63,19 @@ library(mappingAS)
 # 1. Read points (csv / xlsx / shp) — columns are auto-detected
 occ <- read_occurrences("my_occurrences.xlsx")
 
-# 2. Run the assessment. Turn on the optional modules as needed.
+# 2. Run the assessment. `initiative = "auto"` picks MapBiomas for occurrences
+#    in South America and the global Sentinel-2/Esri layer elsewhere.
 res <- assess_species(occ,
-                      year = 2024, collection = 10, backend = "local",
+                      initiative = "auto", backend = "local",
                       mapbiomas = TRUE,   # habitat conversion (default)
-                      fire      = TRUE,   # burned-area metrics
+                      fire      = TRUE,   # burned-area metrics (Brazil)
                       protected = TRUE)   # overlap with protected areas (WDPA)
 
 # 3. Inspect the summary table (one row per species)
 res$summary
 
 # 4. Map and charts
-map_species(res)                    # leaflet: points + EOO + AOO + MapBiomas (+ fire, protected areas)
+map_species(res)                    # leaflet: points + EOO + AOO + land cover (+ fire, protected areas)
 plot_conversion(res)                # natural vs. converted, EOO and AOO
 mas_plotly(plot_conversion(res))    # same chart, interactive
 
@@ -105,12 +106,12 @@ library(mappingAS)
 run_app()
 ```
 
-Upload a file (`.xlsx`/`.csv`/`.gpkg`/`.geojson` or a shapefile in a `.zip`), map the columns if needed, choose the MapBiomas **year**, the AOO **cell size**, the **backend** (local / GEE) and which optional modules to run (**fire**, **protected areas**), then click **Assess**. The app is organised as tabs:
+Upload a file (`.xlsx`/`.csv`/`.gpkg`/`.geojson` or a shapefile in a `.zip`), map the columns if needed, choose the **land-cover product** (default **Auto**), the **year**, the AOO **cell size**, the **source** (local / GEE) and which optional modules to run (**fire**, **protected areas**), then click **Assess**. The app is organised as tabs:
 
-- **Map** — interactive Leaflet map (points, EOO, AOO, MapBiomas land use, fire, protected areas) with downloads: interactive HTML, a **publishable PNG**, and the MapBiomas **land-use / fire rasters as GeoTIFF** (clipped to the selected EOO/AOO).
+- **Map** — interactive Leaflet map (points, EOO, AOO, land cover, fire, protected areas) with downloads: interactive HTML, a **publishable PNG**, and the **land-cover / fire rasters as GeoTIFF** (clipped to the selected EOO/AOO).
 - **Results** — a visual overview per species (stat cards with in-line bars and IUCN category badges) plus a **column glossary** explaining every field, and the full table (CSV download).
 - **Conversion** — interactive natural-vs-converted chart (EOO and AOO).
-- **Classes** — area and % of every MapBiomas class inside the EOO/AOO (CSV download).
+- **Classes** — area and % of every land-cover class inside the EOO/AOO (CSV download).
 - **Protected areas** — overlap metrics, protection chart and the per-area table (CSV download).
 - **Time Series** — land-cover composition over time (interactive stacked area) for the EOO or AOO.
 - **Fire** — burned-area metrics and time series.
@@ -137,17 +138,17 @@ export_ranges(res,
 
 Because the **ESRI Shapefile** format limits field names to 10 characters, the attribute table uses compact names (`species`, `eoo_km2`/`aoo_km2`, `n_cells`, `conv_pct`, `nat_pct`, `cat_B1`/`cat_B2`, `prov_cat`, `mb_year`, `mb_coll`). The **GeoPackage** (`format = "gpkg"`) stores both layers (`eoo`, `aoo`) in a single file with no field-name limit — the easiest option for QGIS/ArcGIS. By default, a `mappingAS_classes.csv` with the per-class composition is written too (`class_csv = FALSE` to skip).
 
-The Shiny **Map** tab additionally exports the underlying **MapBiomas land-use and fire GeoTIFF rasters**, clipped to the selected species' EOO or AOO, as a `.zip`.
+The Shiny **Map** tab additionally exports the underlying **land-cover and fire GeoTIFF rasters**, clipped to the selected species' EOO or AOO, as a `.zip`.
 
 ---
 
 ## Per-class composition and time series
 
 ```r
-# Area and % of each MapBiomas class within the EOO and AOO
+# Area and % of each land-cover class within the EOO and AOO
 ct <- class_table(res)          # species x range (EOO/AOO) x class
 
-# Land-cover composition over time (stacked-area chart, official MapBiomas colours)
+# Land-cover composition over time (stacked-area chart, official class colours)
 ts <- timeseries_for_species(res, species = "sp1", range = "eoo", by = "class")
 plot_timeseries(ts)
 mas_plotly(plot_timeseries(ts))  # interactive
@@ -156,7 +157,7 @@ mas_plotly(plot_timeseries(ts))  # interactive
 ts2 <- cover_timeseries(my_geometry, years = c(1990, 2000, 2010, 2020), by = "class")
 ```
 
-Each year is read separately from MapBiomas (one GeoTIFF window per year), so an annual series across the whole collection can take a while; increase the year step to speed it up.
+Each year is read separately (one GeoTIFF window per year), so an annual series across the whole record can take a while; increase the year step to speed it up. (The time series uses whichever product the species was assessed with — MapBiomas back to 1985, or Sentinel-2/Esri for 2017–2023.)
 
 ---
 
@@ -202,14 +203,14 @@ Key columns (`res$summary`, also shown with a glossary in the app's **Results** 
 - **EOO** = area of the minimum convex polygon over the points (≥ 3 unique coordinates; otherwise `NA`), edges densified along great circles and measured on the WGS84 ellipsoid.
 - **AOO** = number of occupied 2 × 2 km cells × 4 km² (cell size via `cell_km`), taken as the minimum over several translated grids.
 - Areas are measured on a data-centred **LAEA equal-area** projection, in line with the IUCN guidelines.
-- **Conversion**: MapBiomas classes are grouped into *natural*, *anthropic*, *water*, *not observed* and *other*. The headline index is `converted_pct = anthropic / (anthropic + natural) × 100` (terrestrial denominator; water and not-observed excluded by default — set `water_in_denominator = TRUE` to include water).
+- **Conversion**: land-cover classes are grouped into *natural*, *anthropic*, *water*, *not observed* and *other*. The headline index is `converted_pct = anthropic / (anthropic + natural) × 100` (terrestrial denominator; water and not-observed excluded by default — set `water_in_denominator = TRUE` to include water).
 - **Criterion B thresholds** (screening only): EOO < 100 / 5,000 / 20,000 km² and AOO < 10 / 500 / 2,000 km² for CR / EN / VU.
 
 ---
 
-## MapBiomas backends
+## Land-cover backends
 
-- **`"local"` (default)** — reads, over the network, only the *window* of the national GeoTIFF via GDAL `/vsicurl/`. No Earth Engine account, no full-mosaic download. The windowed crop is cached on disk and reused for mapping and re-runs; map overlays use a fast decimated read.
+- **`"local"` (default)** — reads, over the network, only the *window* of the source GeoTIFF via GDAL `/vsicurl/` (MapBiomas national mosaics, or the Sentinel-2/Esri MGRS tiles). No Earth Engine account, no full-mosaic download. The windowed crop is cached on disk and reused for mapping and re-runs; map overlays use a fast decimated read.
 - **`"gee"`** — computes per-class areas server-side on Google Earth Engine (recommended for very large, e.g. continental, ranges). Requires `rgee::ee_Initialize()`. Wired for `initiative = "brazil"` only.
 
 ---
@@ -273,8 +274,8 @@ Protected-area overlap (`assess_species(protected = TRUE)`) reads the global **W
 
 - The **categories are provisional** — they exclude fragmentation, decline and fluctuation.
 - The **AOO is sensitive** to grid origin/placement and to sampling effort; the **EOO** can be inflated by outlying or erroneous records.
-- The **local backend** streams the MapBiomas window over the network; for **very large (continental) ranges** prefer `backend = "gee"`.
-- **MapBiomas accuracy** varies by class, biome and year — the classification of high-altitude grassland and rocky-outcrop mosaics is of lower accuracy; consult the official documentation.
+- The **local backend** streams the land-cover window over the network; for **very large (continental) ranges** prefer `backend = "gee"`.
+- **Land-cover accuracy** varies by product, class, biome and year (e.g. high-altitude grassland and rocky-outcrop mosaics in MapBiomas, or fine-grained mosaics in the 10 m global layer); consult the official documentation of the product used.
 
 ---
 
