@@ -111,12 +111,14 @@ plot_conversion_donut <- function(assessment, species = NULL,
          call. = FALSE)
   }
 
-  ttl <- if (lang == "en")
-    sprintf("%s - land-cover composition by %s",
-            species, if (by == "group") "group" else "class")
+  ttl_suffix <- if (lang == "en")
+    sprintf(" - land-cover composition by %s",
+            if (by == "group") "group" else "class")
   else
-    sprintf("%s - composicao da cobertura por %s",
-            species, if (by == "group") "grupo" else "classe")
+    sprintf(" - composicao da cobertura por %s",
+            if (by == "group") "grupo" else "classe")
+  ttl      <- .sp_title_expr(species, ttl_suffix)   # ggplot (plotmath)
+  ttl_html <- .sp_title_html(species, ttl_suffix)   # plotly / HTML
 
   pal <- tapply(df$hex, df$label, function(v) v[1])
   pal <- stats::setNames(as.character(pal), names(pal))
@@ -149,6 +151,6 @@ plot_conversion_donut <- function(assessment, species = NULL,
 
   attr(p, "mas") <- list(kind = "donut",
                          df = df[, c("range", "label", "pct", "hex")],
-                         title = ttl)
+                         title = ttl_html)
   p
 }

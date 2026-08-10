@@ -181,7 +181,11 @@ pa_table <- function(assessment, species = NULL) {
   } else {
     pa <- sf::st_read(src, quiet = TRUE)
   }
-  
+
+  # A local protected-area file with an undeclared CRS would otherwise fail the
+  # transform below; GeoJSON is 4326 by spec and most WDPA/ICMBio extracts ship
+  # in geographic coordinates, so assume 4326 when none is recorded.
+  if (is.na(sf::st_crs(pa))) sf::st_crs(pa) <- 4326
   pa <- sf::st_make_valid(sf::st_transform(pa, 4326))
   box <- sf::st_as_sfc(sf::st_bbox(
     c(xmin = bb[["xmin"]], ymin = bb[["ymin"]],

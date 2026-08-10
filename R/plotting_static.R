@@ -34,8 +34,9 @@
 #'   the language of the MapBiomas class labels, the fire-frequency legend and
 #'   the feature labels (EOO/AOO/occurrences).
 #' @param clip Geometry the rasters are clipped to: \code{"eoo"} (default, the
-#'   EOO hull) or \code{"aoo"} (the union of occupied AOO cells). Matches the
-#'   \code{clip} argument of \code{\link{map_species}}.
+#'   EOO hull), \code{"aoo"} (the union of occupied AOO cells) or \code{"all"}
+#'   (the union of both). Matches the \code{clip} argument of
+#'   \code{\link{map_species}}.
 #' @param protected Logical; overlay protected areas on the publishable map
 #'   (default \code{FALSE}). Uses the protected-area layer stored by
 #'   \code{assess_species(..., protected = TRUE)}, or fetches it on the fly.
@@ -57,7 +58,7 @@
 map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
                        fire = FALSE, src = NULL, max_pixels = 600, crs = NULL,
                        scalebar = TRUE, north = TRUE, title = NULL,
-                       lang = c("pt", "en"), clip = c("eoo", "aoo"),
+                       lang = c("pt", "en"), clip = c("eoo", "aoo", "all"),
                        protected = FALSE, pa_src = NULL, pa_occ_only = TRUE) {
   lang <- match.arg(lang)
   clip <- match.arg(clip)
@@ -69,7 +70,8 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
   if (is.null(species)) species <- names(d)[1]
   obj <- d[[species]]
   if (is.null(obj)) stop("Species not found: ", species, call. = FALSE)
-  if (is.null(title)) title <- species
+  # Scientific name in the title: genus + epithet italic, author (if any) normal.
+  if (is.null(title)) title <- .sp_title_expr(species)
 
   `%||%` <- function(a, b) if (is.null(a) || (length(a) == 1 && is.na(a))) b else a
   crs <- crs %||% obj$eoo$crs_laea %||% obj$aoo$crs_laea
@@ -83,8 +85,7 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
   pts   <- sf::st_transform(sf::st_geometry(obj$points), crs)
   st    <- assessment$settings
 
-  clip_geom <- if (clip == "aoo" && !is.null(cells))
-                 .st_union_quiet(cells) else hull
+  clip_geom <- .clip_geometry(clip, hull, cells)
 
   g <- ggplot2::ggplot()
 
@@ -115,7 +116,7 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
         NULL
       })
     if (!is.null(rdf) && nrow(rdf$df) > 0) {
-      lbl_clip <- if (clip == "aoo") "AOO" else "EOO"
+      lbl_clip <- switch(clip, aoo = "AOO", all = "EOO+AOO", "EOO")
       g <- g +
         ggplot2::geom_tile(
           data = rdf$df,
@@ -203,7 +204,7 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
   bb <- .plot_bbox(list(hull, cells, pts))
   g <- g + ggplot2::coord_sf(crs = crs, xlim = bb[c("xmin", "xmax")],
                              ylim = bb[c("ymin", "ymax")], expand = FALSE)
-  if (isTRUE(scalebar)) g <- g + .scalebar_layer(bb, ref = .crs_label(crs))
+  if (isTRUE(scalebar)) g <- g + .scalebar_layer(bb, ref = .datum_label(crs))
   if (isTRUE(north))    g <- g + .north_layer(bb)
 
   g +
@@ -212,7 +213,9 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
     ggplot2::theme(
       plot.title = ggplot2::element_text(face = "bold"),
       legend.position = "right",
-      legend.background = ggplot2::element_rect(fill = "white", colour = "grey70"),
+      # No boxes around the legends: transparent legend background and keys.
+      legend.background = ggplot2::element_blank(),
+      legend.key = ggplot2::element_blank(),
       legend.key.size = grid::unit(11, "pt"),
       legend.margin = ggplot2::margin(4, 6, 4, 6),
       panel.grid = ggplot2::element_line(colour = "grey90", linewidth = 0.3)
@@ -285,19 +288,8 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
   tick <- 0.012 * h
   has_ref <- !is.null(ref) && nzchar(ref)
 
-  xmax <- x0 + len + 0.02 * w
-  if (has_ref) {
-    # ~0.011*w per character is a safe monospace-ish estimate; clamp so the box
-    # never runs past the right edge of the map frame.
-    want <- x0 + 0.011 * nchar(ref) * w
-    xmax <- min(max(xmax, want), unname(bb["xmax"]))
-  }
-  ymin <- y0 - (if (has_ref) 0.06 else 0.02) * h
-
+  # No backing box behind the scale bar (kept boxless, like the legend).
   out <- list(
-    ggplot2::annotate("rect", xmin = x0 - 0.02 * w, xmax = xmax,
-                      ymin = ymin, ymax = y0 + 0.05 * h,
-                      fill = "white", colour = NA, alpha = 0.75),
     ggplot2::annotate("segment", x = x0, xend = x0 + len, y = y0, yend = y0,
                       linewidth = 1.1, colour = "black"),
     ggplot2::annotate("segment", x = x0, xend = x0, y = y0 - tick, yend = y0 + tick,
@@ -328,6 +320,29 @@ map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
     ggplot2::annotate("text", x = x, y = ytop + 0.03 * h, label = "N",
                       fontface = "bold", size = 3.5, vjust = 0)
   )
+}
+
+#' Short datum label for the scale bar, e.g. "DATUM WGS84".
+#'
+#' The publishable map is drawn in the species' equal-area (LAEA) projection,
+#' whose datum is what a reader needs beneath the scale bar. Reads the datum
+#' from the CRS when available and falls back to WGS84.
+#' @keywords internal
+#' @noRd
+.datum_label <- function(crs) {
+  cr <- tryCatch(sf::st_crs(crs), error = function(e) NULL)
+  dat <- NA_character_
+  if (!is.null(cr) && !is.na(cr)) {
+    p <- cr$proj4string
+    if (!is.null(p) && !is.na(p) && nzchar(p)) {
+      if (grepl("\\+datum=", p))
+        dat <- sub(".*\\+datum=([A-Za-z0-9]+).*", "\\1", p)
+      else if (grepl("\\+ellps=", p))
+        dat <- sub(".*\\+ellps=([A-Za-z0-9]+).*", "\\1", p)
+    }
+  }
+  if (is.na(dat) || !nzchar(dat)) dat <- "WGS84"
+  sprintf("DATUM %s", toupper(dat))
 }
 
 #' @keywords internal

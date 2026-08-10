@@ -87,8 +87,9 @@ test_that("export_ranges writes the fire attribute branch (gpkg)", {
                         src = local_lulc(), fire_src = local_fire(),
                         mapbiomas = TRUE, fire = TRUE, verbose = FALSE)
   td <- file.path(tempdir(), paste0("expfire_", as.integer(Sys.time())))
-  # class_csv = FALSE so export_ranges returns the single .gpkg path
-  # (otherwise it also writes _classes.csv and returns a length-2 vector).
+  # class_csv = FALSE keeps the class breakdown out entirely; with the default
+  # class_csv = TRUE the gpkg format now stores it as an aspatial layer inside
+  # the same .gpkg, so a single path is still returned either way.
   gpkg <- export_ranges(res, dir = td, format = "gpkg", aoo_as = "union",
                         class_csv = FALSE)
   expect_length(gpkg, 1L)

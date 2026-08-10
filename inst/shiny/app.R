@@ -146,7 +146,7 @@ ui <- bslib::page_sidebar(
           selectInput("map_species", "Species", choices = NULL),
           uiOutput("iucn_panel"),
           radioButtons("map_clip", "Raster clipped to",
-                       choices = c("EOO" = "eoo", "AOO" = "aoo"),
+                       choices = c("EOO" = "eoo", "AOO" = "aoo", "All" = "all"),
                        selected = "eoo", inline = TRUE),
           hr(),
           radioButtons("static_layer", "Downloaded map layer (PNG & HTML)",
@@ -661,9 +661,7 @@ server <- function(input, output, session) {
       obj  <- result()$detail[[input$map_species]]; req(!is.null(obj))
       st   <- result()$settings
       clip <- input$map_clip %||% "eoo"
-      geom <- if (clip == "aoo" && !is.null(obj$aoo$cells))
-                suppressWarnings(sf::st_union(sf::st_geometry(obj$aoo$cells)))
-              else obj$eoo$hull
+      geom <- mappingAS:::.clip_geometry(clip, obj$eoo$hull, obj$aoo$cells)
       validate(need(!is.null(geom) && length(sf::st_geometry(geom)) > 0,
                     "No polygon available for this clip."))
       tmp <- file.path(tempdir(), paste0("rasters_", as.integer(Sys.time())))
@@ -835,7 +833,15 @@ server <- function(input, output, session) {
         }
       )
       req(out)
-      file.copy(out, file, overwrite = TRUE)
+      # `export_ranges()` may return more than one path (e.g. a sidecar CSV):
+      # copy only the single artefact that matches the requested format so the
+      # download never fails with "more 'from' files than 'to' files".
+      main <- if (identical(input$export_fmt, "gpkg"))
+                out[grepl("\\.gpkg$", out, ignore.case = TRUE)]
+              else
+                out[grepl("\\.zip$", out, ignore.case = TRUE)]
+      if (!length(main)) main <- out[[1]]
+      file.copy(main[[1]], file, overwrite = TRUE)
     })
   )
 

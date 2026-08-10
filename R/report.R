@@ -169,7 +169,7 @@ assessment_report <- function(assessment, species = NULL,
     c(sprintf(L(
       "This document reports a preliminary, size-based screening of %s against Criterion B of the IUCN Red List Categories and Criteria. It is intended for screening only and does not constitute a formal Red List assessment.",
       "Este documento apresenta uma triagem preliminar, baseada no tamanho da distribuicao, de %s segundo o Criterio B das Categorias e Criterios da Lista Vermelha da IUCN. Destina-se apenas a triagem e nao constitui uma avaliacao formal da Lista Vermelha."),
-      sprintf("<i>%s</i>", species)),
+      .sp_html(species)),
       sprintf(L(
         "It is based on %s occurrence records (%s with unique coordinates). The combined provisional category, from range size alone, is <b>%s</b>.",
         "Baseia-se em %s registros de ocorrencia (%s com coordenadas unicas). A categoria provisoria combinada, apenas pelo tamanho da distribuicao, e <b>%s</b>."),
@@ -440,13 +440,13 @@ assessment_report <- function(assessment, species = NULL,
   sprintf(
     "<div style='max-width:820px'>
        <h3 style='margin-bottom:.15rem'>%s</h3>
-       <div style='color:#7a857b;margin-bottom:.2rem'><i>%s</i></div>
+       <div style='color:#7a857b;margin-bottom:.2rem'>%s</div>
        <div style='color:#7a857b;font-size:.9rem;margin-bottom:.8rem'>%s</div>
        %s
        <h4 style='margin:1rem 0 .3rem;color:#1f8d49'>%s</h4>
        <ol style='padding-left:1.1rem;margin-top:.2rem'>%s</ol>
      </div>",
-    b$title, b$species, b$subtitle, paste(secs, collapse = ""),
+    b$title, .sp_html(b$species), b$subtitle, paste(secs, collapse = ""),
     b$refs_heading, refs)
 }
 
@@ -487,7 +487,17 @@ assessment_report <- function(assessment, species = NULL,
   }
   doc <- officer::read_docx()
   doc <- officer::body_add_par(doc, b$title, style = "heading 1")
-  doc <- officer::body_add_par(doc, b$species, style = "heading 2")
+  # Species heading: genus + specific epithet in italic, author (if any) normal.
+  sp_parts <- .sp_parts(b$species)
+  sp_runs  <- list(officer::ftext(
+    sp_parts$italic,
+    officer::fp_text(italic = TRUE, bold = TRUE, font.size = 14)))
+  if (nzchar(sp_parts$rest))
+    sp_runs <- c(sp_runs, list(officer::ftext(
+      paste0(" ", sp_parts$rest),
+      officer::fp_text(italic = FALSE, bold = TRUE, font.size = 14))))
+  doc <- officer::body_add_fpar(
+    doc, do.call(officer::fpar, sp_runs), style = "heading 2")
   doc <- officer::body_add_par(doc, strip(b$subtitle), style = "Normal")
   doc <- officer::body_add_par(doc, "", style = "Normal")
   for (s in b$sections) {

@@ -73,6 +73,80 @@ laea_crs <- function(geom) {
   suppressWarnings(suppressMessages(sf::st_union(x)))
 }
 
+#' Geometry a raster is clipped to for a given `clip` choice.
+#'
+#' `"eoo"` uses the EOO hull, `"aoo"` the union of occupied AOO cells and
+#' `"all"` the union of both (so the raster covers the whole range). Falls back
+#' to whichever geometry is available when the preferred one is missing.
+#' @keywords internal
+#' @noRd
+.clip_geometry <- function(clip, hull, cells) {
+  has_cells <- !is.null(cells) && length(sf::st_geometry(cells)) > 0
+  has_hull  <- !is.null(hull)  && length(sf::st_geometry(hull))  > 0
+  if (identical(clip, "aoo"))
+    return(if (has_cells) .st_union_quiet(cells) else hull)
+  if (identical(clip, "all")) {
+    parts <- list()
+    if (has_hull)  parts <- c(parts, list(sf::st_geometry(hull)))
+    if (has_cells) parts <- c(parts, list(sf::st_geometry(cells)))
+    if (!length(parts)) return(hull)
+    return(.st_union_quiet(do.call(c, parts)))
+  }
+  hull  # "eoo" (default)
+}
+
+#' Split a scientific name into its italic (genus + specific epithet) and its
+#' non-italic remainder (naming authority, infraspecific author, etc.).
+#'
+#' Follows the botanical/zoological convention: only the genus and the specific
+#' epithet (the first two words) are italicised; any word that comes after
+#' (typically the describing author) is set in normal type.
+#' @keywords internal
+#' @noRd
+.sp_parts <- function(name) {
+  name <- if (is.null(name)) "" else trimws(as.character(name)[1])
+  if (is.na(name) || !nzchar(name)) return(list(italic = "", rest = ""))
+  w <- strsplit(name, "\\s+")[[1]]
+  list(italic = paste(utils::head(w, 2), collapse = " "),
+       rest   = if (length(w) > 2) paste(w[-(1:2)], collapse = " ") else "")
+}
+
+#' HTML rendering of a scientific name: `<i>Genus species</i> Author`.
+#' Used in every HTML context (leaflet labels, Shiny UI, plotly titles, the
+#' HTML report).
+#' @keywords internal
+#' @noRd
+.sp_html <- function(name) {
+  p <- .sp_parts(name)
+  if (!nzchar(p$italic)) return(if (nzchar(p$rest)) p$rest else "")
+  out <- sprintf("<i>%s</i>", p$italic)
+  if (nzchar(p$rest)) out <- paste0(out, " ", p$rest)
+  out
+}
+
+#' plotmath title for ggplot2: genus + epithet in italic, the remainder (author
+#' and any descriptive `suffix`) in normal type. Returns a language object
+#' suitable for `ggplot2::labs(title = ...)` / base `main =`.
+#' @keywords internal
+#' @noRd
+.sp_title_expr <- function(name, suffix = "") {
+  p <- .sp_parts(name)
+  if (is.null(suffix) || is.na(suffix)) suffix <- ""
+  tail <- paste0(if (nzchar(p$rest)) paste0(" ", p$rest) else "", suffix)
+  if (!nzchar(p$italic)) return(if (nzchar(tail)) tail else "")
+  if (nzchar(tail)) bquote(italic(.(p$italic)) * .(tail))
+  else bquote(italic(.(p$italic)))
+}
+
+#' HTML title for plotly / HTML contexts: the scientific name (italic genus +
+#' epithet, normal author) followed by a descriptive `suffix` in normal type.
+#' @keywords internal
+#' @noRd
+.sp_title_html <- function(name, suffix = "") {
+  if (is.null(suffix) || is.na(suffix)) suffix <- ""
+  paste0(.sp_html(name), suffix)
+}
+
 #' Map a provisional Criterion B category string to its IUCN colour + code
 #' @keywords internal
 #' @noRd

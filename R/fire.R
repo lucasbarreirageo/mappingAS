@@ -256,13 +256,17 @@ plot_fire_timeseries <- function(ts, title = NULL, lang = c("en", "pt")) {
   lang <- match.arg(lang)
   stopifnot(is.data.frame(ts), all(c("year", "burned_pct") %in% names(ts)))
   ylab      <- if (lang == "en") "% of area burned" else "% da area queimada"
-  title_fmt <- if (lang == "en") "%s%s - area burned per year (MapBiomas Fire)"
-               else "%s%s - area queimada por ano (MapBiomas Fogo)"
+  suffix_fmt <- if (lang == "en") "%s - area burned per year (MapBiomas Fire)"
+                else "%s - area queimada por ano (MapBiomas Fogo)"
+  title_html <- title
   if (is.null(title)) {
     sp <- attr(ts, "species"); rg <- attr(ts, "range")
-    if (!is.null(sp))
-      title <- sprintf(title_fmt,
-                       sp, if (!is.null(rg)) paste0(" (", rg, ")") else "")
+    if (!is.null(sp)) {
+      suffix <- sprintf(suffix_fmt,
+                        if (!is.null(rg)) paste0(" (", rg, ")") else "")
+      title      <- .sp_title_expr(sp, suffix)   # ggplot (plotmath)
+      title_html <- .sp_title_html(sp, suffix)   # plotly / HTML
+    }
   }
   if (requireNamespace("ggplot2", quietly = TRUE)) {
     p <- ggplot2::ggplot(ts, ggplot2::aes(x = .data[["year"]],
@@ -274,7 +278,7 @@ plot_fire_timeseries <- function(ts, title = NULL, lang = c("en", "pt")) {
     attr(p, "mas") <- list(
       kind = "fire",
       df = data.frame(year = ts$year, burned_pct = ts$burned_pct),
-      ylab = ylab, title = title)
+      ylab = ylab, title = title_html)
     p
   } else {
     graphics::barplot(ts$burned_pct, names.arg = ts$year, col = "#fd8d3c",

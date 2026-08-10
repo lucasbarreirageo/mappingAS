@@ -237,11 +237,15 @@ plot_timeseries <- function(ts, title = NULL, legend = TRUE,
     attr(ts, "species") <- sp_a; attr(ts, "range") <- rg_a
   }
 
+  title_html <- title
   if (is.null(title)) {
     sp <- attr(ts, "species"); rg <- attr(ts, "range")
-    if (!is.null(sp)) title <- sprintf("%s%s - %s",
-                                       sp, if (!is.null(rg)) paste0(" (", rg, ")") else "",
-                                       lab$title)
+    if (!is.null(sp)) {
+      suffix <- paste0(if (!is.null(rg)) paste0(" (", rg, ")") else "",
+                       " - ", lab$title)
+      title      <- .sp_title_expr(sp, suffix)   # ggplot (plotmath)
+      title_html <- .sp_title_html(sp, suffix)   # plotly / HTML
+    }
   }
 
   # canonical ordering: by MapBiomas hierarchy when codes are present
@@ -284,7 +288,7 @@ plot_timeseries <- function(ts, title = NULL, legend = TRUE,
       df = data.frame(year = ts$year, label = as.character(ts$label),
                       pct = ts$pct, stringsAsFactors = FALSE),
       palette = as.list(cols), levels = lvls, ny = ny,
-      xlab = lab$x, ylab = lab$y, title = title)
+      xlab = lab$x, ylab = lab$y, title = title_html)
     return(p)
   }
 

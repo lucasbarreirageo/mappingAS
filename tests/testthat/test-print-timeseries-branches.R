@@ -64,8 +64,11 @@ test_that("plot_fire_timeseries builds a title from attributes", {
   ts <- data.frame(year = 2020, burned_km2 = 1, burned_pct = 10)
   attr(ts, "species") <- "sp1"; attr(ts, "range") <- "EOO"
   p <- plot_fire_timeseries(ts)
-  expect_true(grepl("sp1", p$labels$title))
-  expect_true(grepl("EOO", p$labels$title))
+  # The title is a plotmath expression (genus/epithet italic, rest normal), so
+  # deparse it before matching.
+  ttl <- paste(deparse(p$labels$title), collapse = " ")
+  expect_true(grepl("sp1", ttl))
+  expect_true(grepl("EOO", ttl))
 })
 
 test_that("plot_fire_timeseries validates required columns", {

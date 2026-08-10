@@ -55,8 +55,10 @@ plot_protection <- function(assessment, species = NULL, lang = c("en", "pt")) {
     xlab <- if (en) "% of range" else "% da distribuicao"
   }
 
-  main <- sprintf(if (en) "%s - protection by Protected areas"
-                  else    "%s - protecao por Areas Protegidas", species)
+  main_suffix <- if (en) " - protection by Protected areas"
+                 else    " - protecao por Areas Protegidas"
+  main      <- .sp_title_expr(species, main_suffix)   # ggplot (plotmath)
+  main_html <- .sp_title_html(species, main_suffix)   # plotly / HTML
   occ  <- if (is.null(pa$occ_pct) || is.na(pa$occ_pct)) "-"
           else sprintf("%.0f%%", pa$occ_pct)
   sub  <- sprintf(if (en) "Occurrences in UCs: %d / %d (%s)  |  UCs: %d"
@@ -92,7 +94,7 @@ plot_protection <- function(assessment, species = NULL, lang = c("en", "pt")) {
     attr(p, "pct") <- M   # keep the percentage matrix accessible
     attr(p, "mas") <- list(kind = "bar", df = df, palette = as.list(cols[grp]),
                            levels = grp, xlab = xlab,
-                           title = main, subtitle = sub)
+                           title = main_html, subtitle = sub)
     return(p)
   }
 

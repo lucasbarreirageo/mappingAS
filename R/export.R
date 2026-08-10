@@ -98,9 +98,25 @@ export_ranges <- function(assessment, dir = ".", layer_prefix = "mappingAS",
     ct <- tryCatch(suppressWarnings(class_table(assessment, range = "both")),
                    error = function(e) data.frame())
     if (nrow(ct)) {
-      csv <- file.path(dir, paste0(layer_prefix, "_classes.csv"))
-      utils::write.csv(ct, csv, row.names = FALSE, fileEncoding = "UTF-8")
-      written <- c(written, csv)
+      if (identical(format, "gpkg")) {
+        # Keep the GeoPackage a single, self-contained file: store the per-class
+        # breakdown as an aspatial table inside it. (Returning a sidecar .csv
+        # here would make the function yield two paths, which breaks single-file
+        # consumers such as the Shiny GeoPackage download.)
+        ok <- tryCatch({
+          sf::st_write(ct, gpkg, layer = "classes", append = TRUE, quiet = quiet)
+          TRUE
+        }, error = function(e) FALSE)
+        if (!ok) {
+          csv <- file.path(dir, paste0(layer_prefix, "_classes.csv"))
+          utils::write.csv(ct, csv, row.names = FALSE, fileEncoding = "UTF-8")
+          written <- c(written, csv)
+        }
+      } else {
+        csv <- file.path(dir, paste0(layer_prefix, "_classes.csv"))
+        utils::write.csv(ct, csv, row.names = FALSE, fileEncoding = "UTF-8")
+        written <- c(written, csv)
+      }
     }
   }
 

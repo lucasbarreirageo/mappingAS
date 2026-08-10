@@ -55,6 +55,10 @@ wdpa_areas <- function(aoi, url = wdpa_query_url(),
   marine <- match.arg(marine)
   g <- sf::st_geometry(aoi)
   if (is.na(sf::st_crs(g))) sf::st_crs(g) <- 4326
+  g <- g[!sf::st_is_empty(g)]
+  if (length(g) == 0)
+    stop("The area of interest has no (non-empty) geometry to query WDPA with.",
+         call. = FALSE)
   bb <- sf::st_bbox(sf::st_transform(g, 4326))
 
   key <- paste0("wdpa__", marine, "__",
@@ -71,6 +75,10 @@ wdpa_areas <- function(aoi, url = wdpa_query_url(),
   if (is.null(pa)) return(NULL)
   if (!nrow(pa)) return(pa)
 
+  # GeoJSON served by the ArcGIS FeatureServer is always WGS84 (EPSG:4326), but
+  # some GDAL/sf builds leave the CRS unset on read; assigning it prevents the
+  # "cannot transform sfc object with missing crs" failure downstream.
+  if (is.na(sf::st_crs(pa))) sf::st_crs(pa) <- 4326
   pa <- sf::st_make_valid(sf::st_transform(pa, 4326))
   pa <- .pa_standardise_wdpa(pa)
   if (nrow(pa) && !is.null(f))
@@ -101,12 +109,22 @@ wdpa_areas <- function(aoi, url = wdpa_query_url(),
     i <- i + 1L
     chunk <- tryCatch(sf::st_read(build(offset), quiet = quiet),
                       error = function(e) NULL)
+    # A non-spatial response (e.g. an ArcGIS error payload parsed as a plain
+    # table) has no geometry column: treat it as a read failure, not as data.
+    if (!is.null(chunk) &&
+        (!inherits(chunk, "sf") || is.null(attr(chunk, "sf_column"))))
+      chunk <- NULL
     if (is.null(chunk)) {
       if (i == 1L)
         stop("Could not read the WDPA FeatureServer. Check the connection or ",
              "pass a local `pa_src` file instead.", call. = FALSE)
       break
     }
+    # GeoJSON is EPSG:4326 by definition; some readers leave the CRS unset.
+    if (is.na(sf::st_crs(chunk))) sf::st_crs(chunk) <- 4326
+    # Drop features that came back without a geometry so they cannot poison the
+    # later bounding-box / transform steps.
+    chunk <- chunk[!sf::st_is_empty(sf::st_geometry(chunk)), , drop = FALSE]
     if (nrow(chunk)) parts[[i]] <- chunk
     if (nrow(chunk) < page || i >= max_pages) break
     offset <- offset + page

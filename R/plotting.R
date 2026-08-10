@@ -17,7 +17,8 @@
 #' @param lang Legend language: \code{"pt"} (default) or \code{"en"}. Controls
 #'   the language of the MapBiomas class labels and the fire-frequency legend.
 #' @param clip Geometry the rasters are clipped to: \code{"eoo"} (default, the
-#'   EOO hull) or \code{"aoo"} (the union of occupied AOO cells).
+#'   EOO hull), \code{"aoo"} (the union of occupied AOO cells) or \code{"all"}
+#'   (the union of both, so the raster spans the whole range).
 #' @param protected Logical; overlay protected areas. Uses the protected-area
 #'   layer already stored by \code{assess_species(..., protected = TRUE)}, or
 #'   fetches it on the fly from WDPA otherwise. Default \code{FALSE}.
@@ -32,7 +33,7 @@
 map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
                         fire = FALSE, src = NULL, fire_src = NULL,
                         max_pixels = 800, lang = c("pt", "en"),
-                        clip = c("eoo", "aoo"),
+                        clip = c("eoo", "aoo", "all"),
                         protected = FALSE, pa_src = NULL, pa_occ_only = TRUE) {
   lang <- match.arg(lang)
   clip <- match.arg(clip)
@@ -51,9 +52,9 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
   if (is.null(obj)) stop("Species not found in assessment: ", species, call. = FALSE)
   st <- assessment$settings
 
-  # Geometry the rasters are clipped to: the EOO hull or the union of AOO cells.
-  clip_geom <- if (clip == "aoo" && !is.null(obj$aoo$cells))
-                 .st_union_quiet(obj$aoo$cells) else obj$eoo$hull
+  # Geometry the rasters are clipped to: the EOO hull, the union of AOO cells,
+  # or (clip = "all") the union of both so the raster spans the whole range.
+  clip_geom <- .clip_geometry(clip, obj$eoo$hull, obj$aoo$cells)
 
   m <- leaflet::leaflet()
   m <- leaflet::addProviderTiles(m, "CartoDB.Positron", group = "Light")
@@ -176,7 +177,7 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
   m <- leaflet::addLayersControl(
     m, baseGroups = c("Light", "Satellite"), overlayGroups = overlay,
     options = leaflet::layersControlOptions(collapsed = FALSE))
-  m <- leaflet::addControl(m, html = sprintf("<b>%s</b>", species),
+  m <- leaflet::addControl(m, html = sprintf("<b>%s</b>", .sp_html(species)),
                            position = "topright")
   m
 }
@@ -215,11 +216,11 @@ plot_conversion <- function(assessment, species = NULL, lang = c("en", "pt")) {
   other_lab <- grp[4]
   if (lang == "en") {
     xlab <- "% of mapped (observed) area"
-    main_fmt <- "%s - composition (land cover %s)"
+    main_suffix_fmt <- " - composition (land cover %s)"
     sub_fmt  <- "Converted (terrestrial): EOO %s  |  AOO %s"
   } else {
     xlab <- "% da area mapeada (observada)"
-    main_fmt <- "%s - composicao (cobertura %s)"
+    main_suffix_fmt <- " - composicao (cobertura %s)"
     sub_fmt  <- "Convertido (terrestre): EOO %s  |  AOO %s"
   }
 
@@ -235,7 +236,9 @@ plot_conversion <- function(assessment, species = NULL, lang = c("en", "pt")) {
 
   fmt <- function(cv) { v <- if (is.null(cv)) NA_real_ else cv$converted_pct
     if (is.finite(v)) sprintf("%.0f%%", v) else "-" }
-  title <- sprintf(main_fmt, species, obj$year %||% assessment$settings$year)
+  main_suffix <- sprintf(main_suffix_fmt, obj$year %||% assessment$settings$year)
+  title      <- .sp_title_expr(species, main_suffix)   # ggplot (plotmath)
+  title_html <- .sp_title_html(species, main_suffix)   # plotly / HTML
   subtitle <- sprintf(sub_fmt, fmt(obj$eoo_conversion), fmt(obj$aoo_conversion))
 
   # --- ggplot2 (interactive-ready) ---
@@ -267,7 +270,7 @@ plot_conversion <- function(assessment, species = NULL, lang = c("en", "pt")) {
     attr(p, "pct") <- M   # keep the percentage matrix accessible
     attr(p, "mas") <- list(kind = "bar", df = df, palette = as.list(cols[grp]),
                            levels = grp, xlab = xlab,
-                           title = title, subtitle = subtitle)
+                           title = title_html, subtitle = subtitle)
     return(p)
   }
 

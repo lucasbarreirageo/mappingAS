@@ -1,3 +1,27 @@
+# mappingAS 1.11.1
+
+* **Protected-area loading is more robust.** The WDPA reader now assigns the
+  GeoJSON default CRS (EPSG:4326) to fetched polygons when the server response
+  leaves it unset, and discards non-spatial/empty responses instead of feeding
+  them into `st_transform()`. This fixes the *"cannot transform sfc object with
+  missing crs"* failure (and the accompanying empty-bbox warnings) that stopped
+  Conservation-Unit overlaps from loading. The same CRS guard is applied to
+  local `pa_src` files.
+* **GeoPackage download fixed.** Exporting the EOO/AOO as a GeoPackage no longer
+  fails with *"more 'from' files than 'to'"*: the per-class breakdown is now
+  stored as an aspatial table *inside* the `.gpkg` (single self-contained file),
+  and `export_ranges()` returns a single path for that format.
+* **New "All" raster clip.** The map (and every downloaded map / GeoTIFF export)
+  can now clip the raster to `"all"` - the union of the EOO and AOO - in
+  addition to `"eoo"` and `"aoo"`.
+* **Publishable (static) map polish.** The scale bar now prints just the datum
+  (e.g. `DATUM WGS84`); the legend and scale bar are drawn without boxes; and
+  the species name in the title is set in italic.
+* **Scientific names are italicised consistently.** Across the interactive and
+  static maps, all charts (conversion, protection, donut, time series, fire) and
+  the HTML/Word report, the genus and specific epithet are shown in italic while
+  the naming authority (any word after them) stays in normal type.
+
 # mappingAS 1.11.0
 
 * **Global Sentinel-2 fallback for ranges outside MapBiomas.** When a species'
