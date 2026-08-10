@@ -87,6 +87,41 @@ wdpa_areas <- function(aoi, url = wdpa_query_url(),
   pa
 }
 
+#' Read one WDPA query page as an `sf`.
+#'
+#' Downloads the query result with R's own HTTP stack (\pkg{curl} when available,
+#' otherwise \code{utils::download.file()}) to a temporary file and reads that
+#' file. This is deliberate: many GDAL builds - notably several Windows / older
+#' installs - lack the \code{/vsicurl} HTTP support that \code{sf::st_read()}
+#' needs to open a URL directly, so reading the URL in-place silently returns
+#' nothing there while working on Linux/CI. Downloading first makes the query
+#' portable across platforms. Direct URL reading is kept as a fallback.
+#' @keywords internal
+#' @noRd
+.wdpa_read_query <- function(qurl, quiet) {
+  # Save as ".json" (not ".geojson"): the service returns ESRI JSON, and the
+  # ".geojson" extension would force GDAL's GeoJSON driver, which rejects it with
+  # "Missing 'features' member". A ".json" file lets the ESRIJSON driver claim it.
+  tf <- tempfile(fileext = ".json")
+  on.exit(unlink(tf), add = TRUE)
+  dl_ok <- tryCatch({
+    if (requireNamespace("curl", quietly = TRUE)) {
+      curl::curl_download(qurl, tf, quiet = TRUE, mode = "wb")
+    } else {
+      suppressWarnings(utils::download.file(qurl, tf, quiet = TRUE, mode = "wb"))
+    }
+    file.exists(tf) && file.size(tf) > 0
+  }, error = function(e) FALSE)
+
+  out <- NULL
+  if (isTRUE(dl_ok))
+    out <- tryCatch(sf::st_read(tf, quiet = quiet), error = function(e) NULL)
+  # Fallback: let GDAL read the URL directly (works where /vsicurl is available).
+  if (is.null(out))
+    out <- tryCatch(sf::st_read(qurl, quiet = quiet), error = function(e) NULL)
+  out
+}
+
 #' @keywords internal
 #' @noRd
 .wdpa_fetch <- function(url, where, geom, quiet, page = 1000L, max_pages = 25L) {
@@ -100,15 +135,17 @@ wdpa_areas <- function(aoi, url = wdpa_query_url(),
       outFields = "*", returnGeometry = "true",
       resultOffset = as.character(offset),
       resultRecordCount = as.character(page),
-      f = "geojson")
+      # This FeatureServer advertises supportedQueryFormats = "JSON" only, so the
+      # /query endpoint rejects f=geojson with HTTP 400. Request ESRI JSON (which
+      # GDAL's ESRIJSON driver reads) instead.
+      f = "json")
     paste0(url, "?", paste(names(q), q, sep = "=", collapse = "&"))
   }
 
   parts <- list(); i <- 0L; offset <- 0L
   repeat {
     i <- i + 1L
-    chunk <- tryCatch(sf::st_read(build(offset), quiet = quiet),
-                      error = function(e) NULL)
+    chunk <- .wdpa_read_query(build(offset), quiet)
     # A non-spatial response (e.g. an ArcGIS error payload parsed as a plain
     # table) has no geometry column: treat it as a read failure, not as data.
     if (!is.null(chunk) &&
@@ -116,8 +153,9 @@ wdpa_areas <- function(aoi, url = wdpa_query_url(),
       chunk <- NULL
     if (is.null(chunk)) {
       if (i == 1L)
-        stop("Could not read the WDPA FeatureServer. Check the connection or ",
-             "pass a local `pa_src` file instead.", call. = FALSE)
+        stop("Could not read the WDPA service. Check the internet connection ",
+             "(or GDAL's URL support) or upload a local protected-area file ",
+             "instead.", call. = FALSE)
       break
     }
     # GeoJSON is EPSG:4326 by definition; some readers leave the CRS unset.

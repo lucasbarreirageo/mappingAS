@@ -1,12 +1,22 @@
 # mappingAS 1.11.1
 
-* **Protected-area loading is more robust.** The WDPA reader now assigns the
-  GeoJSON default CRS (EPSG:4326) to fetched polygons when the server response
-  leaves it unset, and discards non-spatial/empty responses instead of feeding
-  them into `st_transform()`. This fixes the *"cannot transform sfc object with
-  missing crs"* failure (and the accompanying empty-bbox warnings) that stopped
-  Conservation-Unit overlaps from loading. The same CRS guard is applied to
-  local `pa_src` files.
+* **Protected-area loading is more robust.**
+    - The WDPA query is now **downloaded with R's own HTTP stack** (curl /
+      `download.file()`) to a temporary file before being read, instead of
+      relying on `sf::st_read()` opening the URL directly. Many GDAL builds
+      (notably several Windows / older installs) lack the `/vsicurl` HTTP support
+      that direct URL reading needs, so protected areas would come back empty on
+      those machines while working on Linux/CI - this makes the fetch portable
+      across platforms.
+    - The reader assigns the GeoJSON default CRS (EPSG:4326) when the response
+      leaves it unset, and discards non-spatial/empty responses instead of
+      feeding them into `st_transform()`, fixing the *"cannot transform sfc
+      object with missing crs"* failure and its empty-bbox warnings. The same
+      CRS guard is applied to local `pa_src` files.
+    - The Shiny app now also exposes an **optional protected-area upload**
+      (GeoPackage/GeoJSON/shapefile `.zip`) used instead of the online WDPA
+      service - handy when the global service returns nothing or you are offline
+      (e.g. a local ICMBio Conservation-Units layer for Brazil).
 * **GeoPackage download fixed.** Exporting the EOO/AOO as a GeoPackage no longer
   fails with *"more 'from' files than 'to'"*: the per-class breakdown is now
   stored as an aspatial table *inside* the `.gpkg` (single self-contained file),

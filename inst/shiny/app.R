@@ -118,7 +118,21 @@ ui <- bslib::page_sidebar(
     checkboxInput("water_denom", "Include water as natural in denominator", FALSE),
     checkboxInput("do_mb", "Calculate land-cover conversion", TRUE),
     checkboxInput("do_fire", "Calculate fire (burned area, Brazil only)", FALSE),
-    checkboxInput("do_pa", "Overlap with Protected areas (WDPA)", FALSE),
+    checkboxInput("do_pa", "Overlap with Protected areas", FALSE),
+    conditionalPanel(
+      condition = "input.do_pa == true",
+      fileInput(
+        "pa_file",
+        "Protected-area layer (optional: GeoPackage, GeoJSON or shapefile .zip)",
+        accept = c(".gpkg", ".geojson", ".json", ".shp", ".zip")),
+      helpText(htmltools::HTML(
+        "Leave empty to query the global <b>WDPA</b> service online. ",
+        "If it returns nothing (or you are offline), upload a local protected-area ",
+        "file - e.g. Brazil's federal Conservation Units from ICMBio ",
+        "(<a href='https://www.gov.br/icmbio/pt-br/servicos/geoprocessamento' ",
+        "target='_blank'>ICMBio geoprocessamento</a>) or a WDPA extract from ",
+        "<a href='https://www.protectedplanet.net' target='_blank'>Protected Planet</a>."))
+    ),
     radioButtons("lang", "Legend language",
                  choices = c("English" = "en", "Portuguese" = "pt"),
                  selected = "en", inline = TRUE),
@@ -411,6 +425,33 @@ server <- function(input, output, session) {
     )
   })
 
+  # Optional local protected-area layer: resolve the upload to a path that
+  # sf::st_read() can open. A shapefile arrives zipped, so it is unzipped and the
+  # contained .shp is returned; other vector files are copied verbatim. Returns
+  # NULL when nothing was uploaded (so WDPA is queried online instead).
+  pa_src_path <- reactive({
+    f <- input$pa_file
+    if (is.null(f) || is.null(f$datapath) || !nzchar(f$datapath)) return(NULL)
+    ext <- tolower(tools::file_ext(f$name))
+    if (ext == "zip") {
+      tmp <- file.path(tempdir(), paste0("pa_zip_", as.integer(Sys.time())))
+      dir.create(tmp, showWarnings = FALSE, recursive = TRUE)
+      utils::unzip(f$datapath, exdir = tmp)
+      shp <- list.files(tmp, pattern = "\\.shp$", recursive = TRUE,
+                        full.names = TRUE)
+      if (!length(shp)) {
+        showNotification("No .shp found inside the protected-area .zip.",
+                         type = "error", duration = NULL)
+        return(NULL)
+      }
+      return(shp[1])
+    }
+    dest <- file.path(tempdir(),
+                      paste0("pa_upload_", as.integer(Sys.time()), ".", ext))
+    file.copy(f$datapath, dest, overwrite = TRUE)
+    dest
+  })
+
   result <- eventReactive(input$run, {
     o <- tryCatch(occ(), error = function(e) {
       showNotification(paste("Error reading file:", conditionMessage(e)),
@@ -438,6 +479,7 @@ server <- function(input, output, session) {
           mapbiomas = isTRUE(input$do_mb),
           fire = isTRUE(input$do_fire),
           protected = isTRUE(input$do_pa),
+          pa_src = if (isTRUE(input$do_pa)) pa_src_path() else NULL,
           water_in_denominator = isTRUE(input$water_denom),
           verbose = FALSE
         ),
@@ -713,7 +755,8 @@ server <- function(input, output, session) {
                            fire = isTRUE(input$do_fire),
                            lang = input$lang %||% "en",
                            clip = input$map_clip %||% "eoo",
-                           protected = isTRUE(input$do_pa))
+                           protected = isTRUE(input$do_pa),
+                           pa_src = if (isTRUE(input$do_pa)) pa_src_path() else NULL)
   })
 
   # IUCN badges (EOO/B1 and AOO/B2) + headline metrics, beside the map.
@@ -1020,7 +1063,8 @@ server <- function(input, output, session) {
                            fire      = lyr %in% c("fire", "both"),
                            lang = input$lang %||% "en",
                            clip = input$map_clip %||% "eoo",
-                           protected = isTRUE(input$do_pa))
+                           protected = isTRUE(input$do_pa),
+                           pa_src = if (isTRUE(input$do_pa)) pa_src_path() else NULL)
       htmlwidgets::saveWidget(m, file, selfcontained = TRUE)
     })
   )
