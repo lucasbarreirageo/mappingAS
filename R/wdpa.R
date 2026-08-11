@@ -113,12 +113,27 @@ wdpa_areas <- function(aoi, url = wdpa_query_url(),
     file.exists(tf) && file.size(tf) > 0
   }, error = function(e) FALSE)
 
+  # ESRI JSON uses clockwise outer rings and counter-clockwise holes, so tell
+  # GDAL to assume that (ONLY_CCW) instead of running the slow O(n^2) ring-
+  # containment analysis that emits "organizePolygons() received a polygon with
+  # more than 100 parts. The processing may be really slow." on large protected
+  # areas. This is both faster and correct for ESRI-sourced polygons; any residue
+  # is cleaned by st_make_valid() upstream.
+  old <- Sys.getenv("OGR_ORGANIZE_POLYGONS", unset = NA_character_)
+  Sys.setenv(OGR_ORGANIZE_POLYGONS = "ONLY_CCW")
+  on.exit(
+    if (is.na(old)) Sys.unsetenv("OGR_ORGANIZE_POLYGONS")
+    else Sys.setenv(OGR_ORGANIZE_POLYGONS = old),
+    add = TRUE)
+
+  read_quiet <- function(x)
+    suppressWarnings(tryCatch(sf::st_read(x, quiet = quiet),
+                              error = function(e) NULL))
+
   out <- NULL
-  if (isTRUE(dl_ok))
-    out <- tryCatch(sf::st_read(tf, quiet = quiet), error = function(e) NULL)
+  if (isTRUE(dl_ok)) out <- read_quiet(tf)
   # Fallback: let GDAL read the URL directly (works where /vsicurl is available).
-  if (is.null(out))
-    out <- tryCatch(sf::st_read(qurl, quiet = quiet), error = function(e) NULL)
+  if (is.null(out)) out <- read_quiet(qurl)
   out
 }
 
