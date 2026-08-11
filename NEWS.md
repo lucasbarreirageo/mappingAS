@@ -1,3 +1,9 @@
+# mappingAS 1.11.2
+
+* **Interactive-map species label fixed.** The species name shown on the map no
+  longer wraps one character per line in a narrow control box; it is kept on a
+  single line (`white-space: nowrap`), with the genus/epithet still in italic.
+
 # mappingAS 1.11.1
 
 * **Protected-area loading is more robust.**

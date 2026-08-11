@@ -177,8 +177,13 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
   m <- leaflet::addLayersControl(
     m, baseGroups = c("Light", "Satellite"), overlayGroups = overlay,
     options = leaflet::layersControlOptions(collapsed = FALSE))
-  m <- leaflet::addControl(m, html = sprintf("<b>%s</b>", .sp_html(species)),
-                           position = "topright")
+  # white-space:nowrap keeps the (possibly italic) name on one line; without it a
+  # narrow control box can wrap the label one character per line.
+  m <- leaflet::addControl(
+    m,
+    html = sprintf("<div style='white-space:nowrap'><b>%s</b></div>",
+                   .sp_html(species)),
+    position = "topright")
   m
 }
 
