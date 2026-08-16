@@ -326,3 +326,136 @@ plot_timeseries <- function(ts, title = NULL, legend = TRUE,
   }
   invisible(NULL)
 }
+
+#' Regression trendline of one land-cover class through time
+#'
+#' Fits a regression of a single land-cover class (or conservation group)
+#' percentage of area against year and plots the observed points with the
+#' fitted curve, its equation, R-squared and p-value. When the
+#' \pkg{ggtrendline} package is installed
+#' (\url{https://CRAN.R-project.org/package=ggtrendline}) it is used to draw the
+#' trendline and annotate the statistics; otherwise the function falls back to a
+#' plain \pkg{ggplot2} linear fit carrying the same statistics, and finally to
+#' base graphics.
+#'
+#' @param ts A long data frame from \code{\link{cover_timeseries}} or
+#'   \code{\link{timeseries_for_species}}.
+#' @param class_label The \code{label} (class or group name) to analyse. When
+#'   \code{NULL} (default), the class with the largest mean percentage across
+#'   the series is used.
+#' @param model \pkg{ggtrendline} model, one of \code{"line2P"} (linear,
+#'   default), \code{"line3P"} (quadratic), \code{"log2P"}, \code{"exp2P"},
+#'   \code{"exp3P"}, \code{"power2P"} or \code{"power3P"}. Ignored (a linear fit
+#'   is used) when \pkg{ggtrendline} is not installed.
+#' @param title Optional plot title. When \code{NULL}, a title is built from the
+#'   class name and the \code{species}/\code{range} attributes when present.
+#' @param lang Axis/title language: \code{"en"} (default) or \code{"pt"}. When
+#'   \code{"en"} the English MapBiomas class names (\code{class_en}) are used
+#'   when available.
+#' @return A \pkg{ggplot} object when \pkg{ggplot2} is available; otherwise
+#'   \code{NULL} (invisibly) after drawing a base plot.
+#' @seealso \code{\link{plot_timeseries}}, \code{\link{timeseries_for_species}}
+#' @export
+plot_class_trendline <- function(ts, class_label = NULL, model = "line2P",
+                                 title = NULL, lang = c("en", "pt")) {
+  lang <- match.arg(lang)
+  stopifnot(is.data.frame(ts),
+            all(c("year", "label", "pct") %in% names(ts)))
+
+  # Display labels follow plot_timeseries: English MapBiomas class names when
+  # requested and available, otherwise the native (Portuguese) labels.
+  disp <- if (lang == "en" && "class_en" %in% names(ts)) ts$class_en else ts$label
+
+  # Resolve the requested class against the display name, the native label or
+  # the English name, so a caller may pass any of them; default to the class
+  # with the largest mean share.
+  resolve <- function(x) {
+    if (is.null(x)) return(NULL)
+    if (x %in% disp) return(x)
+    if (x %in% ts$label) return(disp[match(x, ts$label)])
+    if ("class_en" %in% names(ts) && x %in% ts$class_en)
+      return(disp[match(x, ts$class_en)])
+    NULL
+  }
+  class_label <- resolve(class_label)
+  if (is.null(class_label)) {
+    mp <- tapply(ts$pct, disp, mean, na.rm = TRUE)
+    class_label <- names(mp)[which.max(mp)]
+  }
+
+  keep <- disp == class_label
+  d <- ts[keep, c("year", "pct"), drop = FALSE]
+  d <- d[is.finite(d$year) & is.finite(d$pct), , drop = FALSE]
+  d <- d[order(d$year), , drop = FALSE]
+
+  lab <- if (lang == "en")
+    list(x = "Year", y = "Percentage (%)", t = "trend")
+  else
+    list(x = "Ano", y = "Porcentagem (%)", t = "tendencia")
+
+  hexc <- {
+    h <- if ("hex" %in% names(ts)) ts$hex[keep] else NULL
+    if (length(h)) h[1] else "#1f8d49"
+  }
+
+  ttl <- title
+  if (is.null(ttl)) {
+    sp <- attr(ts, "species"); rg <- attr(ts, "range")
+    ttl <- paste0(class_label,
+                  if (!is.null(rg)) paste0(" (", rg, ")") else "",
+                  " - ", lab$t,
+                  if (!is.null(sp)) paste0(" - ", sp) else "")
+  }
+
+  if (!nrow(d)) {
+    if (requireNamespace("ggplot2", quietly = TRUE)) {
+      return(ggplot2::ggplot() + ggplot2::labs(title = ttl) + .mas_theme())
+    }
+    return(invisible(NULL))
+  }
+
+  # Preferred path: ggtrendline (equation + R2 + p-value baked into the plot).
+  if (nrow(d) >= 3 &&
+      requireNamespace("ggtrendline", quietly = TRUE) &&
+      requireNamespace("ggplot2", quietly = TRUE)) {
+    p <- tryCatch(
+      ggtrendline::ggtrendline(d$year, d$pct, model = model,
+                               linecolor = "#233d2c", pointcolor = hexc) +
+        ggplot2::labs(x = lab$x, y = lab$y, title = ttl) +
+        .mas_theme(),
+      error = function(e) NULL)
+    if (!is.null(p)) return(p)
+  }
+
+  # Fallback: ggplot2 linear fit with lm statistics annotated.
+  if (requireNamespace("ggplot2", quietly = TRUE)) {
+    p <- ggplot2::ggplot(d, ggplot2::aes(x = .data[["year"]],
+                                         y = .data[["pct"]])) +
+      ggplot2::geom_point(colour = hexc, size = 2)
+    if (nrow(d) >= 2) {
+      fit <- stats::lm(pct ~ year, data = d)
+      cf  <- stats::coef(fit)
+      sm  <- summary(fit)
+      pv  <- tryCatch(
+        stats::pf(sm$fstatistic[1L], sm$fstatistic[2L], sm$fstatistic[3L],
+                  lower.tail = FALSE), error = function(e) NA_real_)
+      eqn <- sprintf("y = %.4g %s %.4g x\nR^2 = %.3f%s",
+                     cf[[1L]], if (cf[[2L]] >= 0) "+" else "-", abs(cf[[2L]]),
+                     sm$r.squared,
+                     if (is.finite(pv)) sprintf(", p = %.3g", pv) else "")
+      p <- p +
+        ggplot2::geom_smooth(method = "lm", formula = y ~ x, se = TRUE,
+                             colour = "#233d2c", fill = "#233d2c",
+                             alpha = 0.15) +
+        ggplot2::annotate("text", x = -Inf, y = Inf, hjust = -0.05,
+                          vjust = 1.3, label = eqn, size = 3.4)
+    }
+    return(p + ggplot2::labs(x = lab$x, y = lab$y, title = ttl) + .mas_theme())
+  }
+
+  # Base-graphics fallback.
+  plot(d$year, d$pct, xlab = lab$x, ylab = lab$y, main = ttl, pch = 19,
+       col = hexc)
+  if (nrow(d) >= 2) graphics::abline(stats::lm(pct ~ year, data = d))
+  invisible(NULL)
+}

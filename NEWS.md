@@ -1,3 +1,21 @@
+# mappingAS 1.11.3
+
+* **Time Series tab now shows EOO and AOO together.** The extent radio button
+  (choose EOO *or* AOO) is gone: a single *Calculate series* run computes both
+  extents and stacks the two land-cover charts one above the other, each with
+  its own altered-area (anthropic) analysis box. The results table and the
+  *Download series (CSV)* export now carry both extents (tagged with a `range`
+  column), the *Save image (PNG)* export stacks both charts, and both series are
+  fed into the written report automatically - so the EOO and AOO temporal trends
+  both appear in the generated `.docx`/text assessment.
+* **New land-cover trend analysis (`plot_class_trendline()`).** For a chosen
+  class or conservation group, the Time Series tab now fits and plots a
+  regression of its percentage of area through time - with the fitted equation,
+  R² and p-value - for each extent, using the
+  [ggtrendline](https://CRAN.R-project.org/package=ggtrendline) package when
+  installed (with a `ggplot2` linear-fit fallback otherwise). A model selector
+  (linear, quadratic, logarithmic, exponential, power) drives the fit.
+
 # mappingAS 1.11.2
 
 * **Interactive-map species label fixed.** The species name shown on the map no

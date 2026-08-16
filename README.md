@@ -23,7 +23,7 @@
 | **Occurrence import** | Read points from spreadsheets or spatial files, auto-detecting the species/lon/lat columns | `read_occurrences()` |
 | **Range metrics** | Extent of Occurrence (EOO, convex hull) and Area of Occupancy (AOO, 2 km grid) on an equal-area projection, with provisional Criterion B categories | `assess_species()`, `calc_eoo()`, `calc_aoo()`, `iucn_category_B()` |
 | **Habitat conversion** | % converted (anthropic) vs. natural within the EOO/AOO, plus the full per-class land-cover breakdown | `assess_species()`, `class_table()`, `plot_conversion()` |
-| **Land-cover time series** | Composition (% × year) as a stacked-area chart | `timeseries_for_species()`, `cover_timeseries()`, `plot_timeseries()` |
+| **Land-cover time series** | Composition (% × year) as a stacked-area chart (EOO and AOO together), plus a per-class regression trendline with equation, R² and p-value | `timeseries_for_species()`, `cover_timeseries()`, `plot_timeseries()`, `plot_class_trendline()` |
 | **Fire** | % of the range burned at least once and burned-area time series, from MapBiomas Fire (Brazil) | `assess_species(fire = TRUE)`, `fire_timeseries_for_species()`, `plot_fire_timeseries()` |
 | **Protected areas** | Overlap of occurrences/EOO/AOO with protected areas (global WDPA), incl. the natural-and-protected share | `assess_species(protected = TRUE)`, `pa_table()`, `plot_protection()`, `protected_areas()` |
 | **Maps** | Interactive Leaflet map and a publication-ready static map (points + EOO + AOO + land cover/fire) | `map_species()`, `map_static()` |

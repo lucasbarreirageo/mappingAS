@@ -242,14 +242,11 @@ ui <- bslib::page_sidebar(
     bslib::nav_panel(
       "Time Series", icon = icon("chart-line"),
       fluidRow(
-        column(3, selectInput("ts_species", "Species", choices = NULL)),
-        column(3, radioButtons("ts_range", "Area",
-                               c("EOO" = "eoo", "AOO" = "aoo"),
-                               selected = "eoo", inline = TRUE)),
-        column(3, radioButtons("ts_by", "Detail",
+        column(4, selectInput("ts_species", "Species", choices = NULL)),
+        column(4, radioButtons("ts_by", "Detail",
                                c("Class" = "class", "Group" = "group"),
                                selected = "class", inline = TRUE)),
-        column(3, numericInput("ts_step", "Step (years)", value = 1,
+        column(4, numericInput("ts_step", "Step (years)", value = 1,
                                min = 1, max = 10, step = 1))
       ),
       div(
@@ -258,11 +255,37 @@ ui <- bslib::page_sidebar(
         downloadButton("dl_ts", "Download series (CSV)"),
         downloadButton("dl_ts_png", "Save image (PNG)")
       ),
-      helpText("Complete land-cover history (annual by default). A 1-year step reads all years and may be slow; increase the step to speed up."),
-      uiOutput("ts_summary"),
-      div(style = "height:480px; min-height:480px;",
-          plotly::plotlyOutput("ts_plot", height = "100%")),
-      DT::DTOutput("ts_tbl")
+      helpText("Complete land-cover history for BOTH extents (EOO and AOO), one chart above the other, each with its own altered-area analysis. A 1-year step reads all years and may be slow; increase the step to speed up."),
+      tags$h5("EOO — Extent of Occurrence", class = "mt-2 mb-1"),
+      uiOutput("ts_summary_eoo"),
+      div(style = "height:420px; min-height:420px;",
+          plotly::plotlyOutput("ts_plot_eoo", height = "100%")),
+      tags$h5("AOO — Area of Occupancy", class = "mt-4 mb-1"),
+      uiOutput("ts_summary_aoo"),
+      div(style = "height:420px; min-height:420px;",
+          plotly::plotlyOutput("ts_plot_aoo", height = "100%")),
+      DT::DTOutput("ts_tbl"),
+      tags$hr(),
+      tags$h5("Trend analysis (ggtrendline)", class = "mt-2 mb-1"),
+      fluidRow(
+        column(6, selectInput("ts_trend_class", "Class / group", choices = NULL)),
+        column(6, selectInput("ts_trend_model", "Regression model",
+                              c("Linear (line2P)"      = "line2P",
+                                "Quadratic (line3P)"   = "line3P",
+                                "Logarithmic (log2P)"  = "log2P",
+                                "Exponential (exp2P)"  = "exp2P",
+                                "Power (power2P)"       = "power2P"),
+                              selected = "line2P"))
+      ),
+      helpText("Regression trend of the selected class through time (percentage of area), with the fitted equation, R² and p-value, for each extent. Calculate the series above first."),
+      fluidRow(
+        column(6, tags$div(tags$b("EOO"),
+                           div(style = "height:360px; min-height:360px;",
+                               plotOutput("ts_trend_eoo", height = "100%")))),
+        column(6, tags$div(tags$b("AOO"),
+                           div(style = "height:360px; min-height:360px;",
+                               plotOutput("ts_trend_aoo", height = "100%"))))
+      )
     ),
 
     bslib::nav_panel(
@@ -914,34 +937,35 @@ server <- function(input, output, session) {
     })
   )
 
+  # Compute the land-cover series for BOTH extents (EOO and AOO) in one run, so
+  # the two charts, their analyses, the table, the CSV and the report all cover
+  # the two areas at once. Returns a list(eoo = <df|NULL>, aoo = <df|NULL>).
   ts_data <- eventReactive(input$ts_run, {
     req(result(), input$ts_species)
     yrs <- .year_grid(input$ts_step, result()$settings$collection,
                       result()$settings$initiative %||% "brazil")
-    withProgress(message = "Calculating time series...", value = 0, {
-      ts <- tryCatch(
+    one <- function(rng) {
+      tryCatch(
         mappingAS::timeseries_for_species(
-          result(), species = input$ts_species, range = input$ts_range,
+          result(), species = input$ts_species, range = rng,
           years = yrs, by = input$ts_by, verbose = FALSE),
         error = function(e) {
-          showNotification(paste("Error in time series:", conditionMessage(e)),
+          showNotification(sprintf("Error in %s time series: %s",
+                                   toupper(rng), conditionMessage(e)),
                            type = "error", duration = NULL)
           NULL
         })
-      incProgress(1)
-      ts
+    }
+    withProgress(message = "Calculating time series (EOO & AOO)...", value = 0, {
+      eoo <- one("eoo"); incProgress(0.5)
+      aoo <- one("aoo"); incProgress(0.5)
+      list(eoo = eoo, aoo = aoo)
     })
   })
 
-  output$ts_plot <- plotly::renderPlotly({
-    ts <- ts_data(); req(ts)
-    mappingAS::mas_plotly(
-      mappingAS::plot_timeseries(ts, lang = input$lang %||% "en"))
-  })
-
-  output$ts_summary <- renderUI({
-    ts <- ts_data(); req(ts)
-    if (!"group" %in% names(ts)) return(NULL)
+  # Shared renderer for the per-extent altered-area (anthropic) analysis box.
+  .ts_summary_html <- function(ts) {
+    if (is.null(ts) || !"group" %in% names(ts)) return(NULL)
     sub <- ts[ts$group == "anthropic", , drop = FALSE]
     if (!nrow(sub)) {
       return(htmltools::HTML(
@@ -960,20 +984,73 @@ server <- function(input, output, session) {
       attr(ts, "species") %||% "", attr(ts, "range") %||% "",
       first$pct, first$year, last$pct, last$year,
       if (delta >= 0) "#d4271e" else "#1f8d49", delta))
+  }
+
+  output$ts_plot_eoo <- plotly::renderPlotly({
+    d <- ts_data(); req(d$eoo)
+    mappingAS::mas_plotly(
+      mappingAS::plot_timeseries(d$eoo, lang = input$lang %||% "en"))
   })
 
+  output$ts_plot_aoo <- plotly::renderPlotly({
+    d <- ts_data(); req(d$aoo)
+    mappingAS::mas_plotly(
+      mappingAS::plot_timeseries(d$aoo, lang = input$lang %||% "en"))
+  })
+
+  output$ts_summary_eoo <- renderUI({ d <- ts_data(); req(d$eoo); .ts_summary_html(d$eoo) })
+  output$ts_summary_aoo <- renderUI({ d <- ts_data(); req(d$aoo); .ts_summary_html(d$aoo) })
+
+  # Combine both extents into one table / CSV, tagged with a `range` column.
+  .ts_combined <- function(d) {
+    mk <- function(ts, rng) {
+      if (is.null(ts) || !is.data.frame(ts)) return(NULL)
+      cbind(range = rng, ts, stringsAsFactors = FALSE)
+    }
+    df <- rbind(mk(d$eoo, "EOO"), mk(d$aoo, "AOO"))
+    df
+  }
+
   output$ts_tbl <- DT::renderDT({
-    ts <- ts_data(); req(ts)
-    .mas_dt(ts, page = 15, caption = "Composition (%) by year")
+    d <- ts_data(); req(!is.null(d$eoo) || !is.null(d$aoo))
+    df <- .ts_combined(d)
+    validate(need(!is.null(df) && nrow(df) > 0, "No series data."))
+    .mas_dt(df, page = 15, caption = "Composition (%) by year — EOO and AOO")
   })
 
   output$dl_ts <- downloadHandler(
     filename = function() paste0("mappingAS_series_", input$ts_species, "_", Sys.Date(), ".csv"),
     content = .safe_download(function(file) {
-      ts <- ts_data(); req(ts)
-      utils::write.csv(ts, file, row.names = FALSE, fileEncoding = "UTF-8")
+      d <- ts_data(); req(!is.null(d$eoo) || !is.null(d$aoo))
+      df <- .ts_combined(d); req(!is.null(df) && nrow(df) > 0)
+      utils::write.csv(df, file, row.names = FALSE, fileEncoding = "UTF-8")
     })
   )
+
+  # Populate the trend-analysis class picker from the computed series, ordered
+  # by mean share so the dominant class is offered first.
+  observeEvent(list(ts_data(), input$lang), {
+    d <- ts_data(); ts <- d$eoo %||% d$aoo
+    if (is.null(ts) || !is.data.frame(ts)) return()
+    disp <- if ((input$lang %||% "en") == "en" && "class_en" %in% names(ts))
+      ts$class_en else ts$label
+    mp <- tapply(ts$pct, disp, mean, na.rm = TRUE)
+    labs <- names(sort(mp, decreasing = TRUE))
+    sel <- if (!is.null(input$ts_trend_class) && input$ts_trend_class %in% labs)
+      input$ts_trend_class else labs[1]
+    updateSelectInput(session, "ts_trend_class", choices = labs, selected = sel)
+  }, ignoreInit = TRUE)
+
+  .ts_trend_plot <- function(ts) {
+    req(ts, input$ts_trend_class)
+    mappingAS::plot_class_trendline(
+      ts, class_label = input$ts_trend_class,
+      model = input$ts_trend_model %||% "line2P",
+      lang = input$lang %||% "en")
+  }
+
+  output$ts_trend_eoo <- renderPlot({ d <- ts_data(); req(d$eoo); .ts_trend_plot(d$eoo) })
+  output$ts_trend_aoo <- renderPlot({ d <- ts_data(); req(d$aoo); .ts_trend_plot(d$aoo) })
 
   output$fire_summary <- renderUI({
     req(result(), input$fire_species)
@@ -1126,14 +1203,27 @@ server <- function(input, output, session) {
   output$dl_ts_png <- downloadHandler(
     filename = function() paste0("mappingAS_series_", input$ts_species, "_", Sys.Date(), ".png"),
     content = .safe_download(function(file) {
-      ts <- ts_data(); req(ts)
-      p <- mappingAS::plot_timeseries(ts, lang = input$lang %||% "en")
-      if (inherits(p, "ggplot") && requireNamespace("ggplot2", quietly = TRUE)) {
-        ggplot2::ggsave(file, plot = p, width = 10, height = 6, dpi = 130)
+      d <- ts_data(); req(!is.null(d$eoo) || !is.null(d$aoo))
+      lg <- input$lang %||% "en"
+      ps <- Filter(Negate(is.null), list(
+        if (!is.null(d$eoo)) mappingAS::plot_timeseries(d$eoo, lang = lg),
+        if (!is.null(d$aoo)) mappingAS::plot_timeseries(d$aoo, lang = lg)))
+      n <- length(ps)
+      grDevices::png(file, width = 1200, height = 420 * max(n, 1), res = 120)
+      on.exit(grDevices::dev.off(), add = TRUE)
+      if (all(vapply(ps, inherits, logical(1), "ggplot"))) {
+        grid::grid.newpage()
+        grid::pushViewport(grid::viewport(
+          layout = grid::grid.layout(n, 1)))
+        for (i in seq_len(n)) {
+          print(ps[[i]], vp = grid::viewport(layout.pos.row = i,
+                                             layout.pos.col = 1))
+        }
       } else {
-        grDevices::png(file, width = 1200, height = 720, res = 120)
-        on.exit(grDevices::dev.off(), add = TRUE)
-        mappingAS::plot_timeseries(ts)
+        # base-graphics fallback: stack the plots
+        graphics::par(mfrow = c(n, 1))
+        if (!is.null(d$eoo)) mappingAS::plot_timeseries(d$eoo, lang = lg)
+        if (!is.null(d$aoo)) mappingAS::plot_timeseries(d$aoo, lang = lg)
       }
     })
   )
@@ -1147,10 +1237,15 @@ server <- function(input, output, session) {
   report_fire_store  <- reactiveVal(list())
 
   observeEvent(ts_data(), {
-    ts <- ts_data()
-    if (is.null(ts) || !is.data.frame(ts)) return()
-    key <- paste(attr(ts, "species") %||% "", attr(ts, "range") %||% "", sep = "||")
-    st <- report_cover_store(); st[[key]] <- ts; report_cover_store(st)
+    d <- ts_data()
+    if (is.null(d)) return()
+    st <- report_cover_store()
+    for (ts in list(d$eoo, d$aoo)) {
+      if (is.null(ts) || !is.data.frame(ts)) next
+      key <- paste(attr(ts, "species") %||% "", attr(ts, "range") %||% "", sep = "||")
+      st[[key]] <- ts
+    }
+    report_cover_store(st)
   }, ignoreInit = TRUE)
 
   observeEvent(fire_ts_data(), {

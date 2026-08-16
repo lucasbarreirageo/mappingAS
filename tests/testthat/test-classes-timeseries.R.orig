@@ -81,31 +81,6 @@ test_that("plot_class_trendline renders for a chosen class", {
   }
 })
 
-test_that("plot_class_trendline renders for a chosen class", {
-  ts <- data.frame(
-    year     = rep(c(2000, 2005, 2010, 2015, 2020), each = 2),
-    code     = rep(c(3, 15), 5),
-    label    = rep(c("Formacao Florestal", "Pastagem"), 5),
-    class_en = rep(c("Forest Formation", "Pasture"), 5),
-    group    = rep(c("natural", "anthropic"), 5),
-    hex      = rep(c("#1f8d49", "#edde8e"), 5),
-    pct      = c(70, 30, 66, 34, 62, 38, 58, 42, 54, 46),
-    stringsAsFactors = FALSE
-  )
-  attr(ts, "species") <- "sp1"; attr(ts, "range") <- "EOO"
-  if (requireNamespace("ggplot2", quietly = TRUE)) {
-    p <- plot_class_trendline(ts, class_label = "Pasture")
-    expect_s3_class(p, "ggplot")
-    # default class pick (largest mean share) also works
-    expect_s3_class(plot_class_trendline(ts), "ggplot")
-  } else {
-    tmp <- tempfile(fileext = ".pdf")
-    grDevices::pdf(tmp)
-    on.exit({ grDevices::dev.off(); unlink(tmp) }, add = TRUE)
-    expect_silent(plot_class_trendline(ts, class_label = "Pasture"))
-  }
-})
-
 test_that("plot_timeseries handles a non-rectangular series (missing class-years)", {
   # 'Pastagem' is absent in 2000 -> would break geom_area without completion
   ts <- data.frame(
