@@ -438,33 +438,39 @@ assessment_report <- function(assessment, species = NULL,
   if (isTRUE(st$protected))
     refs <- c(refs,
       "UNEP-WCMC and IUCN. Protected Planet: The World Database on Protected Areas (WDPA). Cambridge, UK. https://www.protectedplanet.net/en")
+  if (length(cover_cls))
+    refs <- c(refs,
+      "Mei, W. & Yu, G. (2022). ggtrendline: Add Trendline and Confidence Interval to 'ggplot2'. R package. https://CRAN.R-project.org/package=ggtrendline")
 
   # --- Support figures (only for docx; static ggplots embedded via officer) ---
   figs <- NULL
   if (isTRUE(figures) && requireNamespace("ggplot2", quietly = TRUE)) {
     figs <- list()
-    add_fig <- function(cap, expr) {
+    # `h` is the embed height (inches): shorter for the horizontal bar charts so
+    # they are not stretched, taller for the time-series area/line charts.
+    add_fig <- function(cap, expr, h = 3.4) {
       g <- tryCatch(expr, error = function(e) NULL)
-      if (inherits(g, "ggplot")) figs[[length(figs) + 1L]] <<- list(cap = cap, gg = g)
+      if (inherits(g, "ggplot"))
+        figs[[length(figs) + 1L]] <<- list(cap = cap, gg = g, h = h)
     }
     if (isTRUE(st$mapbiomas))
       add_fig(L("Habitat composition of the EOO and AOO (land cover).",
                 "Composicao do habitat na EOO e na AOO (cobertura)."),
-              plot_conversion(assessment, species = species, lang = lang))
+              plot_conversion(assessment, species = species, lang = lang), h = 2.6)
     if (isTRUE(st$protected) && !is.null(pa))
       add_fig(L("Range protection by protected areas (EOO and AOO).",
                 "Protecao da distribuicao por areas protegidas (EOO e AOO)."),
-              plot_protection(assessment, species = species, lang = lang))
+              plot_protection(assessment, species = species, lang = lang), h = 2.6)
     for (ts in cover_list)
       add_fig(sprintf(L("Land-cover composition over time - %s.",
                         "Composicao da cobertura ao longo do tempo - %s."),
                       toupper(attr(ts, "range") %||% "")),
-              plot_timeseries(ts, lang = lang))
+              plot_timeseries(ts, lang = lang), h = 3.6)
     for (ts in fire_list)
       add_fig(sprintf(L("Burned area per year - %s.",
                         "Area queimada por ano - %s."),
                       toupper(attr(ts, "range") %||% "")),
-              plot_fire_timeseries(ts, lang = lang))
+              plot_fire_timeseries(ts, lang = lang), h = 3.2)
     if (!length(figs)) figs <- NULL
   }
 
@@ -565,8 +571,9 @@ assessment_report <- function(assessment, species = NULL,
     doc <- officer::body_add_par(doc, b$figures_heading %||% "Figures", style = "heading 2")
     for (f in b$figures) {
       doc <- tryCatch({
-        d <- officer::body_add_gg(doc, value = f$gg, width = 6.3, height = 3.6,
-                                  res = 200, style = "Normal")
+        d <- officer::body_add_gg(doc, value = f$gg, width = 6.3,
+                                  height = f$h %||% 3.4, res = 200,
+                                  style = "Normal")
         officer::body_add_par(d, strip(f$cap), style = "Normal")
       }, error = function(e) doc)
     }

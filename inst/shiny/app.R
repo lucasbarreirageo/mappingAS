@@ -49,6 +49,40 @@ suppressMessages({
   sort(unique(c(seq(min(yy), max(yy), by = step), max(yy))))
 }
 
+# Per-class linear-regression trend table for one time series (the tabular
+# companion of plot_class_trendline): one row per class with slope (percentage
+# points per year), R2, p-value and the first/last/delta values.
+.class_trend_df <- function(ts, rng, use_en = TRUE) {
+  if (is.null(ts) || !is.data.frame(ts) || !nrow(ts)) return(NULL)
+  has_en <- use_en && "class_en" %in% names(ts)
+  labs <- unique(ts$label)
+  rows <- lapply(labs, function(L) {
+    d <- ts[ts$label == L, c("year", "pct"), drop = FALSE]
+    d <- d[is.finite(d$year) & is.finite(d$pct), , drop = FALSE]
+    d <- d[order(d$year), , drop = FALSE]
+    if (nrow(d) < 3 || length(unique(d$pct)) < 2) return(NULL)
+    fit <- tryCatch(stats::lm(pct ~ year, data = d), error = function(e) NULL)
+    if (is.null(fit)) return(NULL)
+    cf <- stats::coef(fit); sm <- summary(fit)
+    pv <- tryCatch(stats::pf(sm$fstatistic[1L], sm$fstatistic[2L],
+                             sm$fstatistic[3L], lower.tail = FALSE),
+                   error = function(e) NA_real_)
+    data.frame(
+      range       = rng,
+      class       = if (has_en) ts$class_en[ts$label == L][1] else L,
+      slope_pp_yr = round(unname(cf[2L]), 4),
+      r2          = round(sm$r.squared, 4),
+      p_value     = signif(as.numeric(pv), 4),
+      first_pct   = round(d$pct[1L], 3),
+      last_pct    = round(d$pct[nrow(d)], 3),
+      delta_pp    = round(d$pct[nrow(d)] - d$pct[1L], 3),
+      stringsAsFactors = FALSE)
+  })
+  df <- do.call(rbind, Filter(Negate(is.null), rows))
+  if (is.null(df) || !nrow(df)) return(NULL)
+  df[order(-abs(df$slope_pp_yr)), , drop = FALSE]
+}
+
 # Run a download's content function, surfacing failures as a notification
 # instead of a raw Shiny error. req()/validate() aborts stay silent.
 .safe_download <- function(fn) {
@@ -297,7 +331,11 @@ ui <- bslib::page_sidebar(
             column(6, tags$b("EOO"),
                    plotOutput("ts_trend_eoo", height = "360px")),
             column(6, tags$b("AOO"),
-                   plotOutput("ts_trend_aoo", height = "360px")))))
+                   plotOutput("ts_trend_aoo", height = "360px"))),
+          div(class = "d-flex gap-2 mt-3 mb-2",
+              downloadButton("dl_ts_trend", "Download trend table (CSV)")),
+          helpText("Linear trend per class for each extent: slope (percentage points per year), R², p-value, and first/last/delta. Needs at least 3 years (lower the step if empty)."),
+          DT::DTOutput("ts_trend_tbl")))
     ),
 
     bslib::nav_panel(
@@ -422,6 +460,12 @@ ui <- bslib::page_sidebar(
           <a href='https://doi.org/10.1109/IGARSS47720.2021.9553499' target='_blank' rel='noopener'>doi:10.1109/IGARSS47720.2021.9553499</a>.
           Esri, Impact Observatory &amp; Microsoft — Sentinel-2 10m Land Use/Land
           Cover Time Series (ArcGIS Living Atlas).
+          <br><br>
+          Mei, W. &amp; Yu, G. (2022). <i>ggtrendline: Add Trendline and
+          Confidence Interval to 'ggplot2'</i>. R package (used for the
+          land-cover class trend analysis in the Time Series tab).
+          <a href='https://CRAN.R-project.org/package=ggtrendline'
+          target='_blank' rel='noopener'>CRAN.R-project.org/package=ggtrendline</a>.
         </p>
 
         <h4>How to cite</h4>
@@ -1071,6 +1115,30 @@ server <- function(input, output, session) {
 
   output$ts_trend_eoo <- renderPlot({ d <- ts_data(); req(d$eoo); .ts_trend_plot(d$eoo) })
   output$ts_trend_aoo <- renderPlot({ d <- ts_data(); req(d$aoo); .ts_trend_plot(d$aoo) })
+
+  # Per-class regression trend table (both extents), shown and downloadable.
+  .ts_trend_table <- reactive({
+    d <- ts_data(); req(!is.null(d$eoo) || !is.null(d$aoo))
+    use_en <- (input$lang %||% "en") == "en"
+    rbind(.class_trend_df(d$eoo, "EOO", use_en),
+          .class_trend_df(d$aoo, "AOO", use_en))
+  })
+
+  output$ts_trend_tbl <- DT::renderDT({
+    df <- .ts_trend_table()
+    validate(need(!is.null(df) && nrow(df) > 0,
+                  "Trend statistics need at least 3 years - lower the 'Step (years)' and recalculate."))
+    .mas_dt(df, page = 15,
+            caption = "Per-class linear trend (slope pp/yr, R², p-value) — EOO and AOO")
+  })
+
+  output$dl_ts_trend <- downloadHandler(
+    filename = function() paste0("mappingAS_trend_", input$ts_species, "_", Sys.Date(), ".csv"),
+    content = .safe_download(function(file) {
+      df <- .ts_trend_table(); req(!is.null(df) && nrow(df) > 0)
+      utils::write.csv(df, file, row.names = FALSE, fileEncoding = "UTF-8")
+    })
+  )
 
   output$fire_summary <- renderUI({
     req(result(), input$fire_species)
