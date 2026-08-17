@@ -40,8 +40,8 @@ overlays (default \code{800}).}
 the language of the MapBiomas class labels and the fire-frequency legend.}
 
 \item{clip}{Geometry the rasters are clipped to: \code{"eoo"} (default, the
-EOO hull), \code{"aoo"} (the union of occupied AOO cells) or \code{"all"} (the
-union of both, so the raster spans the whole range).}
+EOO hull), \code{"aoo"} (the union of occupied AOO cells) or \code{"all"}
+(the union of both, so the raster spans the whole range).}
 
 \item{protected}{Logical; overlay protected areas. Uses the protected-area
 layer already stored by \code{assess_species(..., protected = TRUE)}, or

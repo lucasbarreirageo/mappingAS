@@ -53,8 +53,9 @@ the language of the MapBiomas class labels, the fire-frequency legend and
 the feature labels (EOO/AOO/occurrences).}
 
 \item{clip}{Geometry the rasters are clipped to: \code{"eoo"} (default, the
-EOO hull), \code{"aoo"} (the union of occupied AOO cells) or \code{"all"} (the
-union of both). Matches the \code{clip} argument of \code{\link{map_species}}.}
+EOO hull), \code{"aoo"} (the union of occupied AOO cells) or \code{"all"}
+(the union of both). Matches the \code{clip} argument of
+\code{\link{map_species}}.}
 
 \item{protected}{Logical; overlay protected areas on the publishable map
 (default \code{FALSE}). Uses the protected-area layer stored by

@@ -256,36 +256,48 @@ ui <- bslib::page_sidebar(
         downloadButton("dl_ts_png", "Save image (PNG)")
       ),
       helpText("Complete land-cover history for BOTH extents (EOO and AOO), one chart above the other, each with its own altered-area analysis. A 1-year step reads all years and may be slow; increase the step to speed up."),
-      tags$h5("EOO — Extent of Occurrence", class = "mt-2 mb-1"),
-      uiOutput("ts_summary_eoo"),
-      div(style = "height:420px; min-height:420px;",
-          plotly::plotlyOutput("ts_plot_eoo", height = "100%")),
-      tags$h5("AOO — Area of Occupancy", class = "mt-4 mb-1"),
-      uiOutput("ts_summary_aoo"),
-      div(style = "height:420px; min-height:420px;",
-          plotly::plotlyOutput("ts_plot_aoo", height = "100%")),
-      DT::DTOutput("ts_tbl"),
-      tags$hr(),
-      tags$h5("Trend analysis (ggtrendline)", class = "mt-2 mb-1"),
-      fluidRow(
-        column(6, selectInput("ts_trend_class", "Class / group", choices = NULL)),
-        column(6, selectInput("ts_trend_model", "Regression model",
-                              c("Linear (line2P)"      = "line2P",
-                                "Quadratic (line3P)"   = "line3P",
-                                "Logarithmic (log2P)"  = "log2P",
-                                "Exponential (exp2P)"  = "exp2P",
-                                "Power (power2P)"       = "power2P"),
-                              selected = "line2P"))
-      ),
-      helpText("Regression trend of the selected class through time (percentage of area), with the fitted equation, R² and p-value, for each extent. Calculate the series above first."),
-      fluidRow(
-        column(6, tags$div(tags$b("EOO"),
-                           div(style = "height:360px; min-height:360px;",
-                               plotOutput("ts_trend_eoo", height = "100%")))),
-        column(6, tags$div(tags$b("AOO"),
-                           div(style = "height:360px; min-height:360px;",
-                               plotOutput("ts_trend_aoo", height = "100%"))))
-      )
+      # Each block is a self-contained Bootstrap card so the DataTable reserves
+      # its height and the sections below it never overlap it.
+      tags$div(
+        class = "card mb-3",
+        tags$div(
+          class = "card-body",
+          tags$h5("EOO — Extent of Occurrence", class = "card-title"),
+          uiOutput("ts_summary_eoo"),
+          plotly::plotlyOutput("ts_plot_eoo", height = "420px"))),
+      tags$div(
+        class = "card mb-3",
+        tags$div(
+          class = "card-body",
+          tags$h5("AOO — Area of Occupancy", class = "card-title"),
+          uiOutput("ts_summary_aoo"),
+          plotly::plotlyOutput("ts_plot_aoo", height = "420px"))),
+      tags$div(
+        class = "card mb-3",
+        tags$div(
+          class = "card-body",
+          tags$h5("Composition (%) by year — EOO and AOO", class = "card-title"),
+          DT::DTOutput("ts_tbl"))),
+      tags$div(
+        class = "card mb-3",
+        tags$div(
+          class = "card-body",
+          tags$h5("Trend analysis (ggtrendline)", class = "card-title"),
+          fluidRow(
+            column(6, selectInput("ts_trend_class", "Class / group", choices = NULL)),
+            column(6, selectInput("ts_trend_model", "Regression model",
+                                  c("Linear (line2P)"      = "line2P",
+                                    "Quadratic (line3P)"   = "line3P",
+                                    "Logarithmic (log2P)"  = "log2P",
+                                    "Exponential (exp2P)"  = "exp2P",
+                                    "Power (power2P)"       = "power2P"),
+                                  selected = "line2P"))),
+          helpText("Regression trend of the selected class through time (percentage of area), with the fitted equation, R² and p-value, for each extent. Defaults to the dominant class until you pick one."),
+          fluidRow(
+            column(6, tags$b("EOO"),
+                   plotOutput("ts_trend_eoo", height = "360px")),
+            column(6, tags$b("AOO"),
+                   plotOutput("ts_trend_aoo", height = "360px")))))
     ),
 
     bslib::nav_panel(
@@ -957,8 +969,13 @@ server <- function(input, output, session) {
         })
     }
     withProgress(message = "Calculating time series (EOO & AOO)...", value = 0, {
-      eoo <- one("eoo"); incProgress(0.5)
-      aoo <- one("aoo"); incProgress(0.5)
+      eoo <- one("eoo"); incProgress(0.4)
+      # Release memory between the two extents: reading every year for both EOO
+      # and AOO is memory-heavy, and on small machines (e.g. a Codespace) the
+      # accumulated pressure can get the R process killed ("Terminated").
+      invisible(gc(FALSE)); incProgress(0.1)
+      aoo <- one("aoo"); incProgress(0.4)
+      invisible(gc(FALSE)); incProgress(0.1)
       list(eoo = eoo, aoo = aoo)
     })
   })
@@ -1029,22 +1046,25 @@ server <- function(input, output, session) {
 
   # Populate the trend-analysis class picker from the computed series, ordered
   # by mean share so the dominant class is offered first.
-  observeEvent(list(ts_data(), input$lang), {
+  observe({
     d <- ts_data(); ts <- d$eoo %||% d$aoo
-    if (is.null(ts) || !is.data.frame(ts)) return()
+    if (is.null(ts) || !is.data.frame(ts) || !nrow(ts)) return()
     disp <- if ((input$lang %||% "en") == "en" && "class_en" %in% names(ts))
       ts$class_en else ts$label
     mp <- tapply(ts$pct, disp, mean, na.rm = TRUE)
     labs <- names(sort(mp, decreasing = TRUE))
-    sel <- if (!is.null(input$ts_trend_class) && input$ts_trend_class %in% labs)
-      input$ts_trend_class else labs[1]
+    if (!length(labs)) return()
+    cur <- isolate(input$ts_trend_class)
+    sel <- if (!is.null(cur) && nzchar(cur) && cur %in% labs) cur else labs[1]
     updateSelectInput(session, "ts_trend_class", choices = labs, selected = sel)
-  }, ignoreInit = TRUE)
+  })
 
   .ts_trend_plot <- function(ts) {
-    req(ts, input$ts_trend_class)
+    req(ts)
+    cl <- input$ts_trend_class
+    if (is.null(cl) || !nzchar(cl)) cl <- NULL  # let the function pick the dominant class
     mappingAS::plot_class_trendline(
-      ts, class_label = input$ts_trend_class,
+      ts, class_label = cl,
       model = input$ts_trend_model %||% "line2P",
       lang = input$lang %||% "en")
   }
