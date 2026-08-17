@@ -94,6 +94,41 @@ assessment_report <- function(assessment, species = NULL,
        delta = conv[length(conv)] - conv[1], urban = urb)
 }
 
+# Per-class linear-regression trends from a cover time series (the textual
+# counterpart of plot_class_trendline / ggtrendline). For each class (or group)
+# it fits pct ~ year and keeps slope (percentage points per year), R-squared,
+# p-value and the first/last values, returning the `top_n` classes with the
+# strongest change (largest absolute slope).
+.cover_class_trends <- function(ts, top_n = 3L) {
+  if (is.null(ts) || !is.data.frame(ts) || !nrow(ts)) return(NULL)
+  if (!all(c("year", "pct", "label") %in% names(ts))) return(NULL)
+  yrs <- sort(unique(ts$year))
+  if (length(yrs) < 3) return(NULL)
+  labs <- unique(ts$label)
+  rows <- lapply(labs, function(L) {
+    d <- ts[ts$label == L, c("year", "pct"), drop = FALSE]
+    d <- d[is.finite(d$year) & is.finite(d$pct), , drop = FALSE]
+    d <- d[order(d$year), , drop = FALSE]
+    if (nrow(d) < 3 || length(unique(d$pct)) < 2) return(NULL)
+    fit <- tryCatch(stats::lm(pct ~ year, data = d), error = function(e) NULL)
+    if (is.null(fit)) return(NULL)
+    cf <- stats::coef(fit); sm <- summary(fit)
+    pv <- tryCatch(stats::pf(sm$fstatistic[1L], sm$fstatistic[2L],
+                             sm$fstatistic[3L], lower.tail = FALSE),
+                   error = function(e) NA_real_)
+    en <- if ("class_en" %in% names(ts)) ts$class_en[ts$label == L][1] else L
+    data.frame(label = L, class_en = en, slope = unname(cf[2L]),
+               r2 = sm$r.squared, p = as.numeric(pv),
+               first = d$pct[1L], last = d$pct[nrow(d)],
+               stringsAsFactors = FALSE)
+  })
+  df <- do.call(rbind, Filter(Negate(is.null), rows))
+  if (is.null(df) || !nrow(df)) return(NULL)
+  df <- df[order(-abs(df$slope)), , drop = FALSE]
+  list(range = attr(ts, "range"), y0 = min(yrs), y1 = max(yrs),
+       top = utils::head(df, top_n))
+}
+
 # Fire-regime trend summary from a burned-area time series.
 .fire_trend <- function(ts) {
   if (is.null(ts) || !is.data.frame(ts) || !nrow(ts)) return(NULL)
@@ -142,6 +177,7 @@ assessment_report <- function(assessment, species = NULL,
   cover_list <- .as_series_list(cover_series)
   fire_list  <- .as_series_list(fire_series)
   cover_trs  <- Filter(Negate(is.null), lapply(cover_list, .cover_trend))
+  cover_cls  <- Filter(Negate(is.null), lapply(cover_list, .cover_class_trends))
   fire_trs   <- Filter(Negate(is.null), lapply(fire_list,  .fire_trend))
   pick_eoo   <- function(trs) {
     e <- Find(function(t) identical(tolower(t$range %||% ""), "eoo"), trs)
@@ -249,6 +285,26 @@ assessment_report <- function(assessment, species = NULL,
       conv_p <- c(conv_p, L(
         "A land-cover time series was not supplied; computing it would allow the temporal trend of conversion (and any continuing decline) to be assessed.",
         "Nao foi fornecida a serie temporal de cobertura; calcula-la permitiria avaliar a tendencia temporal da conversao (e eventual declinio continuo)."))
+    }
+    # Per-class regression trends (the textual counterpart of the ggtrendline
+    # analysis in the app): the fastest-changing classes per extent.
+    if (length(cover_cls)) {
+      for (ctr in cover_cls) {
+        rlab <- if (is.null(ctr$range)) L("range", "distribuicao") else toupper(ctr$range)
+        top <- ctr$top
+        parts <- character(nrow(top))
+        for (i in seq_len(nrow(top))) {
+          nm <- if (lang == "en") top$class_en[i] else top$label[i]
+          parts[i] <- sprintf(
+            "%s (%+.2f pp/%s, R\u00b2=%.2f, p=%.3g; %s\u2192%s)",
+            nm, top$slope[i], L("yr", "ano"), top$r2[i], top$p[i],
+            fmt_pct(top$first[i]), fmt_pct(top$last[i]))
+        }
+        conv_p <- c(conv_p, sprintf(L(
+          "Per-class linear trends in the %s (%d-%d) - the classes changing fastest (slope in percentage points per year, with R\u00b2 and p-value from a least-squares fit of class share on year): %s.",
+          "Tendencias lineares por classe na %s (%d-%d) - as classes que mais variam (inclinacao em pontos percentuais por ano, com R\u00b2 e p-valor de um ajuste de minimos quadrados da participacao da classe sobre o ano): %s."),
+          rlab, ctr$y0, ctr$y1, paste(parts, collapse = "; ")))
+      }
     }
     add(L("Habitat conversion", "Conversao de habitat"), conv_p)
   }

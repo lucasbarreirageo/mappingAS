@@ -83,6 +83,24 @@ test_that("assessment_report weaves in cover and fire trends when supplied", {
   expect_match(txt, "2012")                             # fire peak year listed
 })
 
+test_that("assessment_report reports per-class regression trends when a class series is supplied", {
+  a <- .mk_report_assessment(fire = FALSE, protected = FALSE)
+  yrs <- seq(1985, 2020, by = 5)
+  n <- length(yrs)
+  cover <- data.frame(
+    year     = rep(yrs, 2),
+    label    = rep(c("Formacao Florestal", "Pastagem"), each = n),
+    class_en = rep(c("Forest Formation", "Pasture"), each = n),
+    group    = rep(c("natural", "anthropic"), each = n),
+    pct      = c(seq(70, 55, length.out = n), seq(30, 45, length.out = n)),
+    stringsAsFactors = FALSE)
+  attr(cover, "range") <- "eoo"
+  txt <- assessment_report(a, output = "text", cover_series = cover)
+  expect_match(txt, "Per-class linear trends")
+  expect_match(txt, "pp/yr")
+  expect_match(txt, "Pasture")          # a fast-changing class is named (EN labels)
+})
+
 test_that("assessment_report reports protection effectiveness from the UC list", {
   a <- .mk_report_assessment(protected = TRUE)
   a$detail <- list(`Testus specus` = list(pa = list(

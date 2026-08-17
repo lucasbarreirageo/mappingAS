@@ -15,6 +15,12 @@
   [ggtrendline](https://CRAN.R-project.org/package=ggtrendline) package when
   installed (with a `ggplot2` linear-fit fallback otherwise). A model selector
   (linear, quadratic, logarithmic, exponential, power) drives the fit.
+* **The written report now includes the per-class trends too.** In addition to
+  the EOO/AOO converted-fraction trend, the *Habitat conversion* section of the
+  report (HTML, text and `.docx`) now lists, per extent, the fastest-changing
+  land-cover classes with the slope (percentage points per year), R² and
+  p-value of a least-squares fit of class share on year - the textual
+  counterpart of the Time Series tab's ggtrendline analysis.
 
 # mappingAS 1.11.2
 
