@@ -21,6 +21,14 @@
   land-cover classes with the slope (percentage points per year), R² and
   p-value of a least-squares fit of class share on year - the textual
   counterpart of the Time Series tab's ggtrendline analysis.
+* **Downloadable trend table.** The Time Series tab now shows a per-class
+  regression table (slope pp/yr, R², p-value, first/last/delta, for EOO and
+  AOO) with a *Download trend table (CSV)* button.
+* **ggtrendline is now cited** in the app's Methods tab and, when a class trend
+  is included, in the report's references.
+* **Tidier report figures.** The horizontal bar charts (composition,
+  protection) embed shorter so they are no longer vertically stretched in the
+  `.docx`.
 
 # mappingAS 1.11.2
 
