@@ -435,7 +435,7 @@ plot_class_trendline <- function(ts, class_label = NULL, model = "line2P",
     if (nrow(d) >= 2) {
       fit <- stats::lm(pct ~ year, data = d)
       cf  <- stats::coef(fit)
-      sm  <- summary(fit)
+      sm  <- suppressWarnings(summary(fit))
       pv  <- tryCatch(
         stats::pf(sm$fstatistic[1L], sm$fstatistic[2L], sm$fstatistic[3L],
                   lower.tail = FALSE), error = function(e) NA_real_)

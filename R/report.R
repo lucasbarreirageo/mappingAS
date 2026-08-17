@@ -112,7 +112,7 @@ assessment_report <- function(assessment, species = NULL,
     if (nrow(d) < 3 || length(unique(d$pct)) < 2) return(NULL)
     fit <- tryCatch(stats::lm(pct ~ year, data = d), error = function(e) NULL)
     if (is.null(fit)) return(NULL)
-    cf <- stats::coef(fit); sm <- summary(fit)
+    cf <- stats::coef(fit); sm <- suppressWarnings(summary(fit))
     pv <- tryCatch(stats::pf(sm$fstatistic[1L], sm$fstatistic[2L],
                              sm$fstatistic[3L], lower.tail = FALSE),
                    error = function(e) NA_real_)
