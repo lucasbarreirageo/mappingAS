@@ -76,4 +76,4 @@ Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)
 URL: https://github.com/lucasbarreirageo/mappingAS
 BugReports: https://github.com/lucasbarreirageo/mappingAS/issues
-Config/roxygen2/version: 8.0.0
+Config/roxygen2/version: 8.1.0
