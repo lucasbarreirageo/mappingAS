@@ -1,3 +1,11 @@
+# mappingAS 1.11.4
+
+* **CRAN resubmission.** Single-quoted the software, service and data-product
+  names in the `DESCRIPTION` (`'MapBiomas'`, `'Esri'`, `'Impact Observatory'`,
+  `'Sentinel-2'`, `'ArcGIS'`, `'GDAL'`, `'Google Earth Engine'`,
+  `'GeoPackage'`), as requested in the CRAN pretest review. No user-facing
+  changes.
+
 # mappingAS 1.11.3
 
 * **Time Series tab now shows EOO and AOO together.** The extent radio button

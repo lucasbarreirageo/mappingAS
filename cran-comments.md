@@ -1,3 +1,14 @@
+## Resubmission
+
+This is a resubmission. In response to the CRAN pretest review, I have
+single-quoted the software, service and data-product names in the Title and
+Description fields of DESCRIPTION (e.g. 'GDAL', 'MapBiomas', 'Esri',
+'ArcGIS', 'GeoPackage', 'Google Earth Engine'). The Title contains no software
+names.
+
+The remaining spell-check NOTE flags only acronyms and proper names that are
+spelled correctly (AOO, EOO, Amazonia, IUCN, RAISG, WDPA, anthropic).
+
 ## R CMD check results
 
 0 errors | 0 warnings | 1 note
