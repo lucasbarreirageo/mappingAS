@@ -57,7 +57,10 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
   clip_geom <- .clip_geometry(clip, obj$eoo$hull, obj$aoo$cells)
 
   m <- leaflet::leaflet()
-  m <- leaflet::addProviderTiles(m, "CartoDB.Positron", group = "Light")
+  # Key-free basemaps: the CartoDB Positron basemap now requires an API key
+  # (tiles render an "API KEY REQUIRED" watermark), so use OpenStreetMap for the
+  # light layer and Esri World Imagery for satellite - both usable without a key.
+  m <- leaflet::addProviderTiles(m, "OpenStreetMap.Mapnik", group = "Light")
   m <- leaflet::addProviderTiles(m, "Esri.WorldImagery", group = "Satellite")
   
   # --- optional MapBiomas LULC overlay (under everything) ---
@@ -177,13 +180,15 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
   m <- leaflet::addLayersControl(
     m, baseGroups = c("Light", "Satellite"), overlayGroups = overlay,
     options = leaflet::layersControlOptions(collapsed = FALSE))
-  # white-space:nowrap keeps the (possibly italic) name on one line; without it a
-  # narrow control box can wrap the label one character per line.
+  # Species name box: placed top-left (below the zoom control) and allowed to
+  # wrap, so a long italic name is never clipped by the right edge of the map as
+  # it was when anchored top-right with white-space:nowrap.
   m <- leaflet::addControl(
     m,
-    html = sprintf("<div style='white-space:nowrap'><b>%s</b></div>",
-                   .sp_html(species)),
-    position = "topright")
+    html = sprintf(
+      "<div style='max-width:280px;white-space:normal;background:rgba(255,255,255,.9);padding:2px 8px;border-radius:6px;font-size:14px'><b>%s</b></div>",
+      .sp_html(species)),
+    position = "topleft")
   m
 }
 

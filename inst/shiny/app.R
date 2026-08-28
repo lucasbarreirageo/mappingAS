@@ -396,10 +396,11 @@ ui <- bslib::page_sidebar(
         ),
         bslib::accordion_panel(
           "Land use, conservation units and vouchers",
-          textAreaInput("fs_land_use", "Land use", "", rows = 2,
-                        placeholder = "e.g. surrounded by pasture and urban expansion"),
-          textAreaInput("fs_cons_units", "Conservation units", "", rows = 2,
-                        placeholder = "e.g. PARNA da Tijuca; APA Petropolis"),
+          helpText("Land use and conservation units are filled in automatically from the package (the Conversion and Protected areas modules): leave the boxes blank to use them. Type something only to override."),
+          textAreaInput("fs_land_use", "Land use (auto from Conversion; optional override)", "", rows = 2,
+                        placeholder = "auto: anthropic classes within the EOO"),
+          textAreaInput("fs_cons_units", "Conservation units (auto from Protected areas; optional override)", "", rows = 2,
+                        placeholder = "auto: protected areas overlapping the range"),
           textAreaInput("fs_vouchers", "Examined vouchers (one per line)", "",
                         rows = 4, placeholder = "Barreira 123 (RB)\nSilva 456 (R)")
         ),

@@ -34,9 +34,12 @@
 #'   first word of \code{species}; the others are user-supplied (optional).
 #' @param countries,system,habitat,biome,vegetation The "Supporting information"
 #'   block, all optional free text.
-#' @param land_use,conservation_units Optional free text for information the
-#'   package does not derive automatically (e.g. surrounding land use and the
-#'   conservation units of interest). Line breaks are preserved.
+#' @param land_use,conservation_units Optional overrides. When left \code{NULL}
+#'   they are filled in automatically from the assessment: \code{land_use} from
+#'   the anthropic land-cover classes within the EOO (the Conversion module) and
+#'   \code{conservation_units} from the overlapping protected areas (the
+#'   Protected-areas module). Pass a string to override the derived value; line
+#'   breaks are preserved.
 #' @param vouchers Optional examined material: a character vector (one voucher
 #'   per element) or a single string with one voucher per line.
 #' @param reference Optional taxonomic reference: a Reflora / POWO URL (rendered
@@ -227,7 +230,9 @@ factsheet_html <- function(assessment, species = NULL,
   (length(x) == 1L && (is.na(x) || !nzchar(trimws(as.character(x))))) ||
   (length(x) == 0L)
 
-# The top anthropic land-cover classes for a range, from the per-class table.
+# The anthropic land-cover classes for a range, from the per-class table.
+# Returns a data frame with label, area_km2, pct (of terrestrial area) and hex,
+# ordered by area (descending). `top_n = Inf` keeps them all.
 .factsheet_threats <- function(det, lang = "en", range = "eoo", top_n = 5L) {
   conv <- if (identical(range, "aoo")) det$aoo_conversion else det$eoo_conversion
   if (is.null(conv) || is.null(conv$by_class) || !is.data.frame(conv$by_class))
@@ -238,7 +243,7 @@ factsheet_html <- function(assessment, species = NULL,
            is.finite(byc$area_km2) & byc$area_km2 > 0, , drop = FALSE]
   if (!nrow(a)) return(NULL)
   a <- a[order(-a$area_km2), , drop = FALSE]
-  a <- utils::head(a, top_n)
+  if (is.finite(top_n)) a <- utils::head(a, top_n)
   lab <- if (lang == "pt" && "class_pt" %in% names(a)) a$class_pt
          else if ("class_en" %in% names(a)) a$class_en
          else as.character(a$code)
@@ -250,25 +255,159 @@ factsheet_html <- function(assessment, species = NULL,
              stringsAsFactors = FALSE)
 }
 
-.factsheet_threats_plot <- function(df, lang = "en", range = "eoo") {
+# Long table of the top anthropic classes (ranked by EOO area) with their share
+# in BOTH the EOO and the AOO, for a grouped bar chart.
+.factsheet_threats_both <- function(det, lang = "en", top_n = 5L) {
+  e <- .factsheet_threats(det, lang, "eoo", top_n)
+  if (is.null(e)) e <- .factsheet_threats(det, lang, "aoo", top_n)
+  if (is.null(e)) return(NULL)
+  labs <- e$label
+  ea <- .factsheet_threats(det, lang, "eoo", Inf)
+  aa <- .factsheet_threats(det, lang, "aoo", Inf)
+  look <- function(tab, l) {
+    if (is.null(tab)) return(0)
+    v <- tab$pct[match(l, tab$label)]
+    if (length(v) != 1L || is.na(v)) 0 else v
+  }
+  rows <- lapply(labs, function(l) data.frame(
+    label = l, range = c("EOO", "AOO"),
+    pct = c(look(ea, l), look(aa, l)), stringsAsFactors = FALSE))
+  do.call(rbind, rows)
+}
+
+.factsheet_threats_plot <- function(df, lang = "en") {
   if (is.null(df) || !nrow(df) ||
       !requireNamespace("ggplot2", quietly = TRUE)) return(NULL)
   df$label <- factor(df$label, levels = rev(unique(df$label)))
-  rlab <- toupper(range)
-  xlab <- if (lang == "pt") sprintf("%% da %s terrestre", rlab)
-          else sprintf("%% of terrestrial %s", rlab)
-  ttl  <- if (lang == "pt") "Principais atividades antropicas"
-          else "Top anthropic activities"
-  cols <- stats::setNames(df$hex, as.character(df$label))
+  df$range <- factor(df$range, levels = c("EOO", "AOO"))
+  xlab <- if (lang == "pt") "% da area terrestre" else "% of terrestrial range"
+  ttl  <- if (lang == "pt") "Principais atividades antropicas (EOO e AOO)"
+          else "Top anthropic activities (EOO and AOO)"
+  cols <- c(EOO = "#1f8d49", AOO = "#e08a1e")
+  dodge <- ggplot2::position_dodge(width = 0.72)
   ggplot2::ggplot(df, ggplot2::aes(x = .data[["pct"]], y = .data[["label"]],
-                                   fill = .data[["label"]])) +
-    ggplot2::geom_col(width = 0.68, colour = "white", linewidth = 0.3) +
+                                   fill = .data[["range"]])) +
+    ggplot2::geom_col(width = 0.66, position = dodge,
+                      colour = "white", linewidth = 0.2) +
     ggplot2::geom_text(ggplot2::aes(label = sprintf("%.1f%%", .data[["pct"]])),
-                       hjust = -0.12, size = 3.2, colour = "#1b2b23") +
-    ggplot2::scale_fill_manual(values = cols, guide = "none") +
-    ggplot2::scale_x_continuous(expand = ggplot2::expansion(mult = c(0, 0.2))) +
+                       position = dodge, hjust = -0.12, size = 2.9,
+                       colour = "#1b2b23") +
+    ggplot2::scale_fill_manual(values = cols, name = NULL) +
+    ggplot2::scale_x_continuous(expand = ggplot2::expansion(mult = c(0, 0.22))) +
     ggplot2::labs(x = xlab, y = NULL, title = ttl) +
     .mas_theme()
+}
+
+# Clean habitat-composition chart (Converted vs Natural, terrestrial %) for the
+# EOO and AOO, from the summary percentages - so both bars are always complete
+# and the labels always sit on their own colour.
+.factsheet_composition_plot <- function(r, lang = "en") {
+  if (!requireNamespace("ggplot2", quietly = TRUE)) return(NULL)
+  v <- c(r$eoo_converted_pct, r$eoo_natural_pct,
+         r$aoo_converted_pct, r$aoo_natural_pct)
+  if (all(is.na(v))) return(NULL)
+  conv <- if (lang == "pt") "Convertido" else "Converted"
+  nat  <- "Natural"
+  # Factor levels are reversed relative to the desired visual order because
+  # position_stack draws the first level at the right end.
+  df <- data.frame(
+    range = factor(rep(c("EOO", "AOO"), each = 2), levels = c("AOO", "EOO")),
+    group = factor(rep(c(conv, nat), 2), levels = c(nat, conv)),
+    pct   = c(r$eoo_converted_pct, r$eoo_natural_pct,
+              r$aoo_converted_pct, r$aoo_natural_pct),
+    stringsAsFactors = FALSE)
+  df$lab <- ifelse(is.finite(df$pct) & df$pct >= 4, sprintf("%.0f%%", df$pct), "")
+  cols <- stats::setNames(c("#1f8d49", "#d62839"), c(nat, conv))
+  ttl  <- if (lang == "pt") "Composicao do habitat (cobertura)"
+          else "Habitat composition (land cover)"
+  xlab <- if (lang == "pt") "% da area terrestre" else "% of terrestrial area"
+  ggplot2::ggplot(df, ggplot2::aes(x = .data[["pct"]], y = .data[["range"]],
+                                   fill = .data[["group"]])) +
+    ggplot2::geom_col(width = 0.62, colour = "white", linewidth = 0.3) +
+    ggplot2::geom_text(ggplot2::aes(label = .data[["lab"]]),
+                       position = ggplot2::position_stack(vjust = 0.5),
+                       colour = "white", fontface = "bold", size = 3.6) +
+    ggplot2::scale_fill_manual(values = cols, name = NULL,
+                               breaks = c(nat, conv)) +
+    ggplot2::scale_x_continuous(limits = c(0, 100), expand = c(0, 0)) +
+    ggplot2::labs(x = xlab, y = NULL, title = ttl) +
+    .mas_theme() +
+    ggplot2::theme(panel.grid.major.y = ggplot2::element_blank())
+}
+
+# Protection chart (Natural-in-UC / Altered-in-UC / Outside) for EOO and AOO,
+# built from the stored protected-area percentages, with each label guaranteed
+# to sit on its own segment/colour.
+.factsheet_protection_plot <- function(pa, lang = "en") {
+  if (is.null(pa) || !requireNamespace("ggplot2", quietly = TRUE)) return(NULL)
+  num <- function(x) if (is.null(x) || is.na(x)) 0 else x
+  has_nat <- !is.null(pa$eoo_nat_uc_pct) && is.finite(pa$eoo_nat_uc_pct)
+  if (has_nat) {
+    natl <- "Natural"
+    altl <- if (lang == "pt") "Alterado (em UC)" else "Altered (in UC)"
+    outl <- if (lang == "pt") "Fora de UC" else "Outside UC"
+    lv <- c(natl, altl, outl)
+    seg <- function(n, a) c(num(n), num(a), max(0, 100 - num(n) - num(a)))
+    eoo <- seg(pa$eoo_nat_uc_pct, pa$eoo_alt_uc_pct)
+    aoo <- seg(pa$aoo_nat_uc_pct, pa$aoo_alt_uc_pct)
+    cols <- stats::setNames(c("#1f8d49", "#f2c14e", "#d9d9d9"), lv)
+    lcol <- stats::setNames(c("white", "black", "black"), lv)
+  } else {
+    inl <- if (lang == "pt") "Em UC" else "In UC"
+    outl <- if (lang == "pt") "Fora de UC" else "Outside UC"
+    lv <- c(inl, outl)
+    eoo <- c(num(pa$eoo_pct), 100 - num(pa$eoo_pct))
+    aoo <- c(num(pa$aoo_pct), 100 - num(pa$aoo_pct))
+    cols <- stats::setNames(c("#1f8d49", "#d9d9d9"), lv)
+    lcol <- stats::setNames(c("white", "black"), lv)
+  }
+  df <- data.frame(
+    range = factor(rep(c("EOO", "AOO"), each = length(lv)),
+                   levels = c("AOO", "EOO")),
+    group = factor(rep(lv, 2), levels = rev(lv)),
+    pct   = c(eoo, aoo), stringsAsFactors = FALSE)
+  df$lab <- ifelse(is.finite(df$pct) & df$pct >= 5, sprintf("%.0f%%", df$pct), "")
+  df$lcol <- lcol[as.character(df$group)]
+  ttl  <- if (lang == "pt") "Protecao por areas protegidas"
+          else "Protection by protected areas"
+  xlab <- if (lang == "pt") "% da area terrestre" else "% of terrestrial range"
+  ggplot2::ggplot(df, ggplot2::aes(x = .data[["pct"]], y = .data[["range"]],
+                                   fill = .data[["group"]])) +
+    ggplot2::geom_col(width = 0.62, colour = "white", linewidth = 0.3) +
+    ggplot2::geom_text(ggplot2::aes(label = .data[["lab"]],
+                                    colour = .data[["lcol"]]),
+                       position = ggplot2::position_stack(vjust = 0.5),
+                       fontface = "bold", size = 3.4, show.legend = FALSE) +
+    ggplot2::scale_fill_manual(values = cols, name = NULL, breaks = lv) +
+    ggplot2::scale_colour_identity() +
+    ggplot2::scale_x_continuous(limits = c(0, 100), expand = c(0, 0)) +
+    ggplot2::labs(x = xlab, y = NULL, title = ttl) +
+    .mas_theme() +
+    ggplot2::theme(panel.grid.major.y = ggplot2::element_blank())
+}
+
+# Free-text land use derived from the conversion module (the anthropic classes
+# present in the EOO), and conservation units from the protected-area list.
+.derive_land_use <- function(det, lang = "en") {
+  t <- .factsheet_threats(det, lang, "eoo", Inf)
+  if (is.null(t) || !nrow(t)) return(NULL)
+  paste0(t$label, " (", sprintf("%.1f%%", t$pct), ")", collapse = "; ")
+}
+.derive_cons_units <- function(det) {
+  pa <- det$pa
+  lst <- if (!is.null(pa)) pa$list else NULL
+  nm <- NULL
+  if (!is.null(lst) && is.data.frame(lst) && "pa_name" %in% names(lst)) {
+    if ("n_occ" %in% names(lst)) {
+      occ <- lst[!is.na(lst$n_occ) & lst$n_occ > 0, , drop = FALSE]
+      nm <- if (nrow(occ)) occ$pa_name else lst$pa_name
+    } else nm <- lst$pa_name
+  } else if (!is.null(pa$layer) && "pa_name" %in% names(pa$layer)) {
+    nm <- pa$layer$pa_name
+  }
+  nm <- unique(nm[!is.na(nm) & nzchar(nm)])
+  if (!length(nm)) return(NULL)
+  paste(nm, collapse = "; ")
 }
 
 # ---------------------------------------------------------------------------
@@ -293,6 +432,11 @@ factsheet_html <- function(assessment, species = NULL,
   det <- assessment$detail[[species]]
   sp_parts <- .sp_parts(species)
   if (.blank(genus)) genus <- strsplit(trimws(species), "\\s+")[[1]][1]
+  # Land use and conservation units are derived from the package (the Conversion
+  # and Protected areas modules) unless the caller supplied an explicit override.
+  if (.blank(land_use)) land_use <- .derive_land_use(det, lang)
+  if (.blank(conservation_units))
+    conservation_units <- .derive_cons_units(det)
 
   fmt_km  <- function(x) if (.blank(x) || is.na(x))
     "&mdash;" else paste0(formatC(x, format = "f", big.mark = ",", digits = 2),
@@ -451,26 +595,22 @@ factsheet_html <- function(assessment, species = NULL,
     if (is.null(uri)) return(invisible())
     figs[[length(figs) + 1L]] <<- list(cap = cap, uri = uri)
   }
-  # Top anthropic activities (from the per-class breakdown).
-  thr <- .factsheet_threats(det, lang = lang, range = "eoo",
-                            top_n = top_n_threats)
-  add_fig(sprintf(L("Top %d anthropic activities within the EOO.",
-                    "Principais %d atividades antropicas na EOO."),
-                  if (is.null(thr)) top_n_threats else nrow(thr)),
-          .gg_data_uri(.factsheet_threats_plot(thr, lang, "eoo"),
-                       width = 6.6, height = 3.2))
+  # Top anthropic activities within BOTH the EOO and the AOO.
+  thr_both <- .factsheet_threats_both(det, lang = lang, top_n = top_n_threats)
+  add_fig(L("Top anthropic activities within the EOO and AOO.",
+            "Principais atividades antropicas na EOO e na AOO."),
+          .gg_data_uri(.factsheet_threats_plot(thr_both, lang),
+                       width = 6.8, height = 3.4))
   if (isTRUE(st$mapbiomas))
     add_fig(L("Habitat composition of the EOO and AOO (land cover).",
               "Composicao do habitat na EOO e na AOO (cobertura)."),
-            .gg_data_uri(tryCatch(
-              plot_conversion(assessment, species = species, lang = lang),
-              error = function(e) NULL), width = 6.6, height = 2.9))
+            .gg_data_uri(.factsheet_composition_plot(r, lang),
+                         width = 6.8, height = 2.7))
   if (isTRUE(st$protected))
     add_fig(L("Range protection by protected areas (EOO and AOO).",
               "Protecao da distribuicao por areas protegidas (EOO e AOO)."),
-            .gg_data_uri(tryCatch(
-              plot_protection(assessment, species = species, lang = lang),
-              error = function(e) NULL), width = 6.6, height = 2.9))
+            .gg_data_uri(.factsheet_protection_plot(if (!is.null(det)) det$pa else NULL, lang),
+                         width = 6.8, height = 2.7))
   for (ts in cover_list)
     add_fig(sprintf(L("Land-cover composition over time - %s.",
                       "Composicao da cobertura ao longo do tempo - %s."),
@@ -488,16 +628,34 @@ factsheet_html <- function(assessment, species = NULL,
       sprintf("<figure class='fs-fig'><img src='%s' alt=''><figcaption>%s</figcaption></figure>",
               f$uri, f$cap), character(1)), collapse = "")) else ""
 
-  # --- Narrative (reuse the assessment report) ----------------------------
+  # --- Narrative (reuse the assessment report), rendered as a single block of
+  # bullet points. The Habitat-conversion section additionally lists the main
+  # anthropic activities that altered the EOO and the AOO. --------------------
   b <- tryCatch(.report_build(assessment, species, lang, cover_series,
                               fire_series, figures = FALSE),
                 error = function(e) NULL)
   narrative_html <- ""
   refs_pkg <- character(0)
   if (!is.null(b)) {
-    secs <- vapply(b$sections, function(sec) sprintf(
-      "<h3>%s</h3>%s", sec$h,
-      paste(sprintf("<p>%s</p>", sec$p), collapse = "")), character(1))
+    conv_heading <- L("Habitat conversion", "Conversao de habitat")
+    fmt_top <- function(t) if (is.null(t) || !nrow(t)) NULL else
+      paste0(t$label, " (", sprintf("%.1f%%", t$pct), ")", collapse = "; ")
+    top_e <- fmt_top(.factsheet_threats(det, lang, "eoo", top_n_threats))
+    top_a <- fmt_top(.factsheet_threats(det, lang, "aoo", top_n_threats))
+    conv_bullets <- character(0)
+    if (!is.null(top_e)) conv_bullets <- c(conv_bullets, sprintf(L(
+      "Main anthropic activities altering the EOO: %s.",
+      "Principais atividades antropicas que alteraram a EOO: %s."), top_e))
+    if (!is.null(top_a)) conv_bullets <- c(conv_bullets, sprintf(L(
+      "Main anthropic activities altering the AOO: %s.",
+      "Principais atividades antropicas que alteraram a AOO: %s."), top_a))
+    secs <- vapply(b$sections, function(sec) {
+      paras <- sec$p
+      if (identical(sec$h, conv_heading) && length(conv_bullets))
+        paras <- c(paras, conv_bullets)
+      sprintf("<h3>%s</h3><ul class='fs-notes'>%s</ul>", sec$h,
+              paste(sprintf("<li>%s</li>", paras), collapse = ""))
+    }, character(1))
     narrative_html <- paste(secs, collapse = "")
     refs_pkg <- b$references
   }
@@ -634,6 +792,8 @@ factsheet_html <- function(assessment, species = NULL,
                border-radius:10px;background:#fff;display:block;}
   .fs-mapcap{margin:.35rem 0 0;font-size:.82rem;color:var(--muted);
              font-style:italic;}
+  .fs-notes{margin:.2rem 0 .6rem;padding-left:1.15rem;}
+  .fs-notes li{margin:.3rem 0;font-size:.92rem;line-height:1.5;}
   .fs-refs{margin:.2rem 0;padding-left:1.2rem;font-size:.84rem;color:var(--ink);}
   .fs-refs li{margin:.3rem 0;line-height:1.4;word-break:break-word;}
   .fs-footer{margin-top:26px;padding-top:12px;border-top:1px solid var(--line);

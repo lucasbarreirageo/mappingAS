@@ -1,3 +1,29 @@
+# mappingAS 1.11.6
+
+* **Factsheet map, distribution map and time-series charts.** The factsheet map
+  is now the interactive Leaflet map by default (`map_interactive = TRUE`) - the
+  same self-contained widget the Maps tab downloads via *Download map (HTML)*,
+  inlined in an iframe - with the static `map_static()` image as a fallback
+  (`map_interactive = FALSE`); toggle the whole map off with `map = FALSE`. Once
+  a land-cover / fire time series has been calculated for the species, the
+  composition-over-time and burned-area-per-year charts are embedded too.
+* **"Top anthropic activities" chart now covers the EOO and the AOO.** The
+  grouped bar chart shows both extents' share for each leading anthropic
+  land-cover class, and the same classes are listed, per extent, inside the
+  Habitat-conversion notes.
+* **Land use and conservation units filled in from the package.** In the
+  factsheet these are derived automatically - land use from the anthropic
+  land-cover classes within the EOO (Conversion), conservation units from the
+  overlapping protected areas (Protected areas) - and can still be overridden
+  with free text.
+* **Clearer factsheet charts.** The habitat-composition and protection charts
+  are drawn from the summary percentages, so both the EOO and AOO bars are
+  always complete and every value label sits on its own colour. The assessment
+  notes are rendered as a single block of bullet points.
+* **Key-free basemap.** `map_species()` now uses OpenStreetMap for the light
+  basemap (the CartoDB Positron layer had started requiring an API key) and no
+  longer clips the species-name label at the edge of the map.
+
 # mappingAS 1.11.5
 
 * **New species factsheet (`factsheet_html()`) in the Report tab.** Builds a

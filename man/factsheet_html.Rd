@@ -47,9 +47,12 @@ first word of \code{species}; the others are user-supplied (optional).}
 \item{countries, system, habitat, biome, vegetation}{The "Supporting
 information" block, all optional free text.}
 
-\item{land_use, conservation_units}{Optional free text for information the
-package does not derive automatically (e.g. surrounding land use and the
-conservation units of interest). Line breaks are preserved.}
+\item{land_use, conservation_units}{Optional overrides. When left \code{NULL}
+they are filled in automatically from the assessment: \code{land_use} from
+the anthropic land-cover classes within the EOO (the Conversion module) and
+\code{conservation_units} from the overlapping protected areas (the
+Protected-areas module). Pass a string to override the derived value; line
+breaks are preserved.}
 
 \item{vouchers}{Optional examined material: a character vector (one voucher
 per element) or a single string with one voucher per line.}
