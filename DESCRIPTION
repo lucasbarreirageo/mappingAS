@@ -1,7 +1,7 @@
 Package: mappingAS
 Type: Package
 Title: Spatial Metrics and Habitat Conversion for Extinction Risk Assessment
-Version: 1.11.6
+Version: 1.11.7
 Authors@R:
     person("Antônio Lucas Barreira", email = "barreira_rodrigues@hotmail.com", role = c("aut", "cre"))
 Author: Antônio Lucas Barreira [aut, cre]

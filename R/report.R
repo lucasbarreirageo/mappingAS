@@ -372,19 +372,41 @@ assessment_report <- function(assessment, species = NULL,
   }
 
   # --- Threats and continuing decline (synthesis) ---
+  # The pressures are taken from the data for this species (the dominant
+  # anthropic land-cover classes in the EOO, plus the fire regime when it was
+  # computed), rather than asserted; the section is omitted when there is no
+  # such evidence to report.
   if (isTRUE(st$mapbiomas)) {
-    drivers <- if (isTRUE(st$fire))
-      L("irreversible urban expansion, a recurrent fire regime that penetrates the occupied core, and pressure on narrow azonal habitat",
-        "a expansao urbana irreversivel, um regime de fogo recorrente que penetra o nucleo ocupado e a pressao sobre habitat azonal estreito")
-    else
-      L("irreversible urban expansion and pressure on narrow azonal habitat",
-        "a expansao urbana irreversivel e a pressao sobre habitat azonal estreito")
-    add(
-      L("Threats and continuing decline", "Ameacas e declinio continuo"),
-      sprintf(L(
-        "The evidence points to a decline in habitat quality rather than in gross natural area: %s combine to erode the conditions the taxon depends on. Under Criterion B this is best instructed as continuing decline in the area, extent and quality of habitat (subcriterion b(iii)), evaluated at the level of the relevant - frequently azonal - habitat rather than of aggregate natural cover.",
-        "As evidencias apontam para declinio na qualidade do habitat, e nao na area natural bruta: %s combinam-se para erodir as condicoes de que o taxon depende. Sob o Criterio B, isso e mais bem instruido como declinio continuo na area, extensao e qualidade do habitat (subcriterio b(iii)), avaliado no nivel do habitat relevante - frequentemente azonal - e nao da cobertura natural agregada."),
-        drivers))
+    join_nat <- function(x) {
+      x <- x[nzchar(x)]
+      if (!length(x)) return("")
+      if (length(x) == 1L) return(x)
+      paste0(paste(x[-length(x)], collapse = ", "),
+             L(" and ", " e "), x[length(x)])
+    }
+    thr <- tryCatch(.factsheet_threats(det, lang, "eoo", 3L),
+                    error = function(e) NULL)
+    pressures <- character(0)
+    if (!is.null(thr) && nrow(thr)) {
+      cls <- sprintf("%s (%s)", thr$label,
+                     vapply(thr$pct, fmt_pct, character(1)))
+      pressures <- c(pressures, sprintf(L(
+        "the dominant converted land uses within the range (%s)",
+        "os principais usos antropicos na distribuicao (%s)"), join_nat(cls)))
+    }
+    if (isTRUE(st$fire) && !is.null(r$eoo_burned_pct) && !is.na(r$eoo_burned_pct))
+      pressures <- c(pressures, sprintf(L(
+        "a fire regime that has burned %s of the EOO at least once",
+        "um regime de fogo que ja queimou %s da EOO ao menos uma vez"),
+        fmt_pct(r$eoo_burned_pct)))
+    if (length(pressures)) {
+      add(
+        L("Threats and continuing decline", "Ameacas e declinio continuo"),
+        sprintf(L(
+          "The main pressures identified from the land-cover data are %s. Under Criterion B, sustained pressure of this kind is assessed as a continuing decline in the area, extent and quality of habitat (subcriterion b(iii)); confirming it requires tracking the trend of the specific habitat the taxon depends on (for example through the land-cover time series) rather than of aggregate natural cover.",
+          "As principais pressoes identificadas a partir dos dados de cobertura sao %s. Sob o Criterio B, uma pressao sustentada desse tipo e avaliada como declinio continuo na area, extensao e qualidade do habitat (subcriterio b(iii)); confirma-la exige acompanhar a tendencia do habitat especifico do qual o taxon depende (por exemplo, pela serie temporal de cobertura), e nao da cobertura natural agregada."),
+          join_nat(pressures)))
+    }
   }
 
   # --- Recommendations for formal assessment ---

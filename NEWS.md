@@ -1,3 +1,13 @@
+# mappingAS 1.11.7
+
+* **Data-driven "Threats and continuing decline".** The synthesis paragraph in
+  the report (HTML, text and `.docx`) and the factsheet no longer asserts
+  generic drivers ("irreversible urban expansion", "azonal habitat"). It now
+  names the actual pressures found for the species - the dominant anthropic
+  land-cover classes within the EOO (with their share) and, when the fire
+  module was run, the burned fraction of the EOO - and the section is omitted
+  when there is no such evidence to report.
+
 # mappingAS 1.11.6
 
 * **Factsheet map, distribution map and time-series charts.** The factsheet map
