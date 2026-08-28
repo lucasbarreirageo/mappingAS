@@ -29,6 +29,7 @@
 | **Maps** | Interactive Leaflet map and a publication-ready static map (points + EOO + AOO + land cover/fire) | `map_species()`, `map_static()` |
 | **Interactive charts** | Every chart as an interactive plotly widget (hover, zoom) | `mas_plotly()` |
 | **Reporting** | A written, referenced assessment report (HTML / text / **Word .docx**) | `assessment_report()` |
+| **Factsheet** | A self-contained **HTML factsheet** merging the computed metrics/charts with user-supplied taxonomy, supporting information, land use, conservation units, vouchers, references and up to 4 watermarked photos | `factsheet_html()` |
 | **Export** | EOO/AOO polygons as **shapefile/GeoPackage** and land-cover **rasters (GeoTIFF)** | `export_ranges()` |
 | **Interactive app** | A Shiny GUI that runs the whole workflow with no code | `run_app()` |
 
@@ -115,7 +116,7 @@ Upload a file (`.xlsx`/`.csv`/`.gpkg`/`.geojson` or a shapefile in a `.zip`), ma
 - **Protected areas** — overlap metrics, protection chart and the per-area table (CSV download).
 - **Time Series** — land-cover composition over time (interactive stacked area) for the EOO or AOO.
 - **Fire** — burned-area metrics and time series.
-- **Report** — an interpretive, referenced assessment that you can preview and download as **Word (.docx)**; it accumulates the temporal analysis from any Time series / Fire series you calculate.
+- **Report** — an interpretive, referenced assessment that you can preview and download as **Word (.docx)**; it accumulates the temporal analysis from any Time series / Fire series you calculate. The same tab also builds a self-contained **HTML factsheet** (`factsheet_html()`): fill in the taxonomy, supporting information, land use, conservation units, vouchers and reference, add up to four (watermarked) photos, and it embeds those alongside the computed metrics, a *top anthropic activities* chart and the standard charts — a single portable `.html` you can open offline or publish (e.g. on GitHub Pages).
 - **Methods** — the methods and references behind the numbers.
 
 A light/dark theme toggle is available in the header.

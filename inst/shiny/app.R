@@ -372,6 +372,65 @@ ui <- bslib::page_sidebar(
       bslib::card(
         class = "p-3",
         uiOutput("report_preview")
+      ),
+
+      # ---- Factsheet (standalone HTML) ------------------------------------
+      tags$hr(),
+      tags$h4("Species factsheet (HTML)"),
+      helpText(HTML("A single, self-contained HTML page (like a supplementary-website factsheet) combining what the package computes (metrics + charts) with details it cannot know, which you enter below. Up to four photos are embedded, each watermarked in its lower-right corner with the owner name. The page is portable - open it offline or publish it as-is (e.g. on GitHub Pages).")),
+      bslib::accordion(
+        open = FALSE,
+        bslib::accordion_panel(
+          "Taxonomy and supporting information",
+          fluidRow(
+            column(4, textInput("fs_family", "Family", "")),
+            column(4, textInput("fs_genus", "Genus (defaults to the species' first word)", "")),
+            column(4, textInput("fs_authority", "Authority", ""))),
+          fluidRow(
+            column(4, textInput("fs_countries", "Countries", "")),
+            column(4, textInput("fs_system", "System", "")),
+            column(4, textInput("fs_biome", "Biome", ""))),
+          fluidRow(
+            column(6, textInput("fs_habitat", "Habitat", "")),
+            column(6, textInput("fs_vegetation", "Vegetation", "")))
+        ),
+        bslib::accordion_panel(
+          "Land use, conservation units and vouchers",
+          textAreaInput("fs_land_use", "Land use", "", rows = 2,
+                        placeholder = "e.g. surrounded by pasture and urban expansion"),
+          textAreaInput("fs_cons_units", "Conservation units", "", rows = 2,
+                        placeholder = "e.g. PARNA da Tijuca; APA Petropolis"),
+          textAreaInput("fs_vouchers", "Examined vouchers (one per line)", "",
+                        rows = 4, placeholder = "Barreira 123 (RB)\nSilva 456 (R)")
+        ),
+        bslib::accordion_panel(
+          "Reference",
+          textAreaInput("fs_reference", "Reflora / POWO link, or - for a new species - the article citation",
+                        "", rows = 2)
+        ),
+        bslib::accordion_panel(
+          "Photos (up to 4) and watermark",
+          fileInput("fs_photos", "Photos (PNG/JPEG, up to 4)",
+                    multiple = TRUE,
+                    accept = c(".png", ".jpg", ".jpeg", ".gif", ".webp")),
+          textInput("fs_photo_credit", "Photo owner (watermark)", "")
+        )
+      ),
+      checkboxInput("fs_map", "Include the distribution map (points + EOO + AOO + land cover)", TRUE),
+      radioButtons("fs_map_type", NULL, inline = TRUE,
+                   choices = c("Interactive (HTML, with the data)" = "interactive",
+                               "Static image" = "static"),
+                   selected = "interactive"),
+      helpText("The interactive map is the same Leaflet map the Maps tab downloads (Download map (HTML)), embedded inside the factsheet. The land-cover time series and the fire series charts are added automatically once you calculate them (Time series / Fire tabs) for this species - the same series that feed the .docx report."),
+      div(class = "my-3 d-flex gap-2",
+          downloadButton("dl_factsheet", "Download factsheet (.html)",
+                         class = "btn-primary"),
+          actionButton("fs_preview", "Preview", icon = icon("eye"),
+                       class = "btn-outline-secondary")),
+      helpText("The preview and the download render the embedded map and charts, which can take a few seconds. Click Preview after filling in the fields."),
+      bslib::card(
+        class = "p-2",
+        uiOutput("factsheet_preview")
       )
     ),
 
@@ -1391,6 +1450,79 @@ server <- function(input, output, session) {
         result(), species = sp, lang = input$lang %||% "en", output = "docx",
         file = file, figures = TRUE,
         cover_series = .report_cover(sp), fire_series = .report_fire(sp))
+    })
+  )
+
+  # --- Factsheet tab: user metadata + photos -> standalone HTML -----------
+  # Copy each uploaded photo to a temp file that keeps its extension, so the
+  # image MIME type is detected correctly when it is embedded.
+  .fs_photo_paths <- function() {
+    pf <- input$fs_photos
+    if (is.null(pf) || !nrow(pf)) return(NULL)
+    pf <- utils::head(pf, 4L)
+    out <- character(0)
+    for (i in seq_len(nrow(pf))) {
+      ext <- tools::file_ext(pf$name[i]); if (!nzchar(ext)) ext <- "png"
+      dst <- tempfile(fileext = paste0(".", ext))
+      if (isTRUE(file.copy(pf$datapath[i], dst, overwrite = TRUE)))
+        out <- c(out, dst)
+    }
+    if (length(out)) out else NULL
+  }
+
+  # Gather all factsheet arguments (empty text fields become NULL so the
+  # corresponding rows are simply omitted from the page).
+  .factsheet_args <- function(sp) {
+    nz <- function(id) {
+      v <- input[[id]]
+      if (is.null(v)) return(NULL)
+      v <- trimws(v)
+      if (nzchar(v)) v else NULL
+    }
+    list(
+      assessment = result(), species = sp, lang = input$lang %||% "en",
+      family = nz("fs_family"), genus = nz("fs_genus"),
+      authority = nz("fs_authority"),
+      countries = nz("fs_countries"), system = nz("fs_system"),
+      habitat = nz("fs_habitat"), biome = nz("fs_biome"),
+      vegetation = nz("fs_vegetation"),
+      land_use = nz("fs_land_use"),
+      conservation_units = nz("fs_cons_units"),
+      vouchers = nz("fs_vouchers"), reference = nz("fs_reference"),
+      photos = .fs_photo_paths(), photo_credit = nz("fs_photo_credit"),
+      cover_series = .report_cover(sp), fire_series = .report_fire(sp),
+      map = isTRUE(input$fs_map),
+      map_interactive = identical(input$fs_map_type %||% "interactive", "interactive"))
+  }
+
+  output$factsheet_preview <- renderUI({
+    input$fs_preview                 # render only when Preview is clicked
+    req(result(), input$report_species, input$fs_preview)
+    isolate({
+      html <- tryCatch(
+        do.call(mappingAS::factsheet_html, .factsheet_args(input$report_species)),
+        error = function(e)
+          sprintf("<p style='color:#b00'>Preview error: %s</p>",
+                  conditionMessage(e)))
+      # Embed as an isolated document (its own <html>/<body>) inside an iframe,
+      # via a base64 data URI to avoid any attribute-escaping issues.
+      b64 <- mappingAS:::.base64_encode(charToRaw(enc2utf8(html)))
+      tags$iframe(
+        src = paste0("data:text/html;base64,", b64),
+        style = "width:100%;height:820px;border:1px solid #e3e8e3;border-radius:10px;background:#fff;")
+    })
+  })
+
+  output$dl_factsheet <- downloadHandler(
+    filename = function()
+      paste0("factsheet_",
+             gsub("[^A-Za-z0-9]+", "_", input$report_species %||% "species"),
+             "_", Sys.Date(), ".html"),
+    content = .safe_download(function(file) {
+      req(result(), input$report_species)
+      args <- .factsheet_args(input$report_species)
+      args$file <- file
+      do.call(mappingAS::factsheet_html, args)
     })
   )
 }

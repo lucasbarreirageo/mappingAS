@@ -1,3 +1,36 @@
+# mappingAS 1.11.5
+
+* **New species factsheet (`factsheet_html()`) in the Report tab.** Builds a
+  single, self-contained HTML page - the kind hosted on a supplementary website
+  - that combines everything the assessment already computes (EOO/AOO metrics
+  and provisional Criterion B category, habitat conversion, fire and
+  protected-area overlap, the composition/protection/time-series charts and the
+  interpretive narrative) with details the package cannot know and that the user
+  fills in: the taxonomy (Family, Genus, Authority), the supporting-information
+  block (Countries, System, Habitat, Biome, Vegetation), free-text land use and
+  conservation units, a list of examined vouchers and a taxonomic reference (a
+  Reflora / POWO link, or - for a newly described taxon - the article citation).
+  Up to four photographs are embedded, each watermarked in its lower-right
+  corner with the owner name.
+* **Distribution map and time-series charts in the factsheet.** The factsheet
+  embeds the distribution map (occurrence points, EOO, AOO and land cover) and,
+  once a land-cover / fire time series has been calculated for the species, the
+  composition-over-time and burned-area-per-year charts. The map is embedded as
+  the **interactive Leaflet map** by default (`map_interactive = TRUE`) - the
+  same self-contained widget the Maps tab downloads via *Download map (HTML)*,
+  inlined in an iframe so the factsheet stays a single portable file - with the
+  static `map_static()` image as a fallback (or via `map_interactive = FALSE`).
+  Toggle the whole map off with `map = FALSE`.
+* **"Top anthropic activities" chart.** The factsheet adds a horizontal bar
+  chart of the leading anthropic land-cover classes threatening the species
+  (top 5 by area within the EOO by default), derived from the per-class
+  land-cover breakdown.
+* **Self-contained output.** Images and charts are inlined as base64 data URIs
+  (via a dependency-free base-R encoder), so the downloaded `.html` opens
+  offline and can be published as-is (e.g. on GitHub Pages). The Report tab
+  gains a form for the fields above, photo upload (with a watermark owner name),
+  an on-demand preview and a *Download factsheet (.html)* button.
+
 # mappingAS 1.11.4
 
 * **CRAN resubmission.** Single-quoted the software, service and data-product
