@@ -44,8 +44,8 @@ length-one character string.}
 \item{family, genus, authority}{Taxonomy fields. \code{genus} defaults to the
 first word of \code{species}; the others are user-supplied (optional).}
 
-\item{countries, system, habitat, biome, vegetation}{The "Supporting
-information" block, all optional free text.}
+\item{countries, system, habitat, biome, vegetation}{The "Supporting information"
+block, all optional free text.}
 
 \item{land_use, conservation_units}{Optional overrides. When left \code{NULL}
 they are filled in automatically from the assessment: \code{land_use} from
@@ -92,19 +92,28 @@ invisibly.
 }
 \description{
 Builds a single, self-contained HTML file that presents one species as a
-printable/shareable factsheet - the kind hosted on a supplementary website.
-It combines everything the assessment already computes (range metrics,
-habitat conversion, fire and protected-area overlap, the standard charts and
-the interpretive narrative of \code{\link{assessment_report}}) with
-information the package cannot know and that the user supplies: the taxonomy
-(Family, Genus, Authority), the supporting-information block (Countries,
-System, Habitat, Biome, Vegetation), free-text land use and conservation
-units, a list of examined vouchers, a taxonomic reference (a Reflora / POWO
-link or an article citation) and up to four photographs. The whole page is
-self-contained (images and charts embedded as base64 data URIs), so the file
-can be opened offline or published as-is (e.g. on GitHub Pages). Each
-photograph carries a watermark in its lower-right corner with the owner name
-given in \code{photo_credit}.
+printable/​shareable factsheet - the kind hosted on a supplementary website.
+It combines two sources of information:
+\enumerate{
+\item \strong{Everything the assessment already computes} - range metrics
+(EOO/AOO and provisional Criterion B category), habitat conversion, fire
+and protected-area overlap - rendered as a key-metrics grid, the standard
+charts (composition, protection, and any land-cover / fire time series
+supplied), a "top anthropic activities" chart derived from the per-class
+land-cover breakdown, and the interpretive narrative of
+\code{\link{assessment_report}}.
+\item \strong{Information the package cannot know}, supplied by the user:
+the taxonomy (Family, Genus, Authority), the supporting-information block
+(Countries, System, Habitat, Biome, Vegetation), free-text land use and
+conservation units, a list of examined vouchers, a taxonomic reference
+(a Reflora / POWO link, or - for a newly described species - the article
+citation) and up to four photographs.
+}
+The whole page is self-contained (fonts fall back to the system stack, images
+and charts are embedded as base64 data URIs), so the returned file can be
+opened offline or published as-is (e.g. on GitHub Pages). Each photograph
+carries a watermark in its lower-right corner with the owner name given in
+\code{photo_credit}.
 }
 \examples{
 \dontrun{

@@ -109,8 +109,11 @@ mb_raster_local <- function(aoi, year = 2024, collection = NULL,
   if (is.null(src)) src <- mb_source_url(year, collection, ini$key)
   path <- if (grepl("^https?://", src)) paste0("/vsicurl/", src) else src
 
+  # suppressWarnings: a failed open also emits a GDAL "no such file" *warning*
+  # alongside the error; we surface a single, clear error below, so the extra
+  # warning is only noise.
   r <- tryCatch(
-    terra::rast(path),
+    suppressWarnings(terra::rast(path)),
     error = function(e) {
       stop("Could not open MapBiomas raster at:\n  ", src,
            "\nIf you are offline or the host is blocked, download the GeoTIFF ",

@@ -44,14 +44,14 @@ factsheet can be filled automatically instead of by hand.
 \details{
 Two strategies are tried, in order:
 \enumerate{
-  \item If a ready-made voucher column exists (e.g. \code{voucher},
-    \code{exsiccata}, \code{material}) its non-empty values are used verbatim.
-  \item Otherwise a collector column (e.g. \code{collector},
-    \code{recordedBy}) is combined with a collection-number column (e.g.
-    \code{collectorNumber}, \code{recordNumber}) into
-    \code{"Collector Number"}. When a herbarium/institution column is present
-    (e.g. \code{herbarium}, \code{institutionCode}) its code is appended in
-    parentheses, giving \code{"Collector Number (RB)"}.
+\item If a ready-made voucher column exists (e.g. \code{voucher},
+\code{exsiccata}, \code{material}) its non-empty values are used verbatim.
+\item Otherwise a collector column (e.g. \code{collector},
+\code{recordedBy}) is combined with a collection-number column (e.g.
+\code{collectorNumber}, \code{recordNumber}) into
+\code{"Collector Number"}. When a herbarium/institution column is present
+(e.g. \code{herbarium}, \code{institutionCode}) its code is appended in
+parentheses, giving \code{"Collector Number (RB)"}.
 }
 
 Column names are matched case-insensitively from a set of common Darwin Core

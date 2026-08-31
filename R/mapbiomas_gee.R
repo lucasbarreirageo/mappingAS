@@ -1,3 +1,7 @@
+# Thin, mockable wrapper around the rgee availability check so the
+# "rgee is absent" guard can be exercised in tests even when rgee is installed.
+.rgee_available <- function() requireNamespace("rgee", quietly = TRUE)
+
 #' MapBiomas class areas via Google Earth Engine (optional backend)
 #'
 #' Computes the area (km^2) of each MapBiomas pixel class inside \code{aoi}
@@ -25,7 +29,7 @@ mb_class_areas_gee <- function(aoi, year = 2024, collection = 10,
                                version = "v1",
                                asset = "projects/mapbiomas-public/assets/brazil/lulc/v1",
                                scale = 30, max_pixels = 1e13) {
-  if (!requireNamespace("rgee", quietly = TRUE)) {
+  if (!.rgee_available()) {
     stop("Package 'rgee' is required for the GEE backend. ",
          "Install it and run rgee::ee_Initialize().", call. = FALSE)
   }

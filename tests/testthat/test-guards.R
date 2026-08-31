@@ -2,8 +2,9 @@
 # backends, which run without any network access or raster I/O.
 
 test_that("mb_class_areas_gee errors clearly when rgee is absent", {
-  skip_if(requireNamespace("rgee", quietly = TRUE),
-          "rgee is installed; the missing-package branch can't be tested")
+  # Force the "rgee absent" branch regardless of whether rgee is installed, by
+  # mocking the internal availability check, so the guard is always exercised.
+  testthat::local_mocked_bindings(.rgee_available = function() FALSE)
   aoi <- sf::st_sfc(sf::st_polygon(list(rbind(
     c(-43, -22), c(-42, -22), c(-42, -21), c(-43, -22)))), crs = 4326)
   expect_error(mb_class_areas_gee(aoi), "rgee")
