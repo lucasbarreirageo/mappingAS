@@ -12,6 +12,47 @@ suppressMessages({
 
 `%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || identical(a, "")) b else a
 
+# Row-bind two point sf objects that may carry different attribute columns:
+# the union of columns is kept, missing values filled with NA, so the uploaded
+# occurrences and the hand-added points combine without dropping attributes
+# (e.g. collector / voucher columns used by the factsheet).
+.rbind_sf_fill <- function(a, b) {
+  if (is.null(a)) return(b)
+  if (is.null(b)) return(a)
+  ga <- attr(a, "sf_column"); gb <- attr(b, "sf_column")
+  if (!identical(ga, gb)) { names(b)[names(b) == gb] <- ga; b <- sf::st_set_geometry(b, ga) }
+  cols <- union(setdiff(names(a), ga), setdiff(names(b), ga))
+  for (cc in setdiff(cols, names(a))) a[[cc]] <- NA
+  for (cc in setdiff(cols, names(b))) b[[cc]] <- NA
+  a <- a[c(cols, ga)]; b <- b[c(cols, ga)]
+  rbind(a, b)
+}
+
+# Combine the uploaded occurrences (an sf or NULL) with the hand-added points
+# (a data.frame of species/lon/lat or NULL) into a single point sf. Returns
+# NULL when there is nothing at all to assess.
+.combine_occ <- function(file_occ, manual_df) {
+  man_sf <- NULL
+  if (!is.null(manual_df) && nrow(manual_df)) {
+    ok <- is.finite(manual_df$lon) & is.finite(manual_df$lat)
+    manual_df <- manual_df[ok, , drop = FALSE]
+    if (nrow(manual_df)) {
+      man_sf <- sf::st_as_sf(
+        data.frame(species = as.character(manual_df$species),
+                   stringsAsFactors = FALSE),
+        geometry = sf::st_sfc(
+          lapply(seq_len(nrow(manual_df)),
+                 function(i) sf::st_point(c(manual_df$lon[i], manual_df$lat[i]))),
+          crs = 4326))
+      man_sf$.source <- "added"
+    }
+  }
+  if (is.null(file_occ) && is.null(man_sf)) return(NULL)
+  if (!is.null(file_occ) && is.null(file_occ[[".source"]]))
+    file_occ$.source <- "uploaded"
+  .rbind_sf_fill(file_occ, man_sf)
+}
+
 # Consistent, prettier styling for every DT table in the app: compact striped
 # rows, non-integer numerics rounded to 2 dp, and a subtle in-cell colour bar
 # on percentage columns so magnitudes read at a glance.
@@ -108,11 +149,14 @@ ui <- bslib::page_sidebar(
     width = 360,
     bslib::input_dark_mode(id = "dark_mode", mode = "light"),
     fileInput(
-      "file", "Upload occurrence data (CSV, XLSX, GeoPackage, GeoJSON or shapefile)",
+      "file", "Upload occurrence data (optional: CSV, XLSX, GeoPackage, GeoJSON or shapefile)",
       accept = c(".csv", ".tsv", ".txt", ".xlsx", ".xls",
                  ".gpkg", ".geojson", ".json", ".zip")
     ),
-    helpText("Tip: for shapefiles, upload a .zip containing .shp/.shx/.dbf/.prj."),
+    helpText(htmltools::HTML(
+      "Tip: for shapefiles, upload a .zip containing .shp/.shx/.dbf/.prj. ",
+      "You can also skip the file and drop occurrence points by hand on the ",
+      "<b>Add points</b> tab, or add extra points there on top of an uploaded table.")),
     bslib::accordion(
       open = FALSE,
       bslib::accordion_panel(
@@ -213,6 +257,49 @@ ui <- bslib::page_sidebar(
           downloadButton("dl_rasters", "Download rasters (GeoTIFF .zip)",
                          class = "mb-1"),
           helpText("For the species and clip (EOO/AOO) selected above.")
+        )
+      )
+    ),
+    # TAB: ADD / EDIT OCCURRENCE POINTS BY HAND
+    bslib::nav_panel(
+      "Add points", icon = icon("map-pin"),
+      bslib::layout_columns(
+        col_widths = c(8, 4),
+        bslib::card(
+          full_screen = TRUE,
+          helpText(htmltools::HTML(
+            "Click on the map to drop an occurrence point for the species named ",
+            "on the right. Uploaded points (if any) are shown in grey for reference; ",
+            "the points you add are green. Then press <b>Assess</b> in the sidebar - ",
+            "the assessment uses the uploaded table <i>plus</i> every point added here ",
+            "(or only these points when no file is uploaded).")),
+          leaflet::leafletOutput("edit_map", height = "70vh")
+        ),
+        bslib::card(
+          selectizeInput("edit_species", "Species for new points",
+                         choices = NULL, selected = NULL,
+                         options = list(create = TRUE,
+                                        placeholder = "type or pick a species")),
+          helpText("Type a new name and press Enter to create it, or pick one already present."),
+          fluidRow(
+            column(6, numericInput("edit_lon", "Longitude", value = NA, step = 0.0001)),
+            column(6, numericInput("edit_lat", "Latitude", value = NA, step = 0.0001))
+          ),
+          div(class = "d-flex gap-2 mb-2",
+              actionButton("edit_add_xy", "Add typed point",
+                           icon = icon("plus"), class = "btn-outline-primary")),
+          hr(),
+          div(class = "d-flex gap-2 mb-2 flex-wrap",
+              actionButton("edit_undo", "Undo last", icon = icon("rotate-left"),
+                           class = "btn-outline-secondary"),
+              actionButton("edit_clear", "Clear all", icon = icon("trash"),
+                           class = "btn-outline-danger")),
+          uiOutput("edit_count"),
+          div(class = "mt-2",
+              downloadButton("dl_manual_pts", "Download added points (CSV)",
+                             class = "btn-sm w-100")),
+          hr(),
+          DT::DTOutput("edit_tbl")
         )
       )
     ),
@@ -402,7 +489,15 @@ ui <- bslib::page_sidebar(
           textAreaInput("fs_cons_units", "Conservation units (auto from Protected areas; optional override)", "", rows = 2,
                         placeholder = "auto: protected areas overlapping the range"),
           textAreaInput("fs_vouchers", "Examined vouchers (one per line)", "",
-                        rows = 4, placeholder = "Barreira 123 (RB)\nSilva 456 (R)")
+                        rows = 4, placeholder = "Barreira 123 (RB)\nSilva 456 (R)"),
+          helpText(htmltools::HTML(
+            "Vouchers are loaded automatically from the uploaded table for the ",
+            "selected species: from a <b>voucher</b> column if present, otherwise ",
+            "built from <b>collector</b> + <b>collectorNumber</b> (a herbarium/",
+            "institutionCode column is added in parentheses). Your edits are kept; ",
+            "use the button to reload from the table.")),
+          actionButton("fs_vouchers_load", "Load vouchers from table",
+                       icon = icon("table-list"), class = "btn-outline-secondary btn-sm")
         ),
         bslib::accordion_panel(
           "Reference",
@@ -550,8 +645,17 @@ server <- function(input, output, session) {
     updateSelectInput(session, "year", choices = rev(yy), selected = max(yy))
   }, ignoreInit = TRUE)
 
-  occ <- reactive({
-    req(input$file)
+  # Hand-added points: a growing data.frame of species / lon / lat, fed by
+  # clicks on the "Add points" map (and the typed-coordinate button).
+  manual_store <- reactiveVal(
+    data.frame(species = character(0), lon = numeric(0), lat = numeric(0),
+               stringsAsFactors = FALSE))
+
+  # Occurrences read from the uploaded file (NULL when no file is uploaded, so
+  # the app can run from hand-added points alone). Read errors propagate to the
+  # tryCatch around result().
+  occ_file <- reactive({
+    if (is.null(input$file)) return(NULL)
     orig <- input$file$name
     ext <- tools::file_ext(orig)
     dest <- file.path(tempdir(), paste0("upload_", as.integer(Sys.time()), ".", ext))
@@ -563,6 +667,129 @@ server <- function(input, output, session) {
       lat_col = input$lat_col %||% NULL
     )
   })
+
+  # The occurrences everything downstream uses: the uploaded table plus every
+  # hand-added point (or only the hand-added points when no file is uploaded).
+  occ <- reactive({
+    combined <- .combine_occ(occ_file(), manual_store())
+    validate(need(
+      !is.null(combined) && nrow(combined) > 0,
+      "Upload an occurrence file and/or add points on the 'Add points' tab."))
+    combined
+  })
+
+  # --- Add points tab: interactive occurrence editing --------------------
+  # Keep the species picker populated with names already present (uploaded or
+  # added), defaulting to the first one; new names can still be typed in.
+  observe({
+    fo <- tryCatch(occ_file(), error = function(e) NULL)
+    sp_file <- if (!is.null(fo) && "species" %in% names(fo)) unique(fo$species) else character(0)
+    sp_man  <- unique(manual_store()$species)
+    sp <- unique(c(sp_file, sp_man))
+    sp <- sp[!is.na(sp) & nzchar(sp)]
+    if (!length(sp)) sp <- "sp1"
+    cur <- isolate(input$edit_species)
+    sel <- if (!is.null(cur) && nzchar(cur)) cur else sp[1]
+    updateSelectizeInput(session, "edit_species", choices = sp,
+                         selected = sel, server = FALSE)
+  })
+
+  .add_point <- function(lon, lat) {
+    lon <- suppressWarnings(as.numeric(lon))
+    lat <- suppressWarnings(as.numeric(lat))
+    if (!is.finite(lon) || !is.finite(lat) ||
+        lon < -180 || lon > 180 || lat < -90 || lat > 90) {
+      showNotification("Invalid coordinates (need lon in [-180,180], lat in [-90,90]).",
+                       type = "warning"); return(invisible())
+    }
+    sp <- trimws(input$edit_species %||% "")
+    if (!nzchar(sp)) sp <- "sp1"
+    df <- manual_store()
+    manual_store(rbind(df, data.frame(species = sp, lon = lon, lat = lat,
+                                      stringsAsFactors = FALSE)))
+  }
+
+  observeEvent(input$edit_map_click, {
+    cl <- input$edit_map_click
+    .add_point(cl$lng, cl$lat)
+  })
+
+  observeEvent(input$edit_add_xy, {
+    .add_point(input$edit_lon, input$edit_lat)
+    updateNumericInput(session, "edit_lon", value = NA)
+    updateNumericInput(session, "edit_lat", value = NA)
+  })
+
+  observeEvent(input$edit_undo, {
+    df <- manual_store()
+    if (nrow(df)) manual_store(df[-nrow(df), , drop = FALSE])
+  })
+
+  observeEvent(input$edit_clear, {
+    manual_store(data.frame(species = character(0), lon = numeric(0),
+                            lat = numeric(0), stringsAsFactors = FALSE))
+  })
+
+  output$edit_count <- renderUI({
+    n_man <- nrow(manual_store())
+    fo <- tryCatch(occ_file(), error = function(e) NULL)
+    n_file <- if (is.null(fo)) 0L else nrow(fo)
+    htmltools::HTML(sprintf(
+      "<div style='font-size:.85rem'>Uploaded points: <b>%d</b> &middot; Added by hand: <b>%d</b></div>",
+      n_file, n_man))
+  })
+
+  # Base map for editing. Uploaded points are drawn once here; the hand-added
+  # points are refreshed through a proxy so a click gives instant feedback.
+  output$edit_map <- leaflet::renderLeaflet({
+    m <- leaflet::leaflet() |>
+      leaflet::addProviderTiles("OpenStreetMap", group = "OpenStreetMap") |>
+      leaflet::addProviderTiles("Esri.WorldImagery", group = "Satellite") |>
+      leaflet::addLayersControl(
+        baseGroups = c("OpenStreetMap", "Satellite"),
+        options = leaflet::layersControlOptions(collapsed = TRUE))
+    fo <- tryCatch(occ_file(), error = function(e) NULL)
+    if (!is.null(fo) && nrow(fo)) {
+      xy <- sf::st_coordinates(fo)
+      m <- leaflet::addCircleMarkers(
+        m, lng = xy[, 1], lat = xy[, 2], radius = 4, color = "#666",
+        stroke = FALSE, fillOpacity = 0.6, group = "uploaded",
+        label = as.character(fo$species))
+      m <- leaflet::fitBounds(m, min(xy[, 1]), min(xy[, 2]),
+                              max(xy[, 1]), max(xy[, 2]))
+    } else {
+      m <- leaflet::setView(m, lng = -55, lat = -12, zoom = 4)
+    }
+    m
+  })
+  outputOptions(output, "edit_map", suspendWhenHidden = FALSE)
+
+  observe({
+    df <- manual_store()
+    proxy <- leaflet::leafletProxy("edit_map")
+    leaflet::clearGroup(proxy, "added")
+    if (nrow(df)) {
+      leaflet::addCircleMarkers(
+        proxy, lng = df$lon, lat = df$lat, radius = 6, color = "#1f8d49",
+        stroke = TRUE, weight = 1, fillOpacity = 0.85, group = "added",
+        label = sprintf("%s (%.4f, %.4f)", df$species, df$lat, df$lon))
+    }
+  })
+
+  output$edit_tbl <- DT::renderDT({
+    df <- manual_store()
+    validate(need(nrow(df) > 0, "No points added yet. Click the map to add some."))
+    DT::datatable(df, rownames = FALSE, class = "compact stripe hover",
+                  options = list(scrollX = TRUE, pageLength = 8, dom = "tp"))
+  })
+
+  output$dl_manual_pts <- downloadHandler(
+    filename = function() paste0("mappingAS_added_points_", Sys.Date(), ".csv"),
+    content = .safe_download(function(file) {
+      df <- manual_store(); req(nrow(df) > 0)
+      utils::write.csv(df, file, row.names = FALSE, fileEncoding = "UTF-8")
+    })
+  )
 
   # Optional local protected-area layer: resolve the upload to a path that
   # sf::st_read() can open. A shapefile arrives zipped, so it is unzipped and the
@@ -1453,6 +1680,43 @@ server <- function(input, output, session) {
         cover_series = .report_cover(sp), fire_series = .report_fire(sp))
     })
   )
+
+  # --- Vouchers auto-fill from the uploaded table -------------------------
+  # Derive the examined-material list for the selected species from the file's
+  # attribute columns (voucher, or collector + collectorNumber [+ herbarium]).
+  derived_vouchers <- reactive({
+    fo <- tryCatch(occ_file(), error = function(e) NULL)
+    if (is.null(fo)) return(character(0))
+    tryCatch(
+      mappingAS::vouchers_from_occ(fo, species = input$report_species),
+      error = function(e) character(0))
+  })
+
+  # Prefill the vouchers box automatically, but never clobber the user's own
+  # edits: refill only while the box is empty or still holds the last value we
+  # inserted (so switching species updates it, manual typing freezes it).
+  last_auto_vouchers <- reactiveVal("")
+  observeEvent(list(input$report_species, occ_file()), {
+    dv  <- paste(derived_vouchers(), collapse = "\n")
+    cur <- trimws(input$fs_vouchers %||% "")
+    if (!nzchar(cur) || identical(cur, trimws(last_auto_vouchers()))) {
+      updateTextAreaInput(session, "fs_vouchers", value = dv)
+      last_auto_vouchers(dv)
+    }
+  }, ignoreInit = TRUE)
+
+  observeEvent(input$fs_vouchers_load, {
+    dv <- derived_vouchers()
+    if (!length(dv)) {
+      showNotification(
+        "No voucher / collector columns found in the uploaded table.",
+        type = "warning")
+      return()
+    }
+    val <- paste(dv, collapse = "\n")
+    updateTextAreaInput(session, "fs_vouchers", value = val)
+    last_auto_vouchers(val)
+  })
 
   # --- Factsheet tab: user metadata + photos -> standalone HTML -----------
   # Copy each uploaded photo to a temp file that keeps its extension, so the

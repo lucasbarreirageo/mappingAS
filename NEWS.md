@@ -1,3 +1,23 @@
+# mappingAS 1.12.0
+
+* **Add occurrence points by hand (Shiny app).** A new *Add points* tab lets you
+  click on a map to drop occurrence points - on top of an uploaded table, or
+  entirely from scratch with no file at all. Uploaded points show in grey for
+  reference, added points in green; type a species name (or pick an existing
+  one), enter coordinates directly, and undo/clear or download the added points
+  as CSV. Pressing *Assess* now runs on the uploaded occurrences **plus** every
+  point added by hand (or only those points when no file is uploaded). The file
+  upload is now optional.
+* **Automatic vouchers in the factsheet.** `vouchers_from_occ()` (exported)
+  derives the "Examined vouchers" list from the occurrence table's own columns:
+  a ready-made `voucher` column if present, otherwise `collector` +
+  `collectorNumber` (with a herbarium / `institutionCode` code added in
+  parentheses). In the app the vouchers box is filled automatically for the
+  selected species and refreshed when you switch species, without overwriting
+  text you typed yourself; a *Load vouchers from table* button reloads on
+  demand. Column names are matched case-insensitively from common Darwin Core
+  and herbarium aliases.
+
 # mappingAS 1.11.7
 
 * **Data-driven "Threats and continuing decline".** The synthesis paragraph in
