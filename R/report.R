@@ -221,6 +221,19 @@ assessment_report <- function(assessment, species = NULL,
     fmt_km(r$eoo_km2), st$cell_km, st$cell_km, fmt_km(r$aoo_km2), fmt_int(r$aoo_cells)),
     L("Both areas were measured on a data-centred Lambert Azimuthal Equal-Area projection, in line with the IUCN guidelines.",
       "Ambas as areas foram medidas em projecao equivalente Lambert Azimutal centrada nos dados, conforme as diretrizes da IUCN."))
+  if (!is.null(r$n_subpop) && !is.na(r$n_subpop) &&
+      !is.null(r$n_locations) && !is.na(r$n_locations)) {
+    loc_gk <- if (!is.null(st$loc_km) && is.finite(st$loc_km)) st$loc_km else 10
+    pa_note <- if (isTRUE(st$protected)) L(
+      " Occurrences inside protected areas were decoupled from those outside when counting locations, as a single threat is assumed not to affect both alike.",
+      " Ocorrencias dentro de areas protegidas foram desacopladas das de fora na contagem de localidades, pois se assume que uma mesma ameaca nao afeta ambas igualmente.") else ""
+    range_p <- c(range_p, paste0(sprintf(L(
+      "As additional Criterion B evidence, the number of subpopulations is estimated at %s (circular-buffer method) and the number of locations at %s (occupied %g&times;%g km grid cells).",
+      "Como evidencia adicional do Criterio B, o numero de subpopulacoes e estimado em %s (metodo de buffer circular) e o numero de localidades em %s (celulas de grade ocupadas de %g&times;%g km)."),
+      fmt_int(r$n_subpop), fmt_int(r$n_locations), loc_gk, loc_gk), pa_note,
+      L(" These estimates use the same spatial rationale as the ConR package and are preliminary screening aids, not a formal count of locations under a specific threat.",
+        " Essas estimativas seguem a mesma logica espacial do pacote ConR e sao apenas apoios preliminares de triagem, nao uma contagem formal de localidades sob uma ameaca especifica.")))
+  }
   if (isTRUE(st$mapbiomas) && !is.na(r$eoo_natural_pct) && !is.na(r$aoo_natural_pct) &&
       (r$aoo_natural_pct - r$eoo_natural_pct) > 5) {
     range_p <- c(range_p, sprintf(L(

@@ -22,6 +22,7 @@
 |---|---|---|
 | **Occurrence import** | Read points from spreadsheets or spatial files, auto-detecting the species/lon/lat columns | `read_occurrences()` |
 | **Range metrics** | Extent of Occurrence (EOO, convex hull) and Area of Occupancy (AOO, 2 km grid) on an equal-area projection, with provisional Criterion B categories | `assess_species()`, `calc_eoo()`, `calc_aoo()`, `iucn_category_B()` |
+| **Subpopulations & locations** | Estimate of the number of subpopulations (circular-buffer method) and number of locations (10 km occupied-grid-cell method), following the ConR spatial rationale | `assess_species()`, `calc_subpop()`, `calc_locations()` |
 | **Habitat conversion** | % converted (anthropic) vs. natural within the EOO/AOO, plus the full per-class land-cover breakdown | `assess_species()`, `class_table()`, `plot_conversion()` |
 | **Land-cover time series** | Composition (% × year) as a stacked-area chart (EOO and AOO together), plus a per-class regression trendline with equation, R² and p-value | `timeseries_for_species()`, `cover_timeseries()`, `plot_timeseries()`, `plot_class_trendline()` |
 | **Fire** | % of the range burned at least once and burned-area time series, from MapBiomas Fire (Brazil) | `assess_species(fire = TRUE)`, `fire_timeseries_for_species()`, `plot_fire_timeseries()` |
@@ -203,6 +204,9 @@ Key columns (`res$summary`, also shown with a glossary in the app's **Results** 
 
 - **EOO** = area of the minimum convex polygon over the points (≥ 3 unique coordinates; otherwise `NA`), edges densified along great circles and measured on the WGS84 ellipsoid.
 - **AOO** = number of occupied 2 × 2 km cells × 4 km² (cell size via `cell_km`), taken as the minimum over several translated grids.
+- **Subpopulations** = the circular-buffer method: a circle of radius `subpop_resol_km` (default 1/10 of the maximum inter-point distance, [Rivers et al. 2010](https://doi.org/10.1016/j.biocon.2010.06.028)) is drawn around each occurrence, the circles are dissolved, and the disjoint polygons are counted.
+- **Locations** = number of occupied cells of a 10 km grid (`loc_km`, or a sliding-scale fraction of the max inter-point distance via `loc_scale`), minimum over translated grids. When `protected = TRUE`, occurrences inside protected areas are decoupled from those outside (ConR `method_protected`: `"no_more_than_one"` counts each protected area with occurrences as one location; `"other"` grids inside/outside separately). A grid-based screening proxy, not a formal count of locations under a specific threat.
+- The subpopulation and location methods follow the spatial rationale popularised by the **[ConR](https://github.com/gdauby/ConR)** package ([Dauby et al. 2017](https://doi.org/10.1002/ece3.3704)), cited here for the idea; the mappingAS implementation is independent code (ConR is GPL, mappingAS is MIT).
 - Areas are measured on a data-centred **LAEA equal-area** projection, in line with the IUCN guidelines.
 - **Conversion**: land-cover classes are grouped into *natural*, *anthropic*, *water*, *not observed* and *other*. The headline index is `converted_pct = anthropic / (anthropic + natural) × 100` (terrestrial denominator; water and not-observed excluded by default — set `water_in_denominator = TRUE` to include water).
 - **Criterion B thresholds** (screening only): EOO < 100 / 5,000 / 20,000 km² and AOO < 10 / 500 / 2,000 km² for CR / EN / VU.

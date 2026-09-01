@@ -12,6 +12,11 @@ assess_species(
   backend = c("local", "gee"),
   fallback = c("sentinel2", "none"),
   cell_km = 2,
+  subpop = TRUE,
+  subpop_resol_km = NULL,
+  loc_km = 10,
+  loc_scale = NULL,
+  loc_method = c("no_more_than_one", "other"),
   mapbiomas = TRUE,
   fire = FALSE,
   fire_collection = 4,
@@ -59,6 +64,29 @@ global Sentinel-2 / Esri layer; \code{"none"} leaves its conversion as
 
 \item{cell_km}{AOO grid cell size in km (default \code{2}).}
 
+\item{subpop}{Logical; if \code{TRUE} (default) also estimate the number of
+subpopulations (circular-buffer method) and the number of locations
+(occupied-grid-cell method). See \code{\link{calc_subpop}} and
+\code{\link{calc_locations}}.}
+
+\item{subpop_resol_km}{Circular-buffer radius in km for the subpopulation
+estimate. \code{NULL} (default) uses one tenth of the maximum distance
+between occurrences (Rivers \emph{et al.} 2010).}
+
+\item{loc_km}{Grid cell size in km for the number-of-locations estimate
+(default \code{10}).}
+
+\item{loc_scale}{Optional sliding-scale cell size for the locations estimate:
+a fraction of the maximum distance between occurrences (Rivers \emph{et al.}
+2010). When supplied it overrides \code{loc_km}. See
+\code{\link{calc_locations}}.}
+
+\item{loc_method}{How protected areas enter the number-of-locations estimate
+when \code{protected = TRUE}: \code{"no_more_than_one"} (default; each
+protected area with occurrences is one location) or \code{"other"} (inside
+and outside protected areas gridded separately). Ignored when
+\code{protected = FALSE}. See \code{\link{calc_locations}}.}
+
 \item{mapbiomas}{Logical; if \code{FALSE}, only EOO/AOO are computed.}
 
 \item{fire}{Logical; if \code{TRUE}, also compute burned-area metrics from
@@ -88,10 +116,11 @@ the EOO/AOO within them. Default \code{FALSE}. Requires internet unless
 }
 \value{
 An object of class \code{geoconv_assessment}: a list with
-\code{summary} (one row per species) and \code{detail} (per-species
-\code{points}, \code{eoo}, \code{aoo}, \code{eoo_conversion},
-\code{aoo_conversion}, and — when \code{fire = TRUE} — \code{eoo_fire},
-\code{aoo_fire}).
+\code{summary} (one row per species, including \code{n_subpop} and
+\code{n_locations}) and \code{detail} (per-species \code{points},
+\code{eoo}, \code{aoo}, \code{subpop}, \code{locations},
+\code{eoo_conversion}, \code{aoo_conversion}, and — when \code{fire = TRUE}
+— \code{eoo_fire}, \code{aoo_fire}).
 }
 \description{
 End-to-end pipeline. For each species it computes the EOO (minimum convex

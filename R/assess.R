@@ -33,6 +33,24 @@
 #' @param backend Habitat backend: \code{"local"} (default) or \code{"gee"}.
 #'   The \code{"gee"} backend is only wired for \code{initiative = "brazil"}.
 #' @param cell_km AOO grid cell size in km (default \code{2}).
+#' @param subpop Logical; if \code{TRUE} (default) also estimate the number of
+#'   subpopulations (circular-buffer method) and the number of locations
+#'   (occupied-grid-cell method). See \code{\link{calc_subpop}} and
+#'   \code{\link{calc_locations}}.
+#' @param subpop_resol_km Circular-buffer radius in km for the subpopulation
+#'   estimate. \code{NULL} (default) uses one tenth of the maximum distance
+#'   between occurrences (Rivers \emph{et al.} 2010).
+#' @param loc_km Grid cell size in km for the number-of-locations estimate
+#'   (default \code{10}).
+#' @param loc_scale Optional sliding-scale cell size for the locations estimate:
+#'   a fraction of the maximum distance between occurrences (Rivers \emph{et al.}
+#'   2010). When supplied it overrides \code{loc_km}. See
+#'   \code{\link{calc_locations}}.
+#' @param loc_method How protected areas enter the number-of-locations estimate
+#'   when \code{protected = TRUE}: \code{"no_more_than_one"} (default; each
+#'   protected area with occurrences is one location) or \code{"other"} (inside
+#'   and outside protected areas gridded separately). Ignored when
+#'   \code{protected = FALSE}. See \code{\link{calc_locations}}.
 #' @param mapbiomas Logical; if \code{FALSE}, only EOO/AOO are computed.
 #' @param fire Logical; if \code{TRUE}, also compute burned-area metrics from
 #'   MapBiomas Fire (accumulated layer, read locally). Default \code{FALSE}.
@@ -51,10 +69,11 @@
 #' @param min_records Minimum records required to attempt an assessment.
 #' @param verbose Logical; print progress (default \code{TRUE}).
 #' @return An object of class \code{geoconv_assessment}: a list with
-#'   \code{summary} (one row per species) and \code{detail} (per-species
-#'   \code{points}, \code{eoo}, \code{aoo}, \code{eoo_conversion},
-#'   \code{aoo_conversion}, and — when \code{fire = TRUE} — \code{eoo_fire},
-#'   \code{aoo_fire}).
+#'   \code{summary} (one row per species, including \code{n_subpop} and
+#'   \code{n_locations}) and \code{detail} (per-species \code{points},
+#'   \code{eoo}, \code{aoo}, \code{subpop}, \code{locations},
+#'   \code{eoo_conversion}, \code{aoo_conversion}, and — when \code{fire = TRUE}
+#'   — \code{eoo_fire}, \code{aoo_fire}).
 #' @examples
 #' \dontrun{
 #' f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
@@ -67,7 +86,11 @@ assess_species <- function(occ, initiative = "brazil",
                            year = NULL, collection = NULL,
                            backend = c("local", "gee"),
                            fallback = c("sentinel2", "none"),
-                           cell_km = 2, mapbiomas = TRUE,
+                           cell_km = 2, subpop = TRUE,
+                           subpop_resol_km = NULL, loc_km = 10,
+                           loc_scale = NULL,
+                           loc_method = c("no_more_than_one", "other"),
+                           mapbiomas = TRUE,
                            fire = FALSE, fire_collection = 4,
                            fire_host_collection = 9,
                            protected = FALSE, pa_src = NULL,
@@ -77,6 +100,7 @@ assess_species <- function(occ, initiative = "brazil",
   .assert_points(occ, "occ")
   backend <- match.arg(backend)
   fallback <- match.arg(fallback)
+  loc_method <- match.arg(loc_method)
 
   # "auto" = try MapBiomas (Brazil-flagship spatial coverage) then fall back to
   # the global Sentinel-2 / Esri layer wherever MapBiomas has no data.
@@ -141,6 +165,15 @@ assess_species <- function(occ, initiative = "brazil",
     aoo_geom <- .st_union_quiet(aoo$cells)
     cats <- iucn_category_B(eoo$area_km2, aoo$area_km2)
 
+    # Estimate of number of subpopulations and locations (ConR-style methods,
+    # independent implementation; see calc_subpop() / calc_locations()).
+    sub <- if (isTRUE(subpop))
+      calc_subpop(pts, resol_km = subpop_resol_km)
+    else list(n_subpop = NA_integer_, resol_km = NA_real_, subpop = NULL)
+    loc <- if (isTRUE(subpop))
+      calc_locations(pts, grid_km = loc_km, cell_scale = loc_scale)
+    else list(n_locations = NA_integer_, grid_km = NA_real_, cells = NULL)
+
     # Per-species land-cover product actually used (may switch on fallback).
     eff_ini <- initiative; eff_year <- year; eff_coll <- collection
     eff_prov <- ini$provider
@@ -194,6 +227,14 @@ assess_species <- function(occ, initiative = "brazil",
     if (protected) {
       pa <- .protected_for(pts, eoo, aoo, src = pa_src, verbose = verbose)
     }
+    # With protected areas available, recompute the number of locations so that
+    # subpopulations inside protected areas are decoupled from those outside
+    # (ConR method_protected_area); see calc_locations().
+    if (isTRUE(subpop) && protected && !is.null(pa) &&
+        inherits(pa$layer, "sf") && nrow(pa$layer) > 0L) {
+      loc <- calc_locations(pts, grid_km = loc_km, cell_scale = loc_scale,
+                            protected = pa$layer, method_protected = loc_method)
+    }
     if (protected && mapbiomas && !is.null(pa) && !is.null(pa$layer)) {
       uc_u <- .st_union_quiet(sf::st_geometry(pa$layer))
       e_nat <- .nat_in_uc(eoo$hull, uc_u, eoo_conv, eff_year, eff_coll, eff_ini,
@@ -216,6 +257,8 @@ assess_species <- function(occ, initiative = "brazil",
       eoo_km2 = round(eoo$area_km2, 2),
       aoo_km2 = round(aoo$area_km2, 2),
       aoo_cells = aoo$n_cells,
+      n_subpop = sub$n_subpop,
+      n_locations = loc$n_locations,
       eoo_converted_pct = .pp(eoo_conv$converted_pct),
       eoo_natural_pct   = .pp(eoo_conv$natural_pct),
       aoo_converted_pct = .pp(aoo_conv$converted_pct),
@@ -247,6 +290,7 @@ assess_species <- function(occ, initiative = "brazil",
     }
     rows[[i]] <- row
     detail[[sp]] <- list(points = pts, eoo = eoo, aoo = aoo,
+                         subpop = sub, locations = loc,
                          eoo_conversion = eoo_conv, aoo_conversion = aoo_conv,
                          eoo_fire = eoo_fire, aoo_fire = aoo_fire, pa = pa,
                          initiative = eff_ini, year = eff_year,
@@ -261,6 +305,10 @@ assess_species <- function(occ, initiative = "brazil",
                                  requested_initiative = requested,
                                  fallback = fallback, auto = is_auto,
                                  backend = backend, cell_km = cell_km,
+                                 subpop = subpop,
+                                 subpop_resol_km = subpop_resol_km,
+                                 loc_km = loc_km, loc_scale = loc_scale,
+                                 loc_method = loc_method,
                                  mapbiomas = mapbiomas, fire = fire,
                                  fire_collection = fire_collection,
                                  fire_host_collection = fire_host_collection,

@@ -1,3 +1,38 @@
+# mappingAS 1.13.0
+
+* **Estimate of number of subpopulations and number of locations.** Two new
+  exported functions, `calc_subpop()` and `calc_locations()`, add the remaining
+  spatial pieces of an IUCN Criterion B screening. `calc_subpop()` estimates the
+  number of subpopulations with the circular-buffer method (a circle around each
+  occurrence, dissolved; disjoint polygons are counted), using a default radius
+  of one tenth of the maximum distance between occurrences (Rivers *et al.*
+  2010). `calc_locations()` estimates the number of locations as the number of
+  occupied cells of a 10 km grid, taking the minimum over randomly translated
+  grids (the most conservative estimate). Both work on the same data-centred
+  equal-area projection as the EOO/AOO.
+  * `calc_locations()` also mirrors ConR's **protected-area integration**: pass
+    a protected-area layer (e.g. from `protected_areas()`) and occurrences
+    inside protected areas are decoupled from those outside, because a single
+    threat is not assumed to affect both alike. `method_protected =`
+    `"no_more_than_one"` (default) counts each protected area holding
+    occurrences as one location; `"other"` grids the inside and outside groups
+    separately and adds them.
+  * The locations grid cell can be a fixed size (`loc_km` / `grid_km`, default
+    10 km) or a species-specific **sliding scale** (`loc_scale` / `cell_scale`),
+    a fraction of the maximum distance between occurrences (Rivers *et al.*
+    2010).
+  * `assess_species()` now reports `n_subpop` and `n_locations` in its `summary`
+    (and `subpop` / `locations` details), controlled by `subpop`,
+    `subpop_resol_km`, `loc_km`, `loc_scale` and `loc_method`. When
+    `protected = TRUE` the location count automatically decouples protected
+    areas. The written report and the factsheet show the two estimates when
+    available.
+  * These methods follow the spatial rationale popularised by the **ConR**
+    package (Dauby *et al.* 2017, *Ecology and Evolution*,
+    <doi:10.1002/ece3.3704>, <https://github.com/gdauby/ConR>), which is cited
+    for the idea. The implementation is independent, clean-room mappingAS code
+    (ConR is GPL, mappingAS is MIT; no ConR source was used).
+
 # mappingAS 1.12.0
 
 * **Add occurrence points by hand (Shiny app).** A new *Add points* tab lets you

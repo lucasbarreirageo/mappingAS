@@ -536,6 +536,14 @@ factsheet_html <- function(assessment, species = NULL,
     metric(L("Occurrence records", "Registros de ocorrencia"),
            sprintf("%s (%s %s)", fmt_int(r$n_records), fmt_int(r$n_unique),
                    L("unique", "unicos"))))
+  if (!is.null(r$n_subpop) && !is.na(r$n_subpop))
+    metrics <- c(metrics,
+      metric(L("Subpopulations (est.)", "Subpopulacoes (est.)"),
+             fmt_int(r$n_subpop)))
+  if (!is.null(r$n_locations) && !is.na(r$n_locations))
+    metrics <- c(metrics,
+      metric(L("Locations (est.)", "Localidades (est.)"),
+             fmt_int(r$n_locations)))
   if (isTRUE(st$mapbiomas))
     metrics <- c(metrics,
       metric(L("Natural habitat (EOO / AOO)", "Habitat natural (EOO / AOO)"),
