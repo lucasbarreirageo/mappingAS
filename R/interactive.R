@@ -212,9 +212,11 @@
 #' @return A \code{plotly} htmlwidget (or \code{p} unchanged when it is not a
 #'   ggplot or \pkg{plotly} is not installed).
 #' @examples
-#' \dontrun{
-#' res <- assess_species(read_occurrences("occ.csv"))
-#' mas_plotly(plot_conversion(res))
+#' if (interactive()) {
+#'   occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
+#'                                       package = "mappingAS"))
+#'   res <- assess_species(occ, year = 2024, verbose = FALSE)  # reads MapBiomas
+#'   mas_plotly(plot_conversion(res))
 #' }
 #' @export
 mas_plotly <- function(p, tooltip = c("fill", "x", "y"), ...) {

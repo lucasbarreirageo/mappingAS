@@ -88,11 +88,12 @@ The MapBiomas layer is read with the cached windowed reader and aggregated to
 fetched during \code{\link{assess_species}} (same EOO window).
 }
 \examples{
-\dontrun{
 occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
                                     package = "mappingAS"))
-res <- assess_species(occ, year = 2024)
-m <- map_static(res)
-ggplot2::ggsave("eoo_map.png", m, width = 8, height = 7, dpi = 300)
+res <- assess_species(occ, mapbiomas = FALSE, verbose = FALSE)
+m <- map_static(res, mapbiomas = FALSE)
+\donttest{
+# Save it wherever you like (a temporary file here):
+ggplot2::ggsave(file.path(tempdir(), "eoo_map.png"), m, width = 8, height = 7)
 }
 }

@@ -57,10 +57,13 @@ preview), plain text, or a Word \code{.docx} file (via \pkg{officer}) - the
 format used by the Shiny app's Report tab.
 }
 \examples{
-\dontrun{
-res <- assess_species(read_occurrences("occ.csv"), fire = TRUE, protected = TRUE)
+occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
+                                    package = "mappingAS"))
+res <- assess_species(occ, mapbiomas = FALSE, verbose = FALSE)
 cat(assessment_report(res, output = "text"))
-ts <- timeseries_for_species(res, range = "eoo", by = "group")
-assessment_report(res, output = "docx", file = "report.docx", cover_series = ts)
+\donttest{
+# Word (.docx) report written to a temporary file:
+assessment_report(res, output = "docx",
+                  file = file.path(tempdir(), "report.docx"))
 }
 }

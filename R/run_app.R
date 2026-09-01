@@ -8,7 +8,9 @@
 #' @param ... Passed to \code{shiny::runApp()}.
 #' @return Invisibly \code{NULL}; called for its side effect.
 #' @examples
-#' \dontrun{ run_app() }
+#' if (interactive()) {
+#'   run_app()
+#' }
 #' @export
 run_app <- function(launch.browser = TRUE, ...) {
   for (p in c("shiny", "bslib", "leaflet", "DT", "htmltools", "htmlwidgets",

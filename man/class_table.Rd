@@ -28,8 +28,10 @@ natural-versus-converted summary in \code{\link{assess_species}} with the full
 class-by-class breakdown.
 }
 \examples{
-\dontrun{
-res <- assess_species(read_occurrences("occ.csv"))
+\donttest{
+occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
+                                    package = "mappingAS"))
+res <- assess_species(occ, year = 2024, verbose = FALSE)  # reads MapBiomas
 class_table(res)
 }
 }

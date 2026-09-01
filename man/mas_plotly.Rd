@@ -31,8 +31,10 @@ the single place that controls the interactive look across the package and
 the Shiny app.
 }
 \examples{
-\dontrun{
-res <- assess_species(read_occurrences("occ.csv"))
-mas_plotly(plot_conversion(res))
+if (interactive()) {
+  occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
+                                      package = "mappingAS"))
+  res <- assess_species(occ, year = 2024, verbose = FALSE)  # reads MapBiomas
+  mas_plotly(plot_conversion(res))
 }
 }

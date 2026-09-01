@@ -131,10 +131,14 @@ adds the percentage of the EOO/AOO that has burned and the mean fire
 recurrence, from the MapBiomas Fire accumulated layer.
 }
 \examples{
-\dontrun{
 f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
 occ <- read_occurrences(f)
-res <- assess_species(occ, year = 2024, fire = TRUE)
+# EOO/AOO, subpopulations and locations only (offline, no network):
+res <- assess_species(occ, mapbiomas = FALSE, verbose = FALSE)
 res$summary
+\donttest{
+# Full screening with MapBiomas land cover and fire (reads data over the web):
+res2 <- assess_species(occ, year = 2024, fire = TRUE, verbose = FALSE)
+res2$summary
 }
 }

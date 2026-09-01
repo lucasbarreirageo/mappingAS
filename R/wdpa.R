@@ -41,11 +41,11 @@ wdpa_query_url <- function() {
 #' @return An \code{sf} of WDPA polygons in EPSG:4326 (possibly zero rows), or
 #'   \code{NULL} if the service could not be read.
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
 #'                                     package = "mappingAS"))
 #' sp1 <- occ[occ$species == occ$species[1], ]
-#' pas <- wdpa_areas(calc_eoo(sp1)$hull)
+#' pas <- wdpa_areas(calc_eoo(sp1)$hull)  # reads WDPA over the web
 #' unique(pas$pa_name)
 #' }
 #' @export

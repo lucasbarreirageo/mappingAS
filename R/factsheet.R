@@ -68,18 +68,14 @@
 #'   invisibly.
 #' @seealso \code{\link{assessment_report}} for the narrative-only report.
 #' @examples
-#' \dontrun{
-#' res <- assess_species(read_occurrences("occ.csv"), fire = TRUE, protected = TRUE)
-#' factsheet_html(res, file = "factsheet.html",
-#'                family = "Araceae", authority = "(Engl.) Croat",
-#'                countries = "Brazil", system = "Terrestrial",
-#'                habitat = "Rocky outcrops (inselbergs)", biome = "Atlantic Forest",
-#'                vegetation = "Rupicolous herb on granitic-gneissic outcrops",
-#'                land_use = "Surrounded by pasture and urban expansion",
-#'                conservation_units = "PARNA da Tijuca; APA Petropolis",
-#'                vouchers = c("Barreira 123 (RB)", "Silva 456 (R)"),
-#'                reference = "https://reflora.jbrj.gov.br/...",
-#'                photos = c("a.jpg", "b.jpg"), photo_credit = "A. L. Barreira")
+#' \donttest{
+#' occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
+#'                                     package = "mappingAS"))
+#' res <- assess_species(occ, year = 2024, verbose = FALSE)  # reads MapBiomas
+#' out <- file.path(tempdir(), "factsheet.html")
+#' factsheet_html(res, file = out, map = FALSE,
+#'                family = "Gentianaceae", countries = "Brazil",
+#'                system = "Terrestrial", biome = "Atlantic Forest")
 #' }
 #' @export
 factsheet_html <- function(assessment, species = NULL,

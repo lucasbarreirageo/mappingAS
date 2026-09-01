@@ -15,8 +15,10 @@
 #'   fallback, invisibly the plotted percentage matrix (rows \code{EOO}/\code{AOO}).
 #' @seealso \code{\link{mas_plotly}} for the interactive version.
 #' @examples
-#' \dontrun{
-#' res <- assess_species(read_occurrences("occ.csv"), protected = TRUE)
+#' \donttest{
+#' occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
+#'                                     package = "mappingAS"))
+#' res <- assess_species(occ, protected = TRUE, verbose = FALSE)  # reads WDPA
 #' plot_protection(res)
 #' }
 #' @export

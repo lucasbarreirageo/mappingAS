@@ -48,11 +48,11 @@ This is the recommended protected-area source for the \code{"amazonia"} and
 service does not apply.
 }
 \examples{
-\dontrun{
+\donttest{
 occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
                                     package = "mappingAS"))
 sp1 <- occ[occ$species == occ$species[1], ]
-pas <- wdpa_areas(calc_eoo(sp1)$hull)
+pas <- wdpa_areas(calc_eoo(sp1)$hull)  # reads WDPA over the web
 unique(pas$pa_name)
 }
 }

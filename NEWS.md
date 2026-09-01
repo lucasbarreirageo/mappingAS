@@ -1,3 +1,21 @@
+# mappingAS 1.13.1
+
+* **CRAN compliance.** Addressed the CRAN reviewer feedback:
+  * Examples no longer use `\dontrun{}`. Executable examples run directly
+    (offline, using the bundled data with `mapbiomas = FALSE`); examples that
+    read data over the network (MapBiomas, WDPA) use `\donttest{}`; and
+    interactive-only entry points (`run_app()`, `mas_plotly()`) use
+    `if (interactive()){}`.
+  * No function writes to the user's home/working directory by default:
+    `export_ranges()` now defaults `dir = tempdir()` (pass an explicit path to
+    keep the files), and every example that writes a file writes it under
+    `tempdir()`.
+* **Real example dataset.** `inst/extdata/example_occurrences.csv` now ships 29
+  real herbarium/occurrence records of three campo-de-altitude species from the
+  Serra dos Orgaos / Serra da Mantiqueira region (*Prepusa hookeriana*,
+  *Prepusa connata*, *Worsleya procera*), replacing the previous synthetic
+  points, so the examples screen a realistic multi-species dataset.
+
 # mappingAS 1.13.0
 
 * **Estimate of number of subpopulations and number of locations.** Two new

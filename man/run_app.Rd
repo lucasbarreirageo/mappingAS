@@ -20,5 +20,7 @@ Starts the interactive app for uploading occurrences, computing EOO/AOO and
 MapBiomas habitat conversion, and exploring/exporting the results.
 }
 \examples{
-\dontrun{ run_app() }
+if (interactive()) {
+  run_app()
+}
 }

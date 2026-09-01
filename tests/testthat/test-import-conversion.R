@@ -4,8 +4,8 @@ test_that("read_occurrences imports the bundled example", {
   occ <- read_occurrences(f)
   expect_s3_class(occ, "sf")
   expect_true("species" %in% names(occ))
-  expect_equal(length(unique(occ$species)), 2)
-  expect_equal(nrow(occ), 10)
+  expect_equal(length(unique(occ$species)), 3)
+  expect_equal(nrow(occ), 29)
   expect_equal(sf::st_crs(occ)$epsg, 4326L)
 })
 

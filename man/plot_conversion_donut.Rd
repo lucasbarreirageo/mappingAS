@@ -39,9 +39,10 @@ PNG (all panel/plot/legend backgrounds are transparent), and the interactive
 leader lines and a transparent export.
 }
 \examples{
-\dontrun{
-res <- assess_species(read_occurrences("occ.csv"))
+\donttest{
+occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
+                                    package = "mappingAS"))
+res <- assess_species(occ, year = 2024, verbose = FALSE)  # reads MapBiomas
 plot_conversion_donut(res, by = "class")
-mas_plotly(plot_conversion_donut(res, by = "group"))
 }
 }

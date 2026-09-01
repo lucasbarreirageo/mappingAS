@@ -91,10 +91,11 @@
 #'   \code{"mas"} so \code{\link{mas_plotly}} can build the interactive donut).
 #'   Stops with an informative message if no class data are available.
 #' @examples
-#' \dontrun{
-#' res <- assess_species(read_occurrences("occ.csv"))
+#' \donttest{
+#' occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
+#'                                     package = "mappingAS"))
+#' res <- assess_species(occ, year = 2024, verbose = FALSE)  # reads MapBiomas
 #' plot_conversion_donut(res, by = "class")
-#' mas_plotly(plot_conversion_donut(res, by = "group"))
 #' }
 #' @export
 plot_conversion_donut <- function(assessment, species = NULL,

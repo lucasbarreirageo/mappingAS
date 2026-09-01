@@ -47,12 +47,13 @@
 #'   protected area the range overlaps.
 #' @return A \code{ggplot} object.
 #' @examples
-#' \dontrun{
 #' occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
 #'                                     package = "mappingAS"))
-#' res <- assess_species(occ, year = 2024)
-#' m <- map_static(res)
-#' ggplot2::ggsave("eoo_map.png", m, width = 8, height = 7, dpi = 300)
+#' res <- assess_species(occ, mapbiomas = FALSE, verbose = FALSE)
+#' m <- map_static(res, mapbiomas = FALSE)
+#' \donttest{
+#' # Save it wherever you like (a temporary file here):
+#' ggplot2::ggsave(file.path(tempdir(), "eoo_map.png"), m, width = 8, height = 7)
 #' }
 #' @export
 map_static <- function(assessment, species = NULL, mapbiomas = TRUE,

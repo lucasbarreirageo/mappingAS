@@ -75,11 +75,15 @@
 #'   \code{eoo_conversion}, \code{aoo_conversion}, and — when \code{fire = TRUE}
 #'   — \code{eoo_fire}, \code{aoo_fire}).
 #' @examples
-#' \dontrun{
 #' f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
 #' occ <- read_occurrences(f)
-#' res <- assess_species(occ, year = 2024, fire = TRUE)
+#' # EOO/AOO, subpopulations and locations only (offline, no network):
+#' res <- assess_species(occ, mapbiomas = FALSE, verbose = FALSE)
 #' res$summary
+#' \donttest{
+#' # Full screening with MapBiomas land cover and fire (reads data over the web):
+#' res2 <- assess_species(occ, year = 2024, fire = TRUE, verbose = FALSE)
+#' res2$summary
 #' }
 #' @export
 assess_species <- function(occ, initiative = "brazil",

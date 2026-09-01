@@ -15,8 +15,10 @@
 #'   \code{group}, \code{area_km2} and \code{pct} (percentage of the mapped area
 #'   within that range). Empty (with a warning) if MapBiomas was not computed.
 #' @examples
-#' \dontrun{
-#' res <- assess_species(read_occurrences("occ.csv"))
+#' \donttest{
+#' occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
+#'                                     package = "mappingAS"))
+#' res <- assess_species(occ, year = 2024, verbose = FALSE)  # reads MapBiomas
 #' class_table(res)
 #' }
 #' @export

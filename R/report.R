@@ -30,11 +30,14 @@
 #' @return For \code{"html"}/\code{"text"}, a length-one character string. For
 #'   \code{"docx"}, the \code{file} path (written as a side effect), invisibly.
 #' @examples
-#' \dontrun{
-#' res <- assess_species(read_occurrences("occ.csv"), fire = TRUE, protected = TRUE)
+#' occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
+#'                                     package = "mappingAS"))
+#' res <- assess_species(occ, mapbiomas = FALSE, verbose = FALSE)
 #' cat(assessment_report(res, output = "text"))
-#' ts <- timeseries_for_species(res, range = "eoo", by = "group")
-#' assessment_report(res, output = "docx", file = "report.docx", cover_series = ts)
+#' \donttest{
+#' # Word (.docx) report written to a temporary file:
+#' assessment_report(res, output = "docx",
+#'                   file = file.path(tempdir(), "report.docx"))
 #' }
 #' @export
 assessment_report <- function(assessment, species = NULL,

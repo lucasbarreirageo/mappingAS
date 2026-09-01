@@ -27,8 +27,10 @@ inside federal Protected areas (Protected areas, UCs) versus outside, from
 one subtitle with the occurrence count, and a legend on the right.
 }
 \examples{
-\dontrun{
-res <- assess_species(read_occurrences("occ.csv"), protected = TRUE)
+\donttest{
+occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
+                                    package = "mappingAS"))
+res <- assess_species(occ, protected = TRUE, verbose = FALSE)  # reads WDPA
 plot_protection(res)
 }
 }

@@ -12,7 +12,8 @@
 #' `aoo`) inside a single file and has no such limitation.
 #'
 #' @param assessment A `geoconv_assessment` object from [assess_species()].
-#' @param dir Output directory (created if it does not exist). Default `"."`.
+#' @param dir Output directory (created if it does not exist). Default
+#'   `tempdir()`; pass an explicit path to keep the files.
 #' @param layer_prefix File/layer name prefix. Default `"mappingAS"`.
 #' @param what Which ranges to export: `"both"` (default), `"eoo"` or `"aoo"`.
 #' @param format `"shapefile"` (default; one file set per range, i.e.
@@ -42,22 +43,22 @@
 #'   path to the `.zip` when `zip = TRUE`.
 #'
 #' @examples
-#' \dontrun{
 #' occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
 #'                                     package = "mappingAS"))
-#' res <- assess_species(occ, mapbiomas = FALSE)
+#' res <- assess_species(occ, mapbiomas = FALSE, verbose = FALSE)
 #'
-#' # Two shapefiles (EOO + AOO) in the current directory:
-#' export_ranges(res)
+#' # Two shapefiles (EOO + AOO) written to a temporary directory:
+#' export_ranges(res, dir = tempdir())
 #'
 #' # A single GeoPackage with both layers:
-#' export_ranges(res, format = "gpkg")
+#' export_ranges(res, dir = tempdir(), format = "gpkg")
 #'
+#' \donttest{
 #' # Everything bundled into one .zip (good for downloads):
-#' export_ranges(res, zip = TRUE)
+#' export_ranges(res, dir = tempdir(), zip = TRUE)
 #' }
 #' @export
-export_ranges <- function(assessment, dir = ".", layer_prefix = "mappingAS",
+export_ranges <- function(assessment, dir = tempdir(), layer_prefix = "mappingAS",
                           what = c("both", "eoo", "aoo"),
                           format = c("shapefile", "gpkg"),
                           crs = 4326, aoo_as = c("cells", "union"),

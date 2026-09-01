@@ -6,7 +6,7 @@
 \usage{
 export_ranges(
   assessment,
-  dir = ".",
+  dir = tempdir(),
   layer_prefix = "mappingAS",
   what = c("both", "eoo", "aoo"),
   format = c("shapefile", "gpkg"),
@@ -20,7 +20,8 @@ export_ranges(
 \arguments{
 \item{assessment}{A \code{geoconv_assessment} object from \code{\link[=assess_species]{assess_species()}}.}
 
-\item{dir}{Output directory (created if it does not exist). Default \code{"."}.}
+\item{dir}{Output directory (created if it does not exist). Default
+\code{tempdir()}; pass an explicit path to keep the files.}
 
 \item{layer_prefix}{File/layer name prefix. Default \code{"mappingAS"}.}
 
@@ -74,18 +75,18 @@ MapBiomas was not computed.
 }
 
 \examples{
-\dontrun{
 occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
                                     package = "mappingAS"))
-res <- assess_species(occ, mapbiomas = FALSE)
+res <- assess_species(occ, mapbiomas = FALSE, verbose = FALSE)
 
-# Two shapefiles (EOO + AOO) in the current directory:
-export_ranges(res)
+# Two shapefiles (EOO + AOO) written to a temporary directory:
+export_ranges(res, dir = tempdir())
 
 # A single GeoPackage with both layers:
-export_ranges(res, format = "gpkg")
+export_ranges(res, dir = tempdir(), format = "gpkg")
 
+\donttest{
 # Everything bundled into one .zip (good for downloads):
-export_ranges(res, zip = TRUE)
+export_ranges(res, dir = tempdir(), zip = TRUE)
 }
 }
