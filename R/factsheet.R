@@ -1,7 +1,7 @@
 #' Standalone HTML species factsheet with user metadata and photos
 #'
 #' Builds a single, self-contained HTML file that presents one species as a
-#' printable/​shareable factsheet - the kind hosted on a supplementary website.
+#' printable/shareable factsheet - the kind hosted on a supplementary website.
 #' It combines two sources of information:
 #' \enumerate{
 #'   \item \strong{Everything the assessment already computes} - range metrics
