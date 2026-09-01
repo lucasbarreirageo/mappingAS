@@ -5,20 +5,14 @@
 \title{Estimate of number of locations (occupied-grid-cell method, optionally
 protected-area aware)}
 \usage{
-calc_locations(
-  points,
-  grid_km = 10,
-  n_rep = 30,
-  protected = NULL,
-  method_protected = c("no_more_than_one", "other"),
-  cell_scale = NULL
-)
+calc_locations(points, grid_km = 10, n_rep = 30)
+
+calc_locations(points, grid_km = 10, n_rep = 30)
 }
 \arguments{
 \item{points}{An \code{sf} of POINT geometries (one species).}
 
-\item{grid_km}{Grid cell side length in kilometres (default \code{10}).
-Ignored when \code{cell_scale} is supplied.}
+\item{grid_km}{Grid cell side length in kilometres (default \code{10}).}
 
 \item{n_rep}{Integer; number of randomly translated grids to test (default
 \code{30}). The minimum occupied-cell count over the replicates is
@@ -45,6 +39,10 @@ the plain grid), \code{n_cells}, \code{cells} (gridded location cells as an
 \code{sfc} in WGS84), \code{pa_locations} (the protected areas counted as
 locations under \code{"no_more_than_one"}, else \code{NULL}) and
 \code{crs_laea}.
+
+A list with \code{n_locations} (integer estimate), \code{grid_km},
+\code{n_cells}, \code{cells} (occupied cells as an \code{sfc} polygon set
+in WGS84) and \code{crs_laea}.
 }
 \description{
 Estimates the number of "locations" (in the IUCN sense: geographically or
@@ -54,6 +52,12 @@ occupied cells, optionally decoupling occurrences that fall inside protected
 areas from those outside. This mirrors the two complementary approaches used
 by the \pkg{ConR} package (Dauby \emph{et al.} 2017): the grid method, and
 the protected-area integration (\code{method_protected}).
+
+Estimates the number of "locations" (in the IUCN sense: geographically or
+ecologically distinct areas in which a single threatening event can rapidly
+affect all individuals) by overlaying a regular grid and counting the
+occupied cells. This is the grid-based estimate used, in the absence of an
+explicit threat layer, by the \pkg{ConR} package (Dauby \emph{et al.} 2017).
 }
 \details{
 As for the AOO, the occupied-cell count depends on where the grid is placed,
@@ -76,19 +80,37 @@ distance between two occurrences (\code{cell_scale} then overrides
 inside and outside protected areas, because a subpopulation inside a
 protected area is not subject to the same threats as one outside:
 \itemize{
-  \item \code{method_protected = "no_more_than_one"} (default): every
-    protected area holding at least one occurrence counts as exactly one
-    location (all occurrences within a protected area share a location);
-    occurrences outside protected areas are gridded as usual. The total is
-    (occupied cells outside) + (number of protected areas with occurrences).
-  \item \code{method_protected = "other"}: occurrences inside protected areas
-    are gridded \emph{separately} from those outside, and the two counts are
-    added. Two occurrences closer than the cell size are then still counted
-    as separate locations when one is inside and the other outside a
-    protected area.
+\item \code{method_protected = "no_more_than_one"} (default): every
+protected area holding at least one occurrence counts as exactly one
+location (all occurrences within a protected area share a location);
+occurrences outside protected areas are gridded as usual. The total is
+(occupied cells outside) + (number of protected areas with occurrences).
+\item \code{method_protected = "other"}: occurrences inside protected areas
+are gridded \emph{separately} from those outside, and the two counts are
+added. Two occurrences closer than the cell size are then still counted
+as separate locations when one is inside and the other outside a
+protected area.
 }
 With \code{protected = NULL} (the default) no protected-area information is
 used and the plain grid count is returned.
+
+As for the AOO, the occupied-cell count depends on where the grid is placed,
+so several randomly translated grids are tested and the \emph{smallest}
+count is returned (the most conservative, i.e. most threatened, estimate).
+The grid is built on a data-centred Lambert Azimuthal Equal-Area projection
+and this function reuses \pkg{mappingAS}'s own AOO grid machinery, so it
+differs from \code{\link{calc_aoo}} only in the default cell size (10 km,
+the IUCN reference scale for locations, versus 2 km for the AOO).
+}
+\examples{
+f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
+occ <- read_occurrences(f)
+sp1 <- occ[occ$species == occ$species[1], ]
+calc_locations(sp1)$n_locations
+f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
+occ <- read_occurrences(f)
+sp1 <- occ[occ$species == occ$species[1], ]
+calc_locations(sp1)$n_locations
 }
 \references{
 Dauby G. \emph{et al.} (2017) ConR: An R package to assist large-scale
@@ -100,14 +122,17 @@ detect threatened species? \emph{Biological Conservation} 143:2545-2560.
 
 IUCN Standards and Petitions Committee. Guidelines for Using the IUCN Red
 List Categories and Criteria.
+
+Dauby G. \emph{et al.} (2017) ConR: An R package to assist large-scale
+multispecies preliminary conservation assessments using distribution data.
+\emph{Ecology and Evolution} 7:11292-11303. \doi{10.1002/ece3.3704}
+
+IUCN Standards and Petitions Committee. Guidelines for Using the IUCN Red
+List Categories and Criteria.
 }
 \seealso{
 \code{\link{calc_subpop}}, \code{\link{calc_aoo}},
 \code{\link{protected_areas}}
-}
-\examples{
-f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
-occ <- read_occurrences(f)
-sp1 <- occ[occ$species == occ$species[1], ]
-calc_locations(sp1)$n_locations
+
+\code{\link{calc_subpop}}, \code{\link{calc_aoo}}
 }

@@ -40,6 +40,12 @@ most distant pair of points always lies on the convex hull, the maximum
 distance is measured over the hull vertices only (great-circle distance on
 the WGS84 ellipsoid), which keeps the computation fast for large datasets.
 }
+\examples{
+f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
+occ <- read_occurrences(f)
+sp1 <- occ[occ$species == occ$species[1], ]
+calc_subpop(sp1)$n_subpop
+}
 \references{
 Dauby G. \emph{et al.} (2017) ConR: An R package to assist large-scale
 multispecies preliminary conservation assessments using distribution data.
@@ -50,10 +56,4 @@ detect threatened species? \emph{Biological Conservation} 143:2545-2560.
 }
 \seealso{
 \code{\link{calc_locations}}, \code{\link{calc_aoo}}
-}
-\examples{
-f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
-occ <- read_occurrences(f)
-sp1 <- occ[occ$species == occ$species[1], ]
-calc_subpop(sp1)$n_subpop
 }
