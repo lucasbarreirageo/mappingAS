@@ -27,6 +27,10 @@
     `protected = TRUE` the location count automatically decouples protected
     areas. The written report and the factsheet show the two estimates when
     available.
+  * The Shiny app surfaces the estimates too: a *Locations grid (km)* control
+    and, under *Overlap with Protected areas*, a protected-area method selector;
+    the two estimates appear as columns in the results table and CSV, as a
+    dedicated overview card, and as glossary entries.
   * These methods follow the spatial rationale popularised by the **ConR**
     package (Dauby *et al.* 2017, *Ecology and Evolution*,
     <doi:10.1002/ece3.3704>, <https://github.com/gdauby/ConR>), which is cited

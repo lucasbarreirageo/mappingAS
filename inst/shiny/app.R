@@ -189,6 +189,7 @@ ui <- bslib::page_sidebar(
                    "elsewhere. Pick a specific product to override.")),
     selectInput("year", "Year (land cover)", choices = 2024:1985, selected = 2024),
     numericInput("cell_km", "AOO Cell (km)", value = 2, min = 0.5, step = 0.5),
+    numericInput("loc_km", "Locations grid (km)", value = 10, min = 1, step = 1),
     radioButtons("backend", "Land cover source",
                  choices = c("Local (no GEE account)" = "local",
                              "Google Earth Engine" = "gee"),
@@ -209,7 +210,17 @@ ui <- bslib::page_sidebar(
         "file - e.g. Brazil's federal Conservation Units from ICMBio ",
         "(<a href='https://www.gov.br/icmbio/pt-br/servicos/geoprocessamento' ",
         "target='_blank'>ICMBio geoprocessamento</a>) or a WDPA extract from ",
-        "<a href='https://www.protectedplanet.net' target='_blank'>Protected Planet</a>."))
+        "<a href='https://www.protectedplanet.net' target='_blank'>Protected Planet</a>.")),
+      selectInput(
+        "loc_method", "Locations: protected-area method",
+        choices = c("One location per protected area" = "no_more_than_one",
+                    "Grid inside/outside separately" = "other"),
+        selected = "no_more_than_one"),
+      helpText(htmltools::HTML(
+        "How occurrences inside protected areas are counted as locations. ",
+        "<b>One location per protected area</b>: each protected area with ",
+        "occurrences is a single location. <b>Grid inside/outside separately</b>: ",
+        "the two groups are gridded apart and summed."))
     ),
     radioButtons("lang", "Legend language",
                  choices = c("English" = "en", "Portuguese" = "pt"),
@@ -842,6 +853,8 @@ server <- function(input, output, session) {
           collection = NULL,
           backend = input$backend,
           cell_km = input$cell_km,
+          loc_km = if (is.null(input$loc_km) || is.na(input$loc_km)) 10 else input$loc_km,
+          loc_method = input$loc_method %||% "no_more_than_one",
           mapbiomas = isTRUE(input$do_mb),
           fire = isTRUE(input$do_fire),
           protected = isTRUE(input$do_pa),
@@ -915,6 +928,16 @@ server <- function(input, output, session) {
                   sprintf("<div style='display:flex;align-items:center;gap:8px;font-weight:700'>%s<span>%s</span></div>",
                           badge(r$provisional_cat), r$provisional_cat)))
     )
+    if (has("n_subpop") || has("n_locations")) {
+      fint <- function(x) if (is.na(x)) "&mdash;" else formatC(x, format = "d", big.mark = ",")
+      loc_extra <- if (isTRUE(st$protected))
+        " <span style='color:#7a857b'>(PA-decoupled)</span>" else ""
+      cards <- c(cards, card(paste0(
+        lab("Subpopulations / Locations (est.)"),
+        sprintf("<div style='font-size:.82rem'>Subpopulations %s</div>", fint(v("n_subpop"))),
+        sprintf("<div style='font-size:.82rem;margin-top:4px'>Locations %s%s</div>",
+                fint(v("n_locations")), loc_extra))))
+    }
     if (isTRUE(st$mapbiomas)) cards <- c(cards,
       dual("Converted (anthropic)", v("eoo_converted_pct"), v("aoo_converted_pct"), "#d4271e"),
       dual("Natural (remaining)",   v("eoo_natural_pct"),   v("aoo_natural_pct"),   "#1f8d49"))
@@ -947,6 +970,8 @@ server <- function(input, output, session) {
       c("eoo_km2", L("Extent of Occurrence: area of the minimum convex polygon (km2).", "Extensao de Ocorrencia: area do poligono convexo minimo (km2).")),
       c("aoo_km2", L("Area of Occupancy: occupied 2x2 km cells x 4 km2.", "Area de Ocupacao: celulas ocupadas de 2x2 km x 4 km2.")),
       c("aoo_cells", L("Number of occupied AOO cells.", "Numero de celulas ocupadas da AOO.")),
+      c("n_subpop", L("Estimated number of subpopulations (circular-buffer method).", "Numero estimado de subpopulacoes (metodo de buffer circular).")),
+      c("n_locations", L("Estimated number of locations (occupied-grid-cell method; decoupled by protected areas when the Protected-areas option is on).", "Numero estimado de localidades (metodo de celulas de grade ocupadas; desacoplado por areas protegidas quando a opcao de Areas protegidas esta ativa).")),
       c("eoo_converted_pct", L("% of the terrestrial EOO that is converted (anthropic).", "% da EOO terrestre convertida (antropica).")),
       c("eoo_natural_pct", L("% of the terrestrial EOO that is remaining natural habitat.", "% da EOO terrestre de habitat natural remanescente.")),
       c("aoo_converted_pct", L("% of the terrestrial AOO that is converted (anthropic).", "% da AOO terrestre convertida (antropica).")),
