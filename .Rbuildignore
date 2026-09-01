@@ -13,3 +13,6 @@
 ^\.zenodo\.json$
 ^CITATION\.cff$
 ^cran-comments\.md$
+
+^.*\.patch$
+^compare_conR\.R$
