@@ -2,9 +2,12 @@
 
 * **Chart and map polish.** The composition / protection bar charts use fixed
   0-100 breaks with a small right-side margin so the "100" axis label is no
-  longer clipped; the species-name box on the map now stays on one line
-  (`white-space: nowrap`) instead of breaking one letter per line; and the donut
-  download button reads "Save donut (PNG)".
+  longer clipped, and their in-bar percentage labels are now placed at each
+  segment's own midpoint (previously `geom_text()` + `position_stack()` could
+  drop the labels onto the wrong segment on a horizontal bar). The species-name
+  box on the map now stays on one line (`white-space: nowrap`) instead of
+  breaking one letter per line, and the donut download button reads
+  "Save donut (PNG)".
 * **CRAN compliance (graphical parameters).** The Shiny app no longer leaves the
   user's `par()` state modified: the time-series PNG download handler saves and
   restores it with `on.exit(graphics::par(oldpar))`, addressing the CRAN review

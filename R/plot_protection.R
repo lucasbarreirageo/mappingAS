@@ -79,13 +79,20 @@ plot_protection <- function(assessment, species = NULL, lang = c("en", "pt")) {
     df$lab <- ifelse(is.finite(df$pct) & df$pct >= 6,
                      sprintf("%.0f%%", df$pct), "")
     df$lab_col <- ifelse(dark[as.character(df$group)], "white", "black")
+    # geom_text + position_stack mis-stacks a horizontal (flipped) bar - it does
+    # not detect the orientation - so the % labels could land on the wrong
+    # segment. Place them manually at each segment's cumulative midpoint, in the
+    # same order geom_col stacks them (reverse of the fill factor, from x = 0).
+    df$labx <- stats::ave(
+      df$pct, df$range,
+      FUN = function(v) { s <- rev(cumsum(rev(v))) - v; s + v / 2 })
     p <- ggplot2::ggplot(
       df, ggplot2::aes(x = .data[["pct"]], y = .data[["range"]],
                        fill = .data[["group"]])) +
       ggplot2::geom_col(width = 0.62, colour = "white", linewidth = 0.3) +
       ggplot2::geom_text(
-        ggplot2::aes(label = .data[["lab"]], colour = .data[["lab_col"]]),
-        position = ggplot2::position_stack(vjust = 0.5),
+        ggplot2::aes(x = .data[["labx"]], label = .data[["lab"]],
+                     colour = .data[["lab_col"]]),
         size = 3.4, fontface = "bold", show.legend = FALSE) +
       ggplot2::scale_fill_manual(values = cols[grp], drop = FALSE, name = NULL) +
       ggplot2::scale_colour_identity() +
