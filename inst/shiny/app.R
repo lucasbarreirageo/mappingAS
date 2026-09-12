@@ -20,44 +20,12 @@ if (is.null(getOption("shiny.maxRequestSize")))
 
 `%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || identical(a, "")) b else a
 
-# Parse one degrees/minutes/seconds coordinate typed as free text into a decimal
-# degree. Accepts the usual spellings, e.g. "23 27 30 S", "23°27'30\"S",
-# "-23 27 30" or a bare "23.4583". The hemisphere letter (N/S/E/W) or a leading
-# minus sign sets the sign; S and W are negative. Returns NA on empty/garbage.
-.parse_dms <- function(x) {
-  x <- trimws(x %||% "")
-  if (!nzchar(x)) return(NA_real_)
-  hemi <- toupper(gsub("[^NSEWnsew]", "", x))
-  neg_sign <- grepl("^\\s*-", x)
-  nums <- suppressWarnings(as.numeric(
-    regmatches(x, gregexpr("[0-9]+(?:\\.[0-9]+)?", x))[[1]]))
-  nums <- nums[is.finite(nums)]
-  if (!length(nums)) return(NA_real_)
-  deg <- nums[1]
-  mn  <- if (length(nums) >= 2) nums[2] else 0
-  sec <- if (length(nums) >= 3) nums[3] else 0
-  val <- abs(deg) + mn / 60 + sec / 3600
-  if ((nzchar(hemi) && hemi %in% c("S", "W")) || neg_sign) val <- -val
-  val
-}
-
-# Convert a UTM easting/northing (metres) in a given zone/hemisphere to
-# lon/lat (WGS84). Returns c(lon, lat), or c(NA, NA) when inputs are incomplete
-# or the reprojection fails.
-.utm_to_lonlat <- function(easting, northing, zone, hemi) {
-  easting  <- suppressWarnings(as.numeric(easting))
-  northing <- suppressWarnings(as.numeric(northing))
-  zone     <- suppressWarnings(as.integer(zone))
-  if (!is.finite(easting) || !is.finite(northing) ||
-      is.na(zone) || zone < 1 || zone > 60) return(c(NA_real_, NA_real_))
-  epsg <- (if (identical(toupper(hemi %||% "S"), "S")) 32700L else 32600L) + zone
-  out <- tryCatch({
-    p  <- sf::st_sfc(sf::st_point(c(easting, northing)), crs = epsg)
-    ll <- sf::st_coordinates(sf::st_transform(p, 4326))
-    c(ll[1, 1], ll[1, 2])
-  }, error = function(e) c(NA_real_, NA_real_))
-  out
-}
+# Coordinate parsing for the Add points typed-coordinate inputs: DMS free text
+# -> decimal degree, and UTM easting/northing -> lon/lat. Both live in the
+# package (R/coords.R) so they are unit tested and counted in coverage; alias
+# them here (the package is attached above when installed).
+.parse_dms     <- mappingAS:::.parse_dms
+.utm_to_lonlat <- mappingAS:::.utm_to_lonlat
 
 # Row-bind two point sf objects that may carry different attribute columns:
 # the union of columns is kept, missing values filled with NA, so the uploaded
