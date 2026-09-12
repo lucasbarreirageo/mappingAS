@@ -30,7 +30,9 @@ run_app <- function(launch.browser = TRUE, max_upload_mb = 500, ...) {
     mb <- suppressWarnings(as.numeric(max_upload_mb)[1])
     if (!is.finite(mb) || mb <= 0)
       stop("`max_upload_mb` must be a single positive number.", call. = FALSE)
-    options(shiny.maxRequestSize = mb * 1024^2)
+    # Restore the user's option when the app closes (runApp() blocks until then).
+    old <- options(shiny.maxRequestSize = mb * 1024^2)
+    on.exit(options(old), add = TRUE)
   }
   app_dir <- system.file("shiny", package = "mappingAS")
   if (app_dir == "" || !file.exists(file.path(app_dir, "app.R"))) {

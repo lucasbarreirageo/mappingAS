@@ -12,6 +12,14 @@ This is a resubmission of mappingAS (version 1.13.2).
   change is now paired with an `on.exit()` restore, and no example, vignette or
   demo changes `options()` without restoring it.
 
+* Reviewed the package against the CRAN Cookbook
+  (<https://contributor.r-project.org/cran-cookbook/>): `run_app()` now restores
+  the user's `shiny.maxRequestSize` option on exit; the R source is now
+  ASCII-only (non-ASCII characters remained only in comments); the
+  copyright-holder role (`cph`) was added to `Authors@R`; an unused 3.8 MB image
+  was removed from the build to keep the tarball small; and examples now clean
+  up the files they write to `tempdir()`.
+
 ## Other changes in this version
 
 * Fixed a rendering bug where a stacked bar summing to exactly 100% could lose

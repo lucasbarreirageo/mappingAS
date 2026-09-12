@@ -3,8 +3,8 @@ Type: Package
 Title: Spatial Metrics and Habitat Conversion for Extinction Risk Assessment
 Version: 1.13.2
 Authors@R:
-    person("Antônio Lucas Barreira", email = "barreira_rodrigues@hotmail.com", role = c("aut", "cre"))
-Author: Antônio Lucas Barreira [aut, cre]
+    person("Antônio Lucas Barreira", email = "barreira_rodrigues@hotmail.com", role = c("aut", "cre", "cph"))
+Author: Antônio Lucas Barreira [aut, cre, cph]
 Maintainer: Antônio Lucas Barreira <barreira_rodrigues@hotmail.com>
 Description: A spatial analytical framework for preliminary species
     extinction-risk screening following the IUCN Red List Criterion B

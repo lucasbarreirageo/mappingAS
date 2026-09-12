@@ -4,6 +4,18 @@
   user's `par()` state modified: the time-series PNG download handler saves and
   restores it with `on.exit(graphics::par(oldpar))`, addressing the CRAN review
   note about `inst/shiny/app.R`.
+* **CRAN compliance (options and CRAN Cookbook review).** Reviewed the package
+  against the CRAN Cookbook: `run_app()` now restores the user's
+  `shiny.maxRequestSize` option with `on.exit(options(old))` when the app closes;
+  all remaining non-ASCII characters were removed from the R source (they were in
+  comments and one roxygen line); and the copyright-holder role (`cph`) was added
+  to `Authors@R`.
+* **Smaller package tarball.** An unused 3.8 MB `man/figures/logo1.png` (the
+  README uses `featured_Resultado.png`) is now excluded from the build via
+  `.Rbuildignore`, bringing the package well under the 5 MB CRAN guideline.
+* **No temp-directory detritus.** Examples that write a file to `tempdir()`
+  (`export_ranges()`, `map_static()`, `assessment_report()`, `factsheet_html()`)
+  now remove it again, so `R CMD check` leaves no files behind.
 * **Basemap fix (map tiles).** The distribution maps (both in the app and the
   factsheet) switched away from the OpenStreetMap volunteer tile servers, which
   now block embedded use ("Access blocked", HTTP 403). The "Light" basemap now

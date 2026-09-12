@@ -79,14 +79,18 @@ occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
                                     package = "mappingAS"))
 res <- assess_species(occ, mapbiomas = FALSE, verbose = FALSE)
 
+d <- file.path(tempdir(), "mappingAS_ranges")
+dir.create(d, showWarnings = FALSE)
+
 # Two shapefiles (EOO + AOO) written to a temporary directory:
-export_ranges(res, dir = tempdir())
+export_ranges(res, dir = d)
 
 # A single GeoPackage with both layers:
-export_ranges(res, dir = tempdir(), format = "gpkg")
+export_ranges(res, dir = d, format = "gpkg")
 
 \donttest{
 # Everything bundled into one .zip (good for downloads):
-export_ranges(res, dir = tempdir(), zip = TRUE)
+export_ranges(res, dir = d, zip = TRUE)
 }
+\dontshow{unlink(d, recursive = TRUE)}
 }

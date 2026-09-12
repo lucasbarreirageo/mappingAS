@@ -41,8 +41,9 @@
 #' cat(assessment_report(res, output = "text"))
 #' \donttest{
 #' # Word (.docx) report written to a temporary file:
-#' assessment_report(res, output = "docx",
-#'                   file = file.path(tempdir(), "report.docx"))
+#' f <- file.path(tempdir(), "report.docx")
+#' assessment_report(res, output = "docx", file = f)
+#' unlink(f)
 #' }
 #' @export
 assessment_report <- function(assessment, species = NULL,

@@ -16,3 +16,4 @@
 
 ^.*\.patch$
 ^compare_conR\.R$
+^man/figures/logo1\.png$

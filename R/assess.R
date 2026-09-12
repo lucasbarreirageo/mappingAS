@@ -92,8 +92,8 @@
 #'   \code{summary} (one row per species, including \code{n_subpop} and
 #'   \code{n_locations}) and \code{detail} (per-species \code{points},
 #'   \code{eoo}, \code{aoo}, \code{subpop}, \code{locations},
-#'   \code{eoo_conversion}, \code{aoo_conversion}, and — when \code{fire = TRUE}
-#'   — \code{eoo_fire}, \code{aoo_fire}).
+#'   \code{eoo_conversion}, \code{aoo_conversion}, and - when \code{fire = TRUE}
+#'   - \code{eoo_fire}, \code{aoo_fire}).
 #' @examples
 #' f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
 #' occ <- read_occurrences(f)

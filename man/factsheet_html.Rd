@@ -74,6 +74,12 @@ for this species (as for \code{\link{assessment_report}}); when supplied
 they add the temporal-trend narrative and their charts (a land-cover
 composition-over-time chart, and a burned-area-per-year chart).}
 
+\item{applied_category, applied_code}{Optional applied Criterion B category
+(e.g. \code{"VU"}) and full code (e.g. \code{"VU B1ab(iii)"}), reflecting
+the sub-criteria chosen by the user. When supplied they are shown as an
+"Applied Criterion B category" metric; otherwise the assessment's
+\code{category_B} / \code{criterion_B_code} columns are used if present.}
+
 \item{map}{Logical; embed the distribution map (occurrence points, EOO, AOO
 and land cover). Default \code{TRUE}; set \code{FALSE} to skip it (e.g.
 offline or for speed).}
@@ -85,12 +91,6 @@ inside an iframe, so the whole factsheet remains one portable file. When
 \code{FALSE}, or when the widget cannot be built (no \pkg{leaflet} /
 \pkg{htmlwidgets} / \pkg{pandoc}), the publication-ready static map
 (\code{\link{map_static}}) is embedded instead.}
-
-\item{applied_category, applied_code}{Optional applied Criterion B category
-(e.g. \code{"VU"}) and full code (e.g. \code{"VU B1ab(iii)"}), reflecting
-the sub-criteria chosen by the user. When supplied they are shown as an
-"Applied Criterion B category" metric; otherwise the assessment's
-\code{category_B} / \code{criterion_B_code} columns are used if present.}
 
 \item{top_n_threats}{Number of anthropic land-cover classes to show in the
 "top anthropic activities" chart (default \code{5}).}
@@ -133,6 +133,7 @@ out <- file.path(tempdir(), "factsheet.html")
 factsheet_html(res, file = out, map = FALSE,
                family = "Gentianaceae", countries = "Brazil",
                life_form = "Herb", biome = "Atlantic Forest")
+unlink(out)
 }
 }
 \seealso{

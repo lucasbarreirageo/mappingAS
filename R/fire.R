@@ -1,4 +1,4 @@
-## R/fire.R — MapBiomas Fire (Fogo) integration for mappingAS
+## R/fire.R - MapBiomas Fire (Fogo) integration for mappingAS
 ## Mirrors the LULC functions: read a windowed crop, tabulate, summarise,
 ## time series. Reuses mb_raster_local() (GDAL /vsicurl/ + on-disk cache).
 

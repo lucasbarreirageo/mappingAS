@@ -47,16 +47,20 @@
 #'                                     package = "mappingAS"))
 #' res <- assess_species(occ, mapbiomas = FALSE, verbose = FALSE)
 #'
+#' d <- file.path(tempdir(), "mappingAS_ranges")
+#' dir.create(d, showWarnings = FALSE)
+#'
 #' # Two shapefiles (EOO + AOO) written to a temporary directory:
-#' export_ranges(res, dir = tempdir())
+#' export_ranges(res, dir = d)
 #'
 #' # A single GeoPackage with both layers:
-#' export_ranges(res, dir = tempdir(), format = "gpkg")
+#' export_ranges(res, dir = d, format = "gpkg")
 #'
 #' \donttest{
 #' # Everything bundled into one .zip (good for downloads):
-#' export_ranges(res, dir = tempdir(), zip = TRUE)
+#' export_ranges(res, dir = d, zip = TRUE)
 #' }
+#' \dontshow{unlink(d, recursive = TRUE)}
 #' @export
 export_ranges <- function(assessment, dir = tempdir(), layer_prefix = "mappingAS",
                           what = c("both", "eoo", "aoo"),
@@ -161,7 +165,7 @@ export_ranges <- function(assessment, dir = tempdir(), layer_prefix = "mappingAS
   s <- assessment$summary
   r <- s[s$species == species, , drop = FALSE][1, , drop = FALSE]
   
-  # Verifica dinamicamente se a avaliação incluiu os módulos de fogo / UC
+  # Dynamically check whether the assessment included the fire / protected-area modules
   has_fire <- "fire_collection" %in% names(r)
   has_pa   <- "eoo_uc_pct" %in% names(r)
   

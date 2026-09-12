@@ -81,6 +81,7 @@
 #' factsheet_html(res, file = out, map = FALSE,
 #'                family = "Gentianaceae", countries = "Brazil",
 #'                life_form = "Herb", biome = "Atlantic Forest")
+#' unlink(out)
 #' }
 #' @export
 factsheet_html <- function(assessment, species = NULL,

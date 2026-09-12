@@ -71,7 +71,8 @@ res <- assess_species(occ, mapbiomas = FALSE, verbose = FALSE)
 cat(assessment_report(res, output = "text"))
 \donttest{
 # Word (.docx) report written to a temporary file:
-assessment_report(res, output = "docx",
-                  file = file.path(tempdir(), "report.docx"))
+f <- file.path(tempdir(), "report.docx")
+assessment_report(res, output = "docx", file = f)
+unlink(f)
 }
 }

@@ -53,7 +53,9 @@
 #' m <- map_static(res, mapbiomas = FALSE)
 #' \donttest{
 #' # Save it wherever you like (a temporary file here):
-#' ggplot2::ggsave(file.path(tempdir(), "eoo_map.png"), m, width = 8, height = 7)
+#' f <- file.path(tempdir(), "eoo_map.png")
+#' ggplot2::ggsave(f, m, width = 8, height = 7)
+#' unlink(f)
 #' }
 #' @export
 map_static <- function(assessment, species = NULL, mapbiomas = TRUE,
