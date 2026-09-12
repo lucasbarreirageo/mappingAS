@@ -13,7 +13,7 @@
 #'     \code{\link{assessment_report}}.
 #'   \item \strong{Information the package cannot know}, supplied by the user:
 #'     the taxonomy (Family, Genus, Authority), the supporting-information block
-#'     (Countries, System, Habitat, Biome, Vegetation), free-text land use and
+#'     (Countries, Life Form, Substrate, Habitat, Biome, Vegetation), free-text land use and
 #'     conservation units, a list of examined vouchers, a taxonomic reference
 #'     (a Reflora / POWO link, or - for a newly described species - the article
 #'     citation) and up to four photographs.
@@ -32,8 +32,8 @@
 #'   length-one character string.
 #' @param family,genus,authority Taxonomy fields. \code{genus} defaults to the
 #'   first word of \code{species}; the others are user-supplied (optional).
-#' @param countries,system,habitat,biome,vegetation The "Supporting information"
-#'   block, all optional free text.
+#' @param countries,life_form,substrate,habitat,biome,vegetation The
+#'   "Supporting information" block, all optional free text.
 #' @param land_use,conservation_units Optional overrides. When left \code{NULL}
 #'   they are filled in automatically from the assessment: \code{land_use} from
 #'   the anthropic land-cover classes within the EOO (the Conversion module) and
@@ -62,6 +62,11 @@
 #'   \code{FALSE}, or when the widget cannot be built (no \pkg{leaflet} /
 #'   \pkg{htmlwidgets} / \pkg{pandoc}), the publication-ready static map
 #'   (\code{\link{map_static}}) is embedded instead.
+#' @param applied_category,applied_code Optional applied Criterion B category
+#'   (e.g. \code{"VU"}) and full code (e.g. \code{"VU B1ab(iii)"}), reflecting
+#'   the sub-criteria chosen by the user. When supplied they are shown as an
+#'   "Applied Criterion B category" metric; otherwise the assessment's
+#'   \code{category_B} / \code{criterion_B_code} columns are used if present.
 #' @param top_n_threats Number of anthropic land-cover classes to show in the
 #'   "top anthropic activities" chart (default \code{5}).
 #' @return The HTML string, or (when \code{file} is given) the file path,
@@ -75,19 +80,21 @@
 #' out <- file.path(tempdir(), "factsheet.html")
 #' factsheet_html(res, file = out, map = FALSE,
 #'                family = "Gentianaceae", countries = "Brazil",
-#'                system = "Terrestrial", biome = "Atlantic Forest")
+#'                life_form = "Herb", biome = "Atlantic Forest")
 #' }
 #' @export
 factsheet_html <- function(assessment, species = NULL,
                            lang = c("en", "pt"),
                            file = NULL,
                            family = NULL, genus = NULL, authority = NULL,
-                           countries = NULL, system = NULL, habitat = NULL,
+                           countries = NULL, life_form = NULL, substrate = NULL,
+                           habitat = NULL,
                            biome = NULL, vegetation = NULL,
                            land_use = NULL, conservation_units = NULL,
                            vouchers = NULL, reference = NULL,
                            photos = NULL, photo_credit = NULL,
                            cover_series = NULL, fire_series = NULL,
+                           applied_category = NULL, applied_code = NULL,
                            map = TRUE, map_interactive = TRUE,
                            top_n_threats = 5L) {
   lang <- match.arg(lang)
@@ -99,12 +106,14 @@ factsheet_html <- function(assessment, species = NULL,
   html <- .factsheet_build(
     assessment, species, lang,
     family = family, genus = genus, authority = authority,
-    countries = countries, system = system, habitat = habitat,
+    countries = countries, life_form = life_form, substrate = substrate,
+    habitat = habitat,
     biome = biome, vegetation = vegetation,
     land_use = land_use, conservation_units = conservation_units,
     vouchers = vouchers, reference = reference,
     photos = photos, photo_credit = photo_credit,
     cover_series = cover_series, fire_series = fire_series,
+    applied_category = applied_category, applied_code = applied_code,
     map = map, map_interactive = map_interactive,
     top_n_threats = top_n_threats)
 
@@ -169,12 +178,26 @@ factsheet_html <- function(assessment, species = NULL,
 .gg_data_uri <- function(g, width = 6.6, height = 3.4, dpi = 150) {
   if (!inherits(g, "ggplot")) return(NULL)
   tf <- tempfile(fileext = ".png")
-  ok <- tryCatch({
+  # Render with a high-quality, anti-aliased device so the embedded charts keep
+  # their ggplot formatting (fonts, hairlines, colours). The plain png() device
+  # falls back to a bitmap type on headless servers, which drops font
+  # anti-aliasing and can garble the plots ("desformatados"); prefer ragg, then
+  # a cairo-backed png, then plain png as a last resort.
+  open_dev <- function() {
+    if (requireNamespace("ragg", quietly = TRUE)) {
+      ragg::agg_png(tf, width = width, height = height, units = "in",
+                    res = dpi, background = "white"); return(TRUE)
+    }
+    cairo_ok <- isTRUE(tryCatch(capabilities("cairo"), error = function(e) FALSE))
+    if (cairo_ok) {
+      grDevices::png(tf, width = width, height = height, units = "in",
+                     res = dpi, bg = "white", type = "cairo"); return(TRUE)
+    }
     grDevices::png(tf, width = width, height = height, units = "in",
-                   res = dpi, bg = "white")
-    print(g)
-    grDevices::dev.off()
-    TRUE
+                   res = dpi, bg = "white"); TRUE
+  }
+  ok <- tryCatch({
+    open_dev(); print(g); grDevices::dev.off(); TRUE
   }, error = function(e) { try(grDevices::dev.off(), silent = TRUE); FALSE })
   if (!isTRUE(ok) || !file.exists(tf)) return(NULL)
   on.exit(unlink(tf), add = TRUE)
@@ -191,6 +214,8 @@ factsheet_html <- function(assessment, species = NULL,
       !requireNamespace("htmlwidgets", quietly = TRUE)) return(NULL)
   m <- tryCatch(
     map_species(assessment, species = species,
+                mapbiomas = isTRUE(st$mapbiomas),
+                fire = isTRUE(st$fire),
                 lang = if (lang == "pt") "pt" else "en",
                 protected = isTRUE(st$protected)),
     error = function(e) NULL)
@@ -412,11 +437,14 @@ factsheet_html <- function(assessment, species = NULL,
 
 .factsheet_build <- function(assessment, species, lang,
                              family, genus, authority,
-                             countries, system, habitat, biome, vegetation,
+                             countries, life_form, substrate, habitat,
+                             biome, vegetation,
                              land_use, conservation_units,
                              vouchers, reference,
                              photos, photo_credit,
-                             cover_series, fire_series, map, map_interactive,
+                             cover_series, fire_series,
+                             applied_category = NULL, applied_code = NULL,
+                             map, map_interactive,
                              top_n_threats) {
   L <- function(en, pt) if (lang == "en") en else pt
   s <- assessment$summary
@@ -486,7 +514,8 @@ factsheet_html <- function(assessment, species = NULL,
 
   supp_html <- paste0(
     row(L("Countries", "Paises"), countries),
-    row(L("System", "Sistema"), system),
+    row(L("Life Form", "Forma de vida"), life_form),
+    row(L("Substrate", "Substrato"), substrate),
     row(L("Habitat", "Habitat"), habitat),
     row(L("Biome", "Bioma"), biome),
     row(L("Vegetation", "Vegetacao"), vegetation))
@@ -520,12 +549,29 @@ factsheet_html <- function(assessment, species = NULL,
   metric <- function(lbl, val)
     sprintf("<div class='fs-metric'><span class='k'>%s</span><span class='v'>%s</span></div>",
             lbl, val)
+  # Applied Criterion B category: prefer the value passed by the app (the user's
+  # sub-criteria choices on the Results tab); fall back to the summary column.
+  app_cat  <- if (!.blank(applied_category)) applied_category
+              else if ("category_B" %in% names(r)) r$category_B else NA
+  app_code <- if (!.blank(applied_code)) applied_code
+              else if ("criterion_B_code" %in% names(r)) r$criterion_B_code else NA
   metrics <- c(
     metric(L("Provisional category", "Categoria provisoria"),
            sprintf("<span class='fs-cat' style='background:%s;color:%s'>%s</span>",
                    badge$bg, badge$fg,
                    if (.blank(r$provisional_cat)) "&mdash;" else
-                     .esc_html(r$provisional_cat))),
+                     .esc_html(r$provisional_cat))))
+  if (!.blank(app_cat)) {
+    abadge <- .iucn_badge(app_cat)
+    metrics <- c(metrics,
+      metric(L("Applied Criterion B category", "Categoria aplicada (Criterio B)"),
+             sprintf("<span class='fs-cat' style='background:%s;color:%s'>%s</span>%s",
+                     abadge$bg, abadge$fg, .esc_html(app_cat),
+                     if (.blank(app_code)) "" else
+                       sprintf(" <span style='font-family:monospace;font-size:.9em'>%s</span>",
+                               .esc_html(app_code)))))
+  }
+  metrics <- c(metrics,
     metric("EOO", fmt_km(r$eoo_km2)),
     metric("AOO", sprintf("%s (%s %s)", fmt_km(r$aoo_km2),
                           fmt_int(r$aoo_cells), L("cells", "celulas"))),
@@ -581,6 +627,8 @@ factsheet_html <- function(assessment, species = NULL,
     } else {
       png_uri <- .gg_data_uri(tryCatch(
         map_static(assessment, species = species,
+                   mapbiomas = isTRUE(st$mapbiomas),
+                   fire = isTRUE(st$fire),
                    lang = if (lang == "pt") "pt" else "en",
                    protected = isTRUE(st$protected)),
         error = function(e) NULL), width = 7.4, height = 6.2, dpi = 150)

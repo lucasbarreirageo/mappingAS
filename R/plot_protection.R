@@ -89,7 +89,11 @@ plot_protection <- function(assessment, species = NULL, lang = c("en", "pt")) {
         size = 3.4, fontface = "bold", show.legend = FALSE) +
       ggplot2::scale_fill_manual(values = cols[grp], drop = FALSE, name = NULL) +
       ggplot2::scale_colour_identity() +
-      ggplot2::scale_x_continuous(limits = c(0, 100), expand = c(0, 0)) +
+      # Clip with coord_cartesian rather than scale limits so a stacked bar that
+      # sums to exactly 100 is never dropped as out-of-bounds (which removed the
+      # top segment from the downloaded PNG). See plot_conversion() for detail.
+      ggplot2::scale_x_continuous(expand = c(0, 0)) +
+      ggplot2::coord_cartesian(xlim = c(0, 100)) +
       ggplot2::labs(x = xlab, y = NULL, title = main, subtitle = sub) +
       .mas_theme() +
       ggplot2::theme(panel.grid.major.y = ggplot2::element_blank())

@@ -1,3 +1,39 @@
+# mappingAS 1.13.2
+
+* **CRAN compliance (graphical parameters).** The Shiny app no longer leaves the
+  user's `par()` state modified: the time-series PNG download handler saves and
+  restores it with `on.exit(graphics::par(oldpar))`, addressing the CRAN review
+  note about `inst/shiny/app.R`.
+* **Basemap fix (map tiles).** The distribution maps (both in the app and the
+  factsheet) switched away from the OpenStreetMap volunteer tile servers, which
+  now block embedded use ("Access blocked", HTTP 403). The "Light" basemap now
+  uses key-free Esri World Street Map tiles, matching the Esri World Imagery
+  "Satellite" layer that was already used.
+* **Chart download fix (Conversion and Protected-areas PNGs).** Stacked
+  composition / protection bars that sum to exactly 100% no longer lose their
+  top segment when saved to PNG: the x-axis is now clipped with
+  `coord_cartesian()` instead of scale limits, which was dropping the
+  out-of-bounds segment.
+* **Trend analysis.** Dropped the "(ggtrendline)" tag from the tab heading and
+  added per-extent PNG downloads for the EOO and AOO trend charts.
+* **Fire tab now covers both extents.** The Fire tab evaluates the burned-area
+  series for BOTH the EOO and the AOO (one chart above the other, plus a
+  combined table), mirroring the Time series tab, and both series feed the
+  report.
+* **Applied Criterion B flows to the report and factsheet.** The sub-criteria
+  set on the Results tab (which determine the applied Criterion B category) are
+  now carried into the report narrative, the `.docx`, and the HTML factsheet,
+  via new `applied_category` / `applied_code` arguments to
+  `assessment_report()` and `factsheet_html()`.
+* **Factsheet supporting information.** Replaced the "System" field with
+  "Life Form" and "Substrate". `factsheet_html()` gains `life_form` and
+  `substrate` arguments (the `system` argument is removed).
+* **Consistent factsheet map + crisper figures.** The interactive and static
+  factsheet maps now show the same layers (driven by the assessment settings),
+  and embedded charts (HTML factsheet and Word report) render through a
+  high-quality device (`ragg` / cairo when available), fixing the previously
+  unformatted figures.
+
 # mappingAS 1.13.1
 
 * **CRAN compliance.** Addressed the CRAN reviewer feedback:

@@ -13,7 +13,8 @@ factsheet_html(
   genus = NULL,
   authority = NULL,
   countries = NULL,
-  system = NULL,
+  life_form = NULL,
+  substrate = NULL,
   habitat = NULL,
   biome = NULL,
   vegetation = NULL,
@@ -25,6 +26,8 @@ factsheet_html(
   photo_credit = NULL,
   cover_series = NULL,
   fire_series = NULL,
+  applied_category = NULL,
+  applied_code = NULL,
   map = TRUE,
   map_interactive = TRUE,
   top_n_threats = 5L
@@ -44,8 +47,8 @@ length-one character string.}
 \item{family, genus, authority}{Taxonomy fields. \code{genus} defaults to the
 first word of \code{species}; the others are user-supplied (optional).}
 
-\item{countries, system, habitat, biome, vegetation}{The "Supporting information"
-block, all optional free text.}
+\item{countries, life_form, substrate, habitat, biome, vegetation}{The
+"Supporting information" block, all optional free text.}
 
 \item{land_use, conservation_units}{Optional overrides. When left \code{NULL}
 they are filled in automatically from the assessment: \code{land_use} from
@@ -83,6 +86,12 @@ inside an iframe, so the whole factsheet remains one portable file. When
 \pkg{htmlwidgets} / \pkg{pandoc}), the publication-ready static map
 (\code{\link{map_static}}) is embedded instead.}
 
+\item{applied_category, applied_code}{Optional applied Criterion B category
+(e.g. \code{"VU"}) and full code (e.g. \code{"VU B1ab(iii)"}), reflecting
+the sub-criteria chosen by the user. When supplied they are shown as an
+"Applied Criterion B category" metric; otherwise the assessment's
+\code{category_B} / \code{criterion_B_code} columns are used if present.}
+
 \item{top_n_threats}{Number of anthropic land-cover classes to show in the
 "top anthropic activities" chart (default \code{5}).}
 }
@@ -104,7 +113,7 @@ land-cover breakdown, and the interpretive narrative of
 \code{\link{assessment_report}}.
 \item \strong{Information the package cannot know}, supplied by the user:
 the taxonomy (Family, Genus, Authority), the supporting-information block
-(Countries, System, Habitat, Biome, Vegetation), free-text land use and
+(Countries, Life Form, Substrate, Habitat, Biome, Vegetation), free-text land use and
 conservation units, a list of examined vouchers, a taxonomic reference
 (a Reflora / POWO link, or - for a newly described species - the article
 citation) and up to four photographs.
@@ -123,7 +132,7 @@ res <- assess_species(occ, year = 2024, verbose = FALSE)  # reads MapBiomas
 out <- file.path(tempdir(), "factsheet.html")
 factsheet_html(res, file = out, map = FALSE,
                family = "Gentianaceae", countries = "Brazil",
-               system = "Terrestrial", biome = "Atlantic Forest")
+               life_form = "Herb", biome = "Atlantic Forest")
 }
 }
 \seealso{

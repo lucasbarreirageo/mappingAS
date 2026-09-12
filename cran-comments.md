@@ -1,16 +1,23 @@
 ## Submission
 
-This is a new submission of mappingAS (version 1.13.1).
+This is a resubmission of mappingAS (version 1.13.2).
 
 ## Response to the previous CRAN review
 
-* Examples no longer use `\dontrun{}`. Fast examples run directly, using the
-  bundled dataset and offline computation. Examples that read public data over
-  the network (MapBiomas, WDPA) use `\donttest{}`. Entry points intended for
-  interactive use (`run_app()`, `mas_plotly()`) use `if (interactive()){}`.
-* No function writes to the user's home or working directory by default:
-  `export_ranges()` now defaults to `dir = tempdir()`, and every example that
-  writes a file writes it under `tempdir()`.
+* Reset of the user's graphical parameters. The Shiny app
+  (`inst/shiny/app.R`) changed `par()` inside a download handler without
+  restoring it. It now saves and restores the state with
+  `oldpar <- graphics::par(no.readonly = TRUE); on.exit(graphics::par(oldpar))`.
+  We re-checked all examples, vignettes and app code: every `par()` / `setwd()`
+  change is now paired with an `on.exit()` restore, and no example, vignette or
+  demo changes `options()` without restoring it.
+
+## Other changes in this version
+
+* Fixed a rendering bug where a stacked bar summing to exactly 100% could lose
+  its top segment in downloaded PNGs (clipping now uses `coord_cartesian()`).
+* The report and factsheet now honour the applied IUCN Criterion B category and
+  render support figures with a high-quality graphics device.
 
 ## R CMD check results
 

@@ -447,7 +447,7 @@ ui <- bslib::page_sidebar(
         class = "card mb-3",
         tags$div(
           class = "card-body",
-          tags$h5("Trend analysis (ggtrendline)", class = "card-title"),
+          tags$h5("Trend analysis", class = "card-title"),
           fluidRow(
             column(6, selectInput("ts_trend_class", "Class / group", choices = NULL)),
             column(6, selectInput("ts_trend_model", "Regression model",
@@ -463,7 +463,9 @@ ui <- bslib::page_sidebar(
                    plotOutput("ts_trend_eoo", height = "360px")),
             column(6, tags$b("AOO"),
                    plotOutput("ts_trend_aoo", height = "360px"))),
-          div(class = "d-flex gap-2 mt-3 mb-2",
+          div(class = "d-flex gap-2 mt-3 mb-2 flex-wrap",
+              downloadButton("dl_ts_trend_eoo_png", "Download EOO trend (PNG)"),
+              downloadButton("dl_ts_trend_aoo_png", "Download AOO trend (PNG)"),
               downloadButton("dl_ts_trend", "Download trend table (CSV)")),
           helpText("Linear trend per class for each extent: slope (percentage points per year), R², p-value, and first/last/delta. Needs at least 3 years (lower the step if empty)."),
           DT::DTOutput("ts_trend_tbl")))
@@ -474,9 +476,6 @@ ui <- bslib::page_sidebar(
       selectInput("fire_species", "Species", choices = NULL),
       uiOutput("fire_summary"),
       fluidRow(
-        column(4, radioButtons("fire_ts_range", "Area",
-                               c("EOO" = "eoo", "AOO" = "aoo"),
-                               selected = "eoo", inline = TRUE)),
         column(4, numericInput("fire_ts_step", "Step (years)", value = 1,
                                min = 1, max = 10, step = 1))
       ),
@@ -486,10 +485,25 @@ ui <- bslib::page_sidebar(
         downloadButton("dl_fire_ts", "Download series (CSV)"),
         downloadButton("dl_fire_ts_png", "Save image (PNG)")
       ),
-      helpText("Burned area per year (MapBiomas Fire, 1985-2024). A 1-year step reads all years and may be slow; increase the step to speed up."),
-      div(style = "height:440px; min-height:440px;",
-          plotly::plotlyOutput("fire_ts_plot", height = "100%")),
-      DT::DTOutput("fire_tbl")
+      helpText("Burned area per year (MapBiomas Fire, 1985-2024) for BOTH extents (EOO and AOO), one chart above the other. A 1-year step reads all years and may be slow; increase the step to speed up."),
+      tags$div(
+        class = "card mb-3",
+        tags$div(
+          class = "card-body",
+          tags$h5("EOO — Extent of Occurrence", class = "card-title"),
+          plotly::plotlyOutput("fire_ts_plot_eoo", height = "420px"))),
+      tags$div(
+        class = "card mb-3",
+        tags$div(
+          class = "card-body",
+          tags$h5("AOO — Area of Occupancy", class = "card-title"),
+          plotly::plotlyOutput("fire_ts_plot_aoo", height = "420px"))),
+      tags$div(
+        class = "card mb-3",
+        tags$div(
+          class = "card-body",
+          tags$h5("Burned area by year — EOO and AOO", class = "card-title"),
+          DT::DTOutput("fire_tbl")))
     ),
 
     bslib::nav_panel(
@@ -519,11 +533,12 @@ ui <- bslib::page_sidebar(
             column(4, textInput("fs_authority", "Authority", ""))),
           fluidRow(
             column(4, textInput("fs_countries", "Countries", "")),
-            column(4, textInput("fs_system", "System", "")),
-            column(4, textInput("fs_biome", "Biome", ""))),
+            column(4, textInput("fs_life_form", "Life Form", "")),
+            column(4, textInput("fs_substrate", "Substrate", ""))),
           fluidRow(
-            column(6, textInput("fs_habitat", "Habitat", "")),
-            column(6, textInput("fs_vegetation", "Vegetation", "")))
+            column(4, textInput("fs_biome", "Biome", "")),
+            column(4, textInput("fs_habitat", "Habitat", "")),
+            column(4, textInput("fs_vegetation", "Vegetation", "")))
         ),
         bslib::accordion_panel(
           "Land use, conservation units and vouchers",
@@ -730,6 +745,30 @@ server <- function(input, output, session) {
     s
   })
 
+  # The assessment with the user's applied Criterion B category folded into its
+  # $summary, so the Report and Factsheet reflect the sub-criteria set on the
+  # Results tab (buttons under "IUCN Criterion B - applied category") instead of
+  # the size-only defaults.
+  result_applied <- reactive({
+    res <- result(); req(res)
+    s <- tryCatch(summary_applied(), error = function(e) NULL)
+    if (!is.null(s) && is.data.frame(s) && nrow(s)) res$summary <- s
+    res
+  })
+
+  # Applied Criterion B category + full code for one species (from the live
+  # summary), passed on to the report text and the factsheet HTML.
+  .applied_B <- function(sp) {
+    s <- tryCatch(summary_applied(), error = function(e) NULL)
+    if (is.null(s) || !is.data.frame(s) || !nrow(s)) return(NULL)
+    r <- s[s$species == sp, , drop = FALSE]
+    if (!nrow(r)) return(NULL)
+    cat <- if ("category_B" %in% names(r)) r$category_B[1] else NA
+    code <- if ("criterion_B_code" %in% names(r)) r$criterion_B_code[1] else NA
+    if ((is.null(cat) || is.na(cat)) && (is.null(code) || is.na(code))) return(NULL)
+    list(category = cat, code = code)
+  }
+
   # Sync the three checkboxes to the selected species' stored values.
   observeEvent(input$results_species, {
     v <- .get_subcrit(input$results_species)
@@ -866,11 +905,13 @@ server <- function(input, output, session) {
   # Base map for editing. Uploaded points are drawn once here; the hand-added
   # points are refreshed through a proxy so a click gives instant feedback.
   output$edit_map <- leaflet::renderLeaflet({
+    # Key-free basemaps: the OpenStreetMap volunteer tile servers now block
+    # embedded use ("Access blocked", HTTP 403), so use Esri tiles (no API key).
     m <- leaflet::leaflet() |>
-      leaflet::addProviderTiles("OpenStreetMap", group = "OpenStreetMap") |>
+      leaflet::addProviderTiles("Esri.WorldStreetMap", group = "Light") |>
       leaflet::addProviderTiles("Esri.WorldImagery", group = "Satellite") |>
       leaflet::addLayersControl(
-        baseGroups = c("OpenStreetMap", "Satellite"),
+        baseGroups = c("Light", "Satellite"),
         options = leaflet::layersControlOptions(collapsed = TRUE))
     fo <- tryCatch(occ_file(), error = function(e) NULL)
     if (!is.null(fo) && nrow(fo)) {
@@ -1570,6 +1611,27 @@ server <- function(input, output, session) {
     })
   )
 
+  # Save one trend plot (EOO or AOO) to PNG. Renders the same ggplot shown on
+  # screen; a base-graphics fallback covers the (rare) no-ggplot2 case.
+  .dl_trend_png <- function(which) .safe_download(function(file) {
+    d <- ts_data(); ts <- if (which == "eoo") d$eoo else d$aoo
+    req(!is.null(ts))
+    p <- .ts_trend_plot(ts)
+    if (inherits(p, "ggplot") && requireNamespace("ggplot2", quietly = TRUE)) {
+      ggplot2::ggsave(file, plot = p, width = 7.5, height = 5, dpi = 150, bg = "white")
+    } else {
+      grDevices::png(file, width = 1100, height = 720, res = 150)
+      on.exit(grDevices::dev.off(), add = TRUE)
+      print(p)
+    }
+  })
+  output$dl_ts_trend_eoo_png <- downloadHandler(
+    filename = function() paste0("mappingAS_trend_EOO_", input$ts_species, "_", Sys.Date(), ".png"),
+    content = .dl_trend_png("eoo"))
+  output$dl_ts_trend_aoo_png <- downloadHandler(
+    filename = function() paste0("mappingAS_trend_AOO_", input$ts_species, "_", Sys.Date(), ".png"),
+    content = .dl_trend_png("aoo"))
+
   output$fire_summary <- renderUI({
     req(result(), input$fire_species)
     obj <- result()$detail[[input$fire_species]]
@@ -1586,64 +1648,94 @@ server <- function(input, output, session) {
       input$fire_species, fmt(obj$eoo_fire, "EOO"), fmt(obj$aoo_fire, "AOO")))
   })
 
-  output$fire_tbl <- DT::renderDT({
-    req(result(), input$fire_species)
-    obj <- result()$detail[[input$fire_species]]
-    mk <- function(f, rng) {
-      if (is.null(f)) return(NULL)
-      data.frame(range = rng,
-                 total_area_km2    = round(f$total_km2, 2),
-                 burned_area_km2   = round(f$burned_km2, 2),
-                 pct_burned        = round(f$burned_pct, 2))
-    }
-    df <- rbind(mk(obj$eoo_fire, "EOO"), mk(obj$aoo_fire, "AOO"))
-    validate(need(!is.null(df) && nrow(df) > 0, "No fire data (or fire was not calculated)."))
-    .mas_dt(df, page = 10, caption = "Burned area by extent (EOO and AOO)")
-  })
-
+  # Fire series for BOTH extents (mirrors the Time series tab). Each calculated
+  # series is tagged (species / range) so it also feeds the Report tab.
   fire_ts_data <- eventReactive(input$fire_ts_run, {
     req(result(), input$fire_species)
     yrs <- .year_grid(input$fire_ts_step)
-    withProgress(message = "Calculating fire series...", value = 0, {
-      ts <- tryCatch(
+    one <- function(rng) {
+      tryCatch(
         mappingAS::fire_timeseries_for_species(
-          result(), species = input$fire_species, range = input$fire_ts_range,
+          result(), species = input$fire_species, range = rng,
           years = yrs, verbose = FALSE),
         error = function(e) {
-          showNotification(paste("Error in fire series:", conditionMessage(e)),
+          showNotification(sprintf("Error in %s fire series: %s",
+                                   toupper(rng), conditionMessage(e)),
                            type = "error", duration = NULL)
           NULL
         })
-      incProgress(1)
-      ts
+    }
+    withProgress(message = "Calculating fire series (EOO & AOO)...", value = 0, {
+      eoo <- one("eoo"); incProgress(0.4)
+      invisible(gc(FALSE)); incProgress(0.1)
+      aoo <- one("aoo"); incProgress(0.4)
+      invisible(gc(FALSE)); incProgress(0.1)
+      list(eoo = eoo, aoo = aoo)
     })
   })
 
-  output$fire_ts_plot <- plotly::renderPlotly({
-    ts <- fire_ts_data(); req(ts)
+  output$fire_ts_plot_eoo <- plotly::renderPlotly({
+    d <- fire_ts_data(); req(!is.null(d$eoo))
     mappingAS::mas_plotly(
-      mappingAS::plot_fire_timeseries(ts, lang = input$lang %||% "en"))
+      mappingAS::plot_fire_timeseries(d$eoo, lang = input$lang %||% "en"))
+  })
+
+  output$fire_ts_plot_aoo <- plotly::renderPlotly({
+    d <- fire_ts_data(); req(!is.null(d$aoo))
+    mappingAS::mas_plotly(
+      mappingAS::plot_fire_timeseries(d$aoo, lang = input$lang %||% "en"))
+  })
+
+  # Combine both extents (per year) into one table / CSV, tagged with `range`.
+  .fire_ts_combined <- function(d) {
+    mk <- function(ts, rng) {
+      if (is.null(ts) || !is.data.frame(ts)) return(NULL)
+      cbind(range = rng, ts, stringsAsFactors = FALSE)
+    }
+    rbind(mk(d$eoo, "EOO"), mk(d$aoo, "AOO"))
+  }
+
+  output$fire_tbl <- DT::renderDT({
+    d <- fire_ts_data(); req(!is.null(d$eoo) || !is.null(d$aoo))
+    df <- .fire_ts_combined(d)
+    validate(need(!is.null(df) && nrow(df) > 0, "No fire series data."))
+    .mas_dt(df, page = 15, caption = "Burned area by year — EOO and AOO")
   })
 
   output$dl_fire_ts <- downloadHandler(
     filename = function() paste0("mappingAS_fire_", input$fire_species, "_", Sys.Date(), ".csv"),
     content = .safe_download(function(file) {
-      ts <- fire_ts_data(); req(ts)
-      utils::write.csv(ts, file, row.names = FALSE, fileEncoding = "UTF-8")
+      d <- fire_ts_data(); req(!is.null(d$eoo) || !is.null(d$aoo))
+      df <- .fire_ts_combined(d); req(!is.null(df) && nrow(df) > 0)
+      utils::write.csv(df, file, row.names = FALSE, fileEncoding = "UTF-8")
     })
   )
 
+  # Stack the EOO and AOO fire charts into one PNG (mirrors the Time series PNG).
   output$dl_fire_ts_png <- downloadHandler(
     filename = function() paste0("mappingAS_fire_", input$fire_species, "_", Sys.Date(), ".png"),
     content = .safe_download(function(file) {
-      ts <- fire_ts_data(); req(ts)
-      p <- mappingAS::plot_fire_timeseries(ts)
-      if (inherits(p, "ggplot") && requireNamespace("ggplot2", quietly = TRUE)) {
-        ggplot2::ggsave(file, plot = p, width = 10, height = 6, dpi = 130)
+      d <- fire_ts_data(); req(!is.null(d$eoo) || !is.null(d$aoo))
+      lg <- input$lang %||% "en"
+      ps <- Filter(Negate(is.null), list(
+        if (!is.null(d$eoo)) mappingAS::plot_fire_timeseries(d$eoo, lang = lg),
+        if (!is.null(d$aoo)) mappingAS::plot_fire_timeseries(d$aoo, lang = lg)))
+      n <- length(ps); req(n > 0)
+      grDevices::png(file, width = 1200, height = 420 * max(n, 1), res = 120)
+      on.exit(grDevices::dev.off(), add = TRUE)
+      if (all(vapply(ps, inherits, logical(1), "ggplot"))) {
+        grid::grid.newpage()
+        grid::pushViewport(grid::viewport(layout = grid::grid.layout(n, 1)))
+        for (i in seq_len(n)) {
+          print(ps[[i]], vp = grid::viewport(layout.pos.row = i,
+                                             layout.pos.col = 1))
+        }
       } else {
-        grDevices::png(file, width = 1200, height = 720, res = 120)
-        on.exit(grDevices::dev.off(), add = TRUE)
-        mappingAS::plot_fire_timeseries(ts)
+        oldpar <- graphics::par(no.readonly = TRUE)
+        on.exit(graphics::par(oldpar), add = TRUE)
+        graphics::par(mfrow = c(n, 1))
+        if (!is.null(d$eoo)) mappingAS::plot_fire_timeseries(d$eoo, lang = lg)
+        if (!is.null(d$aoo)) mappingAS::plot_fire_timeseries(d$aoo, lang = lg)
       }
     })
   )
@@ -1738,7 +1830,10 @@ server <- function(input, output, session) {
                                              layout.pos.col = 1))
         }
       } else {
-        # base-graphics fallback: stack the plots
+        # base-graphics fallback: stack the plots. Reset par() afterwards so the
+        # user's graphics state is left untouched (CRAN policy).
+        oldpar <- graphics::par(no.readonly = TRUE)
+        on.exit(graphics::par(oldpar), add = TRUE)
         graphics::par(mfrow = c(n, 1))
         if (!is.null(d$eoo)) mappingAS::plot_timeseries(d$eoo, lang = lg)
         if (!is.null(d$aoo)) mappingAS::plot_timeseries(d$aoo, lang = lg)
@@ -1767,10 +1862,15 @@ server <- function(input, output, session) {
   }, ignoreInit = TRUE)
 
   observeEvent(fire_ts_data(), {
-    ts <- fire_ts_data()
-    if (is.null(ts) || !is.data.frame(ts)) return()
-    key <- paste(attr(ts, "species") %||% "", attr(ts, "range") %||% "", sep = "||")
-    st <- report_fire_store(); st[[key]] <- ts; report_fire_store(st)
+    d <- fire_ts_data()
+    if (is.null(d)) return()
+    st <- report_fire_store()
+    for (ts in list(d$eoo, d$aoo)) {
+      if (is.null(ts) || !is.data.frame(ts)) next
+      key <- paste(attr(ts, "species") %||% "", attr(ts, "range") %||% "", sep = "||")
+      st[[key]] <- ts
+    }
+    report_fire_store(st)
   }, ignoreInit = TRUE)
 
   .report_cover <- function(sp) {
@@ -1798,10 +1898,12 @@ server <- function(input, output, session) {
   output$report_preview <- renderUI({
     req(result(), input$report_species)
     sp <- input$report_species
+    ab <- .applied_B(sp)
     htmltools::HTML(
       mappingAS::assessment_report(
-        result(), species = sp, lang = input$lang %||% "en", output = "html",
-        cover_series = .report_cover(sp), fire_series = .report_fire(sp)))
+        result_applied(), species = sp, lang = input$lang %||% "en", output = "html",
+        cover_series = .report_cover(sp), fire_series = .report_fire(sp),
+        applied_category = ab$category, applied_code = ab$code))
   })
 
   output$dl_report <- downloadHandler(
@@ -1817,10 +1919,12 @@ server <- function(input, output, session) {
         req(FALSE)
       }
       sp <- input$report_species
+      ab <- .applied_B(sp)
       mappingAS::assessment_report(
-        result(), species = sp, lang = input$lang %||% "en", output = "docx",
+        result_applied(), species = sp, lang = input$lang %||% "en", output = "docx",
         file = file, figures = TRUE,
-        cover_series = .report_cover(sp), fire_series = .report_fire(sp))
+        cover_series = .report_cover(sp), fire_series = .report_fire(sp),
+        applied_category = ab$category, applied_code = ab$code)
     })
   )
 
@@ -1887,11 +1991,13 @@ server <- function(input, output, session) {
       v <- trimws(v)
       if (nzchar(v)) v else NULL
     }
+    ab <- .applied_B(sp)
     list(
-      assessment = result(), species = sp, lang = input$lang %||% "en",
+      assessment = result_applied(), species = sp, lang = input$lang %||% "en",
       family = nz("fs_family"), genus = nz("fs_genus"),
       authority = nz("fs_authority"),
-      countries = nz("fs_countries"), system = nz("fs_system"),
+      countries = nz("fs_countries"),
+      life_form = nz("fs_life_form"), substrate = nz("fs_substrate"),
       habitat = nz("fs_habitat"), biome = nz("fs_biome"),
       vegetation = nz("fs_vegetation"),
       land_use = nz("fs_land_use"),
@@ -1899,6 +2005,7 @@ server <- function(input, output, session) {
       vouchers = nz("fs_vouchers"), reference = nz("fs_reference"),
       photos = .fs_photo_paths(), photo_credit = nz("fs_photo_credit"),
       cover_series = .report_cover(sp), fire_series = .report_fire(sp),
+      applied_category = ab$category, applied_code = ab$code,
       map = isTRUE(input$fs_map),
       map_interactive = identical(input$fs_map_type %||% "interactive", "interactive"))
   }

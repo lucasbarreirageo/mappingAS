@@ -24,6 +24,11 @@
 #'   \code{\link{fire_timeseries_for_species}} / \code{\link{fire_timeseries}},
 #'   with \code{year} and \code{burned_pct}). When supplied, the fire regime is
 #'   characterised over time.
+#' @param applied_category,applied_code Optional applied Criterion B category
+#'   (e.g. \code{"VU"}) and full code (e.g. \code{"VU B1ab(iii)"}) reflecting the
+#'   user's sub-criteria choices. When supplied, an "Applied Criterion B
+#'   category" section is added; otherwise the assessment's \code{category_B} /
+#'   \code{criterion_B_code} columns are used if present.
 #' @param figures Logical; for \code{output = "docx"} only, embed the supporting
 #'   figures (composition, protection and the land-cover/fire time-series charts)
 #'   in the Word document (default \code{FALSE}). Ignored for other outputs.
@@ -45,6 +50,7 @@ assessment_report <- function(assessment, species = NULL,
                               output = c("html", "text", "docx"),
                               file = NULL,
                               cover_series = NULL, fire_series = NULL,
+                              applied_category = NULL, applied_code = NULL,
                               figures = FALSE) {
   lang <- match.arg(lang)
   output <- match.arg(output)
@@ -54,6 +60,8 @@ assessment_report <- function(assessment, species = NULL,
   if (is.null(species)) species <- assessment$summary$species[1]
 
   b <- .report_build(assessment, species, lang, cover_series, fire_series,
+                     applied_category = applied_category,
+                     applied_code = applied_code,
                      figures = isTRUE(figures) && output == "docx")
 
   switch(output,
@@ -150,6 +158,7 @@ assessment_report <- function(assessment, species = NULL,
 # text and docx renderers all draw from one source.
 .report_build <- function(assessment, species, lang,
                           cover_series = NULL, fire_series = NULL,
+                          applied_category = NULL, applied_code = NULL,
                           figures = FALSE) {
   L <- function(en, pt) if (lang == "en") en else pt
   s <- assessment$summary
@@ -259,6 +268,40 @@ assessment_report <- function(assessment, species = NULL,
       "Ambos os subcriterios convergem para a mesma categoria, o que reforca a atribuicao provisoria e a torna robusta a variacoes moderadas de qualquer das metricas."))
   }
   add(L("Provisional Criterion B category", "Categoria provisoria (Criterio B)"), cat_p)
+
+  # --- Applied Criterion B category (user's sub-criteria) ---
+  # Prefer the value passed by the caller (the Results-tab choices); fall back
+  # to the summary columns re-applied there.
+  app_cat  <- if (!is.null(applied_category) && !is.na(applied_category) &&
+                  nzchar(as.character(applied_category))) as.character(applied_category)
+              else if ("category_B" %in% names(r) && !is.na(r$category_B)) r$category_B
+              else NA_character_
+  app_code <- if (!is.null(applied_code) && !is.na(applied_code) &&
+                  nzchar(as.character(applied_code))) as.character(applied_code)
+              else if ("criterion_B_code" %in% names(r) && !is.na(r$criterion_B_code))
+                r$criterion_B_code
+              else NA_character_
+  if (!is.na(app_cat)) {
+    sub_txt <- function() {
+      have <- character(0)
+      if (isTRUE(r$subcrit_a)) have <- c(have, L("(a) severe fragmentation / few locations",
+                                                  "(a) fragmentacao severa / poucas localidades"))
+      if (isTRUE(r$subcrit_b)) have <- c(have, L("(b) continuing decline",
+                                                  "(b) declinio continuo"))
+      if (isTRUE(r$subcrit_c)) have <- c(have, L("(c) extreme fluctuation",
+                                                  "(c) flutuacao extrema"))
+      if (length(have)) paste(have, collapse = ", ") else L("none", "nenhum")
+    }
+    app_p <- c(sprintf(L(
+      "Combining the size thresholds with the sub-criteria set for this assessment, the applied Criterion B category is <b>%s</b>%s. The sub-criteria considered met are: %s.",
+      "Combinando os limiares de tamanho com os subcriterios definidos para esta avaliacao, a categoria aplicada do Criterio B e <b>%s</b>%s. Os subcriterios considerados atendidos sao: %s."),
+      cat_txt(app_cat),
+      if (!is.na(app_code) && nzchar(app_code)) sprintf(" (%s)", app_code) else "",
+      sub_txt()),
+      L("This applied category incorporates expert input on continuing decline and extreme fluctuation (which cannot be read from occurrence points) and, as with the provisional category, is a screening aid rather than a formal Red List assessment.",
+        "Esta categoria aplicada incorpora a avaliacao do especialista sobre declinio continuo e flutuacao extrema (que nao podem ser lidos apenas dos pontos de ocorrencia) e, como a categoria provisoria, e um apoio de triagem e nao uma avaliacao formal da Lista Vermelha."))
+    add(L("Applied Criterion B category", "Categoria aplicada (Criterio B)"), app_p)
+  }
 
   # --- Habitat conversion (snapshot + trend) ---
   if (isTRUE(st$mapbiomas) &&
@@ -568,6 +611,32 @@ assessment_report <- function(assessment, species = NULL,
   paste(out, collapse = "\n")
 }
 
+# Render a ggplot to a temporary PNG file using the best available device
+# (ragg, then a cairo-backed png, then plain png), so embedded figures keep
+# their formatting on headless servers. Returns the file path or NULL.
+.gg_png_file <- function(g, width = 6.3, height = 3.4, dpi = 200) {
+  if (!inherits(g, "ggplot")) return(NULL)
+  tf <- tempfile(fileext = ".png")
+  open_dev <- function() {
+    if (requireNamespace("ragg", quietly = TRUE)) {
+      ragg::agg_png(tf, width = width, height = height, units = "in",
+                    res = dpi, background = "white"); return(TRUE)
+    }
+    cairo_ok <- isTRUE(tryCatch(capabilities("cairo"), error = function(e) FALSE))
+    if (cairo_ok) {
+      grDevices::png(tf, width = width, height = height, units = "in",
+                     res = dpi, bg = "white", type = "cairo"); return(TRUE)
+    }
+    grDevices::png(tf, width = width, height = height, units = "in",
+                   res = dpi, bg = "white"); TRUE
+  }
+  ok <- tryCatch({
+    open_dev(); print(g); grDevices::dev.off(); TRUE
+  }, error = function(e) { try(grDevices::dev.off(), silent = TRUE); FALSE })
+  if (!isTRUE(ok) || !file.exists(tf)) return(NULL)
+  tf
+}
+
 # Word (.docx) version, built with officer (no pandoc needed).
 .report_to_docx <- function(b, file) {
   if (is.null(file) || !nzchar(file))
@@ -609,9 +678,17 @@ assessment_report <- function(assessment, species = NULL,
     doc <- officer::body_add_par(doc, b$figures_heading %||% "Figures", style = "heading 2")
     for (f in b$figures) {
       doc <- tryCatch({
-        d <- officer::body_add_gg(doc, value = f$gg, width = 6.3,
-                                  height = f$h %||% 3.4, res = 200,
-                                  style = "Normal")
+        h  <- f$h %||% 3.4
+        # Render to a high-quality PNG ourselves (ragg / cairo when available)
+        # and embed it, so the Word figures keep their ggplot formatting instead
+        # of the bitmap fallback the default device produces on headless servers.
+        img <- .gg_png_file(f$gg, width = 6.3, height = h, dpi = 200)
+        d <- if (!is.null(img))
+          officer::body_add_img(doc, src = img, width = 6.3, height = h,
+                                style = "Normal")
+        else
+          officer::body_add_gg(doc, value = f$gg, width = 6.3, height = h,
+                               res = 200, style = "Normal")
         officer::body_add_par(d, strip(f$cap), style = "Normal")
       }, error = function(e) doc)
     }

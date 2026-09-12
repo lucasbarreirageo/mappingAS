@@ -12,6 +12,8 @@ assessment_report(
   file = NULL,
   cover_series = NULL,
   fire_series = NULL,
+  applied_category = NULL,
+  applied_code = NULL,
   figures = FALSE
 )
 }
@@ -35,6 +37,12 @@ temporal trend of habitat conversion is added.}
 \code{\link{fire_timeseries_for_species}} / \code{\link{fire_timeseries}},
 with \code{year} and \code{burned_pct}). When supplied, the fire regime is
 characterised over time.}
+
+\item{applied_category, applied_code}{Optional applied Criterion B category
+(e.g. \code{"VU"}) and full code (e.g. \code{"VU B1ab(iii)"}) reflecting the
+user's sub-criteria choices. When supplied, an "Applied Criterion B
+category" section is added; otherwise the assessment's \code{category_B} /
+\code{criterion_B_code} columns are used if present.}
 
 \item{figures}{Logical; for \code{output = "docx"} only, embed the supporting
 figures (composition, protection and the land-cover/fire time-series charts)

@@ -57,10 +57,12 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
   clip_geom <- .clip_geometry(clip, obj$eoo$hull, obj$aoo$cells)
 
   m <- leaflet::leaflet()
-  # Key-free basemaps: the CartoDB Positron basemap now requires an API key
-  # (tiles render an "API KEY REQUIRED" watermark), so use OpenStreetMap for the
-  # light layer and Esri World Imagery for satellite - both usable without a key.
-  m <- leaflet::addProviderTiles(m, "OpenStreetMap.Mapnik", group = "Light")
+  # Key-free basemaps. The OpenStreetMap volunteer tile servers now block
+  # embedded/high-volume use ("Access blocked - tile usage policy", HTTP 403)
+  # and the CartoDB Positron basemap requires an API key ("API KEY REQUIRED"
+  # watermark), so both layers use Esri tiles, which render without a key:
+  # World Street Map for the light layer and World Imagery for satellite.
+  m <- leaflet::addProviderTiles(m, "Esri.WorldStreetMap", group = "Light")
   m <- leaflet::addProviderTiles(m, "Esri.WorldImagery", group = "Satellite")
   
   # --- optional MapBiomas LULC overlay (under everything) ---
@@ -275,7 +277,12 @@ plot_conversion <- function(assessment, species = NULL, lang = c("en", "pt")) {
         size = 3.4, fontface = "bold", show.legend = FALSE) +
       ggplot2::scale_fill_manual(values = cols[grp], drop = FALSE, name = NULL) +
       ggplot2::scale_colour_identity() +
-      ggplot2::scale_x_continuous(limits = c(0, 100), expand = c(0, 0)) +
+      # Clip the x-axis to 0-100 with coord_cartesian rather than scale limits:
+      # a stacked bar whose segments sum to exactly 100 can float just above 100
+      # and be dropped entirely by scale limits (out-of-bounds removal), which
+      # made the natural/water/other segments disappear from the downloaded PNG.
+      ggplot2::scale_x_continuous(expand = c(0, 0)) +
+      ggplot2::coord_cartesian(xlim = c(0, 100)) +
       ggplot2::labs(x = xlab, y = NULL, title = title, subtitle = subtitle) +
       .mas_theme() +
       ggplot2::theme(panel.grid.major.y = ggplot2::element_blank())

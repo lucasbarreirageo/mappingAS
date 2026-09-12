@@ -39,7 +39,7 @@ test_that("factsheet_html embeds user metadata, vouchers and a reference link", 
   a <- .mk_factsheet_assessment()
   html <- factsheet_html(
     a, family = "Araceae", authority = "(Engl.) Croat",
-    countries = "Brazil", system = "Terrestrial",
+    countries = "Brazil", life_form = "Herb", substrate = "Rupicolous",
     habitat = "Rocky outcrops", biome = "Atlantic Forest",
     vegetation = "Rupicolous herb",
     land_use = "Pasture and urban expansion",
@@ -53,6 +53,9 @@ test_that("factsheet_html embeds user metadata, vouchers and a reference link", 
   expect_match(html, "Araceae")
   expect_match(html, "Atlantic Forest")
   expect_match(html, "Rocky outcrops")
+  # Life Form / Substrate rows replace the former System row.
+  expect_match(html, "Life Form")
+  expect_match(html, "Substrate")
   expect_match(html, "Barreira 123 \\(RB\\)")
   # A URL reference becomes a link.
   expect_match(html, "href='https://reflora.jbrj.gov.br/x'")
