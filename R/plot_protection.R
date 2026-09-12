@@ -89,11 +89,11 @@ plot_protection <- function(assessment, species = NULL, lang = c("en", "pt")) {
         size = 3.4, fontface = "bold", show.legend = FALSE) +
       ggplot2::scale_fill_manual(values = cols[grp], drop = FALSE, name = NULL) +
       ggplot2::scale_colour_identity() +
-      # Clip with coord_cartesian rather than scale limits so a stacked bar that
-      # sums to exactly 100 is never dropped as out-of-bounds (which removed the
-      # top segment from the downloaded PNG). See plot_conversion() for detail.
-      ggplot2::scale_x_continuous(expand = c(0, 0)) +
-      ggplot2::coord_cartesian(xlim = c(0, 100)) +
+      # x-axis 0-100 with fixed breaks and no hard `limits` (which would drop a
+      # stacked segment summing to exactly 100); the small right-side expansion
+      # stops the "100" tick label being clipped. See plot_conversion() for detail.
+      ggplot2::scale_x_continuous(breaks = c(0, 25, 50, 75, 100),
+                                  expand = ggplot2::expansion(mult = c(0, 0.03))) +
       ggplot2::labs(x = xlab, y = NULL, title = main, subtitle = sub) +
       .mas_theme() +
       ggplot2::theme(panel.grid.major.y = ggplot2::element_blank())

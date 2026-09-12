@@ -182,15 +182,14 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
   m <- leaflet::addLayersControl(
     m, baseGroups = c("Light", "Satellite"), overlayGroups = overlay,
     options = leaflet::layersControlOptions(collapsed = FALSE))
-  # Species name box: placed top-left (below the zoom control). The white
-  # background sits on an inline <span>, which is sized by its text content, so
-  # the box hugs the word exactly instead of stretching to the control's width;
-  # box-decoration-break:clone keeps the background tight around each line when a
-  # long name wraps (capped by the wrapper's max-width).
+  # Species name box: placed top-left (below the zoom control). `white-space:
+  # nowrap` keeps the whole name on one line, so the leaflet control does not
+  # shrink-wrap to its narrowest word (which made the name break one letter per
+  # line); the inline-block span carries the white background and hugs the text.
   m <- leaflet::addControl(
     m,
     html = sprintf(
-      "<div style='max-width:280px;line-height:1.35'><span style='background:rgba(255,255,255,.9);padding:2px 8px;border-radius:6px;font-size:14px;-webkit-box-decoration-break:clone;box-decoration-break:clone'><b>%s</b></span></div>",
+      "<div style='white-space:nowrap'><span style='display:inline-block;background:rgba(255,255,255,.92);padding:3px 9px;border-radius:6px;font-size:14px;line-height:1.3'><b>%s</b></span></div>",
       .sp_html(species)),
     position = "topleft")
   m
@@ -277,12 +276,12 @@ plot_conversion <- function(assessment, species = NULL, lang = c("en", "pt")) {
         size = 3.4, fontface = "bold", show.legend = FALSE) +
       ggplot2::scale_fill_manual(values = cols[grp], drop = FALSE, name = NULL) +
       ggplot2::scale_colour_identity() +
-      # Clip the x-axis to 0-100 with coord_cartesian rather than scale limits:
-      # a stacked bar whose segments sum to exactly 100 can float just above 100
-      # and be dropped entirely by scale limits (out-of-bounds removal), which
-      # made the natural/water/other segments disappear from the downloaded PNG.
-      ggplot2::scale_x_continuous(expand = c(0, 0)) +
-      ggplot2::coord_cartesian(xlim = c(0, 100)) +
+      # x-axis 0-100 with fixed breaks. No hard `limits` (which drop a stacked
+      # segment that floats just above 100 as out-of-bounds - that erased the
+      # natural/water/other segments from the PNG); a small right-side expansion
+      # keeps the "100" tick label from being clipped at the panel edge.
+      ggplot2::scale_x_continuous(breaks = c(0, 25, 50, 75, 100),
+                                  expand = ggplot2::expansion(mult = c(0, 0.03))) +
       ggplot2::labs(x = xlab, y = NULL, title = title, subtitle = subtitle) +
       .mas_theme() +
       ggplot2::theme(panel.grid.major.y = ggplot2::element_blank())

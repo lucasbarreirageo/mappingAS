@@ -378,7 +378,7 @@ ui <- bslib::page_sidebar(
           choices = c("By class" = "class", "By group" = "group"),
           selected = "class", inline = TRUE)),
         column(6, div(class = "text-md-end pt-4",
-          downloadButton("dl_donut_png", "Save donut (transparent PNG)")))
+          downloadButton("dl_donut_png", "Save donut (PNG)")))
       ),
       div(style = "height:470px; min-height:470px;",
           plotly::plotlyOutput("donut", height = "100%"))
