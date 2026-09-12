@@ -51,6 +51,8 @@
   tryCatch({
     p  <- sf::st_sfc(sf::st_point(c(easting, northing)), crs = epsg)
     ll <- sf::st_coordinates(sf::st_transform(p, 4326))
-    c(ll[1, 1], ll[1, 2])
+    # st_coordinates() names the columns "X"/"Y"; strip them so the result is a
+    # plain unnamed c(lon, lat).
+    unname(c(ll[1, 1], ll[1, 2]))
   }, error = function(e) c(NA_real_, NA_real_))
 }
