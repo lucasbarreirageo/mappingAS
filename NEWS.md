@@ -5,9 +5,12 @@
   longer clipped, and their in-bar percentage labels are now placed at each
   segment's own midpoint (previously `geom_text()` + `position_stack()` could
   drop the labels onto the wrong segment on a horizontal bar). The species-name
-  box on the map now stays on one line (`white-space: nowrap`) instead of
-  breaking one letter per line, and the donut download button reads
+  box on the map is a single `inline-block` chip that stays on one line and now
+  sits behind the whole name, and the donut download button reads
   "Save donut (PNG)".
+* **More compact app.** The Shiny UI now renders at an 80% base zoom so the whole
+  page fits without having to zoom the browser out manually (reset the browser
+  to 100%).
 * **CRAN compliance (graphical parameters).** The Shiny app no longer leaves the
   user's `par()` state modified: the time-series PNG download handler saves and
   restores it with `on.exit(graphics::par(oldpar))`, addressing the CRAN review
