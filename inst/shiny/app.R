@@ -20,6 +20,45 @@ if (is.null(getOption("shiny.maxRequestSize")))
 
 `%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || identical(a, "")) b else a
 
+# Parse one degrees/minutes/seconds coordinate typed as free text into a decimal
+# degree. Accepts the usual spellings, e.g. "23 27 30 S", "23°27'30\"S",
+# "-23 27 30" or a bare "23.4583". The hemisphere letter (N/S/E/W) or a leading
+# minus sign sets the sign; S and W are negative. Returns NA on empty/garbage.
+.parse_dms <- function(x) {
+  x <- trimws(x %||% "")
+  if (!nzchar(x)) return(NA_real_)
+  hemi <- toupper(gsub("[^NSEWnsew]", "", x))
+  neg_sign <- grepl("^\\s*-", x)
+  nums <- suppressWarnings(as.numeric(
+    regmatches(x, gregexpr("[0-9]+(?:\\.[0-9]+)?", x))[[1]]))
+  nums <- nums[is.finite(nums)]
+  if (!length(nums)) return(NA_real_)
+  deg <- nums[1]
+  mn  <- if (length(nums) >= 2) nums[2] else 0
+  sec <- if (length(nums) >= 3) nums[3] else 0
+  val <- abs(deg) + mn / 60 + sec / 3600
+  if ((nzchar(hemi) && hemi %in% c("S", "W")) || neg_sign) val <- -val
+  val
+}
+
+# Convert a UTM easting/northing (metres) in a given zone/hemisphere to
+# lon/lat (WGS84). Returns c(lon, lat), or c(NA, NA) when inputs are incomplete
+# or the reprojection fails.
+.utm_to_lonlat <- function(easting, northing, zone, hemi) {
+  easting  <- suppressWarnings(as.numeric(easting))
+  northing <- suppressWarnings(as.numeric(northing))
+  zone     <- suppressWarnings(as.integer(zone))
+  if (!is.finite(easting) || !is.finite(northing) ||
+      is.na(zone) || zone < 1 || zone > 60) return(c(NA_real_, NA_real_))
+  epsg <- (if (identical(toupper(hemi %||% "S"), "S")) 32700L else 32600L) + zone
+  out <- tryCatch({
+    p  <- sf::st_sfc(sf::st_point(c(easting, northing)), crs = epsg)
+    ll <- sf::st_coordinates(sf::st_transform(p, 4326))
+    c(ll[1, 1], ll[1, 2])
+  }, error = function(e) c(NA_real_, NA_real_))
+  out
+}
+
 # Row-bind two point sf objects that may carry different attribute columns:
 # the union of columns is kept, missing values filled with NA, so the uploaded
 # occurrences and the hand-added points combine without dropping attributes
@@ -287,11 +326,12 @@ ui <- bslib::page_sidebar(
         bslib::card(
           full_screen = TRUE,
           helpText(htmltools::HTML(
-            "Click on the map to drop an occurrence point for the species named ",
-            "on the right. Uploaded points (if any) are shown in grey for reference; ",
-            "the points you add are green. Then press <b>Assess</b> in the sidebar - ",
-            "the assessment uses the uploaded table <i>plus</i> every point added here ",
-            "(or only these points when no file is uploaded).")),
+            "Click on the map to drop an occurrence point for the species selected ",
+            "on the right. Only the <b>selected species'</b> existing points are shown: ",
+            "uploaded points in grey for reference, the points you add in green. Then ",
+            "press <b>Assess</b> in the sidebar - the assessment uses the uploaded table ",
+            "<i>plus</i> every point added here (or only these points when no file is ",
+            "uploaded).")),
           leaflet::leafletOutput("edit_map", height = "70vh")
         ),
         bslib::card(
@@ -299,11 +339,49 @@ ui <- bslib::page_sidebar(
                          choices = NULL, selected = NULL,
                          options = list(create = TRUE,
                                         placeholder = "type or pick a species")),
-          helpText("Type a new name and press Enter to create it, or pick one already present."),
-          fluidRow(
-            column(6, numericInput("edit_lon", "Longitude", value = NA, step = 0.0001)),
-            column(6, numericInput("edit_lat", "Latitude", value = NA, step = 0.0001))
-          ),
+          helpText(htmltools::HTML(
+            "Pick a species to work on it: only that species' existing points are ",
+            "shown on the map. To start a <b>new species from scratch</b>, type its ",
+            "name and press Enter to create it - the map starts empty, then click it ",
+            "or type coordinates below to add the points.")),
+          radioButtons(
+            "edit_coord_fmt", "Coordinate type",
+            choices = c("Decimal degrees" = "dd",
+                        "Degrees, minutes, seconds" = "dms",
+                        "UTM (metres)" = "utm"),
+            selected = "dd"),
+          uiOutput("edit_coord_help"),
+          # Decimal degrees: two plain numbers (e.g. -47.9292, -15.7801).
+          conditionalPanel(
+            condition = "input.edit_coord_fmt == 'dd'",
+            fluidRow(
+              column(6, numericInput("edit_lon", "Longitude", value = NA,
+                                     step = 0.0001)),
+              column(6, numericInput("edit_lat", "Latitude", value = NA,
+                                     step = 0.0001)))),
+          # Degrees/minutes/seconds: free text so the hemisphere and symbols are
+          # allowed (e.g. 15 46 48 S).
+          conditionalPanel(
+            condition = "input.edit_coord_fmt == 'dms'",
+            fluidRow(
+              column(6, textInput("edit_lon_dms", "Longitude (D M S + E/W)",
+                                  value = "", placeholder = "47 55 45 W")),
+              column(6, textInput("edit_lat_dms", "Latitude (D M S + N/S)",
+                                  value = "", placeholder = "15 46 48 S")))),
+          # UTM: easting/northing in metres plus the zone and hemisphere.
+          conditionalPanel(
+            condition = "input.edit_coord_fmt == 'utm'",
+            fluidRow(
+              column(6, numericInput("edit_utm_easting", "Easting (X, m)",
+                                     value = NA, step = 1)),
+              column(6, numericInput("edit_utm_northing", "Northing (Y, m)",
+                                     value = NA, step = 1))),
+            fluidRow(
+              column(6, numericInput("edit_utm_zone", "UTM zone (1-60)",
+                                     value = 23, min = 1, max = 60, step = 1)),
+              column(6, radioButtons("edit_utm_hemi", "Hemisphere",
+                                     choices = c("South" = "S", "North" = "N"),
+                                     selected = "S", inline = TRUE)))),
           div(class = "d-flex gap-2 mb-2",
               actionButton("edit_add_xy", "Add typed point",
                            icon = icon("plus"), class = "btn-outline-primary")),
@@ -877,10 +955,43 @@ server <- function(input, output, session) {
     .add_point(cl$lng, cl$lat)
   })
 
+  # A short description of the coordinate type currently selected, so the user
+  # knows exactly what to type in each box.
+  output$edit_coord_help <- renderUI({
+    txt <- switch(
+      input$edit_coord_fmt %||% "dd",
+      dd  = paste("Decimal degrees: a single signed number per axis.",
+                  "West and South are negative,",
+                  "e.g. longitude -47.9292, latitude -15.7801."),
+      dms = paste("Degrees, minutes and seconds: type the three numbers and the",
+                  "hemisphere letter, e.g. latitude '15 46 48 S',",
+                  "longitude '47 55 45 W'. A leading minus works too."),
+      utm = paste("UTM: projected easting (X) and northing (Y) in metres, plus",
+                  "the zone number (1-60) and hemisphere. Brazil spans zones",
+                  "18-25 South. They are converted to decimal degrees (WGS84)."),
+      "")
+    helpText(txt)
+  })
+
   observeEvent(input$edit_add_xy, {
-    .add_point(input$edit_lon, input$edit_lat)
+    fmt <- input$edit_coord_fmt %||% "dd"
+    if (fmt == "dd") {
+      lon <- input$edit_lon; lat <- input$edit_lat
+    } else if (fmt == "dms") {
+      lon <- .parse_dms(input$edit_lon_dms)
+      lat <- .parse_dms(input$edit_lat_dms)
+    } else {
+      ll  <- .utm_to_lonlat(input$edit_utm_easting, input$edit_utm_northing,
+                            input$edit_utm_zone, input$edit_utm_hemi)
+      lon <- ll[1]; lat <- ll[2]
+    }
+    .add_point(lon, lat)
     updateNumericInput(session, "edit_lon", value = NA)
     updateNumericInput(session, "edit_lat", value = NA)
+    updateTextInput(session, "edit_lon_dms", value = "")
+    updateTextInput(session, "edit_lat_dms", value = "")
+    updateNumericInput(session, "edit_utm_easting", value = NA)
+    updateNumericInput(session, "edit_utm_northing", value = NA)
   })
 
   observeEvent(input$edit_undo, {
@@ -907,32 +1018,47 @@ server <- function(input, output, session) {
   output$edit_map <- leaflet::renderLeaflet({
     # Key-free basemaps: the OpenStreetMap volunteer tile servers now block
     # embedded use ("Access blocked", HTTP 403), so use Esri tiles (no API key).
-    m <- leaflet::leaflet() |>
+    leaflet::leaflet() |>
       leaflet::addProviderTiles("Esri.WorldStreetMap", group = "Light") |>
       leaflet::addProviderTiles("Esri.WorldImagery", group = "Satellite") |>
       leaflet::addLayersControl(
         baseGroups = c("Light", "Satellite"),
-        options = leaflet::layersControlOptions(collapsed = TRUE))
-    fo <- tryCatch(occ_file(), error = function(e) NULL)
-    if (!is.null(fo) && nrow(fo)) {
-      xy <- sf::st_coordinates(fo)
-      m <- leaflet::addCircleMarkers(
-        m, lng = xy[, 1], lat = xy[, 2], radius = 4, color = "#666",
-        stroke = FALSE, fillOpacity = 0.6, group = "uploaded",
-        label = as.character(fo$species))
-      m <- leaflet::fitBounds(m, min(xy[, 1]), min(xy[, 2]),
-                              max(xy[, 1]), max(xy[, 2]))
-    } else {
-      m <- leaflet::setView(m, lng = -55, lat = -12, zoom = 4)
-    }
-    m
+        options = leaflet::layersControlOptions(collapsed = TRUE)) |>
+      leaflet::setView(lng = -55, lat = -12, zoom = 4)
   })
   outputOptions(output, "edit_map", suspendWhenHidden = FALSE)
 
+  # Uploaded points, filtered to the selected species (grey, for reference).
+  # Redrawn when the species selection or the uploaded file changes; the view is
+  # fitted to that species so its existing points come into frame. Adding points
+  # by hand does not re-run this, so the map is not reset on every click.
   observe({
-    df <- manual_store()
+    sp    <- input$edit_species
+    proxy <- leaflet::leafletProxy("edit_map")
+    leaflet::clearGroup(proxy, "uploaded")
+    fo <- tryCatch(occ_file(), error = function(e) NULL)
+    if (is.null(fo) || !nrow(fo) || is.null(sp) || !nzchar(sp)) return()
+    keep <- !is.na(fo$species) & fo$species == sp
+    if (!any(keep)) return()
+    xy <- sf::st_coordinates(fo[keep, ])
+    leaflet::addCircleMarkers(
+      proxy, lng = xy[, 1], lat = xy[, 2], radius = 4, color = "#666",
+      stroke = FALSE, fillOpacity = 0.6, group = "uploaded",
+      label = as.character(fo$species[keep]))
+    if (nrow(xy) >= 1)
+      leaflet::fitBounds(proxy, min(xy[, 1]), min(xy[, 2]),
+                         max(xy[, 1]), max(xy[, 2]))
+  })
+
+  # Hand-added points, filtered to the selected species (green). Refreshed on
+  # every add/undo/clear and on species change, without moving the view.
+  observe({
+    sp    <- input$edit_species
+    df    <- manual_store()
     proxy <- leaflet::leafletProxy("edit_map")
     leaflet::clearGroup(proxy, "added")
+    if (!is.null(sp) && nzchar(sp))
+      df <- df[!is.na(df$species) & df$species == sp, , drop = FALSE]
     if (nrow(df)) {
       leaflet::addCircleMarkers(
         proxy, lng = df$lon, lat = df$lat, radius = 6, color = "#1f8d49",
