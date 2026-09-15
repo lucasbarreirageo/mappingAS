@@ -43,6 +43,14 @@ This is a resubmission of mappingAS (version 1.13.2).
 time" NOTE, which is specific to the build sandbox and does not appear on
 win-builder.)
 
+## URLs
+
+* checking URLs, R CMD check / urlchecker may report a 403 for the DOI
+  <https://doi.org/10.1002/ece3.3704> (Dauby et al. 2017, cited in the README).
+  The DOI is valid and resolves correctly in a web browser; the Wiley host
+  simply returns HTTP 403 to non-interactive/automated requests. The link is
+  intentional and correct.
+
 ## Test environments
 
 * local: Ubuntu 24.04, R 4.3.3 (`R CMD check --as-cran`)

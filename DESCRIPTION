@@ -11,7 +11,7 @@ Description: A spatial analytical framework for preliminary species
     guidelines. From occurrence points it computes the Extent of Occurrence
     (EOO) and Area of Occupancy (AOO) on a data-centred equal-area projection,
     assigns provisional Criterion B categories, and integrates 'MapBiomas'
-    land-use/land-cover data to quantify the proportion of anthropic
+    land-use/land-cover data to quantify the proportion of anthropogenic
     conversion versus remaining natural habitat within each range metric, with
     per-class breakdowns and land-cover time series. Several 'MapBiomas'
     initiatives are supported through one standardised legend - 'MapBiomas'
@@ -72,10 +72,12 @@ Suggests:
     shinyWidgets,
     testthat (>= 3.0.0),
     knitr,
-    rmarkdown
+    rmarkdown,
+    spelling
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)
 URL: https://github.com/lucasbarreirageo/mappingAS
 BugReports: https://github.com/lucasbarreirageo/mappingAS/issues
 Config/roxygen2/version: 8.1.0
+Language: en-US
