@@ -36,6 +36,52 @@ test_that("size met but fewer than two sub-criteria yields NT", {
   expect_equal(r$qualifies_size, "VU")
 })
 
+test_that("continuing decline is assumed by default (ConR), avoiding NT", {
+  # EN size + few locations, decline NOT documented: (a) from locations plus the
+  # assumed decline (b) -> EN, not NT (this is the behaviour change).
+  r <- iucn_criterion_B(eoo_km2 = 3000, aoo_km2 = 400, n_locations = 4)
+  expect_equal(r$category, "EN")
+  expect_true(r$a && r$b)
+  expect_true(r$decline_assumed)
+  expect_match(r$code, "^EN B1\\+2ab")
+})
+
+test_that("assume_decline = FALSE restores the strict NT screening", {
+  r <- iucn_criterion_B(eoo_km2 = 3000, aoo_km2 = 400, n_locations = 4,
+                        assume_decline = FALSE)
+  expect_equal(r$category, "NT")
+  expect_false(r$b)
+  expect_false(r$decline_assumed)
+})
+
+test_that("the number of locations caps the category (ConR relation)", {
+  # EN-sized range, but spread over 8 locations: condition (a) is only met at the
+  # VU level (<= 10 locations), so the category is capped to VU, not EN.
+  r <- iucn_criterion_B(eoo_km2 = 3000, aoo_km2 = 400, n_locations = 8)
+  expect_equal(r$category, "VU")
+  # Too many locations for any threatened level -> NT despite the small range.
+  r2 <- iucn_criterion_B(eoo_km2 = 3000, aoo_km2 = 400, n_locations = 25)
+  expect_equal(r2$category, "NT")
+})
+
+test_that("a documented decline is not flagged as assumed", {
+  r <- iucn_criterion_B(eoo_km2 = 3000, aoo_km2 = 400, n_locations = 4,
+                        decline = TRUE)
+  expect_true(r$b)
+  expect_false(r$decline_assumed)
+})
+
+test_that("decline_detail adds the IUCN roman-numeral element to the code", {
+  # b(iii) = continuing decline in area/extent/quality of habitat
+  r <- iucn_criterion_B(eoo_km2 = 3000, aoo_km2 = 400, n_locations = 4,
+                        decline = TRUE, decline_detail = "iii")
+  expect_equal(r$code, "EN B1+2ab(iii)")
+  # default (NULL) keeps the bare letters
+  r0 <- iucn_criterion_B(eoo_km2 = 3000, aoo_km2 = 400, n_locations = 4,
+                         decline = TRUE)
+  expect_equal(r0$code, "EN B1+2ab")
+})
+
 test_that("ranges above every threshold yield LC", {
   r <- iucn_criterion_B(eoo_km2 = 1e6, aoo_km2 = 1e5,
                         severe_fragmentation = TRUE, decline = TRUE)

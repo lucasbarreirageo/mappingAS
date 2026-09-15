@@ -1,5 +1,55 @@
 # mappingAS 1.13.2
 
+* **Criterion B category now tracks the number of locations (ConR-aligned).**
+  `iucn_criterion_B()` was reworked so the applied category follows the same
+  selection logic as ConR's `cat_criterion_b()` (Dauby *et al.* 2017): the
+  estimated **number of locations caps the category** through sub-criterion (a),
+  so a range whose EOO/AOO size alone would be CR or EN but that is spread over,
+  say, eight locations is returned as VU (≤ 10 locations), not EN. The category
+  is the less threatened of the size-implied and location-implied levels.
+* **Continuing decline (b) is now assumed present by default.** Previously an
+  undocumented decline was treated as *not met*, so a taxon that met a size
+  threshold and had few locations still collapsed to **NT** unless the assessor
+  supplied `decline = TRUE`. Following ConR — and because mappingAS is built
+  around habitat-conversion data, which is direct evidence of a continuing
+  decline in the area/quality of habitat (sub-criterion b(iii)) — a continuing
+  decline is now assumed when it is not documented. A small-range, few-location
+  taxon is therefore reported at its CR/EN/VU size-and-location level instead of
+  NT, giving a result that is more consistent with the IUCN thresholds. Set the
+  new `assume_decline = FALSE` (in `assess_species()` or `iucn_criterion_B()`),
+  or `decline = FALSE`, to restore the strict "NT until a decline is documented"
+  screening. A new `decline_assumed` column in the summary flags every species
+  for which (b) was assumed rather than documented, and the report/Shiny app
+  label the assumption honestly.
+* **Continuing decline (b) inferred from the measured habitat loss.** When a
+  decline is not documented, `assess_species()` now *infers* it from the
+  conversion data instead of merely assuming it: if land cover ran and the
+  range holds any converted (anthropic) area, sub-criterion b(iii) (continuing
+  decline in the area/quality of habitat) is taken as met and recorded as
+  `decline_basis = "inferred (habitat loss)"`. This has explicit IUCN backing —
+  the Guidelines (v16, §4.6 and the evidence table in §3.1) allow a continuing
+  decline in habitat to be **inferred "from rate of habitat loss" under
+  B1b/B2b, at any rate** (there is *no* magnitude threshold for continuing
+  decline under Criterion B; only Criterion C1 has one). The new `decline_basis`
+  column distinguishes `"documented"`, `"inferred (habitat loss)"`, `"assumed"`
+  (the ConR-style global fallback, used only when no conversion is available)
+  and `"not documented"`; the written report cites the inference. Disable with
+  `infer_decline_from_habitat = FALSE`.
+* **Proper IUCN code notation for the declining element.** Following Section 6
+  of the guidelines (e.g. the worked example `EN B1ab(v)`), the Criterion B
+  code now carries the roman-numeral element of the continuing decline. When (b)
+  is inferred from habitat loss the code reads e.g. `EN B1ab(iii)` — b(iii)
+  being the continuing decline in the area, extent and/or quality of habitat.
+  `iucn_criterion_B()` gains a `decline_detail` argument for this; it defaults
+  to none, so an unqualified code such as `VU B2ab` is unchanged.
+* **Shiny Results tab: the sub-criteria buttons start on the automatic result.**
+  When a species is selected, the (a)/(b)/(c) checkboxes are pre-checked to match
+  what the assessment computed, and the category badge reflects them - so the
+  buttons show the result rather than an empty form. The assessor keeps full
+  control: unchecking a sub-criterion (e.g. continuing decline) overrides it and
+  can drop the taxon to NT/LC live, and re-checking the automatic state restores
+  the computed category. Overrides flow through the table, CSV, report and
+  factsheet; a fresh assessment resets them.
 * **Chart and map polish.** The composition / protection bar charts use fixed
   0-100 breaks with a small right-side margin so the "100" axis label is no
   longer clipped, and their in-bar percentage labels are now placed at each

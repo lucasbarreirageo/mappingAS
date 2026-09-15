@@ -80,12 +80,35 @@
 #'   and \code{criterion_B_code} in the summary). \code{decline} is
 #'   sub-criterion (b) (a continuing decline), \code{extreme_fluctuation} is (c),
 #'   and \code{severe_fragmentation} feeds (a) alongside the estimated number of
-#'   locations. Each may be a single value applied to every species, or a named
-#'   logical vector keyed by species name. \code{NA} (default) means \emph{not
-#'   documented} (treated as not met), so by default a range that only meets a
-#'   size threshold is reported as \strong{NT} until a decline or fragmentation
-#'   is supplied. Sub-criteria (b)/(c) cannot be inferred from occurrence points,
-#'   hence they are inputs, not computed. DD/NE are never assigned automatically.
+#'   locations, which \emph{caps} the category (a small range spread over many
+#'   locations is held to the less threatened level its location count supports;
+#'   see \code{\link{iucn_criterion_B}}). Each may be a single value applied to
+#'   every species, or a named logical vector keyed by species name. \code{NA}
+#'   (default) means \emph{not documented}: (a)/(c) are then treated as not met,
+#'   while an undocumented decline (b) is resolved by \code{assume_decline}.
+#'   Sub-criteria (b)/(c) cannot be inferred from occurrence points, hence they
+#'   are inputs, not computed. DD/NE are never assigned automatically.
+#' @param assume_decline Logical; how an undocumented continuing decline
+#'   (\code{decline = NA}) is treated by \code{\link{iucn_criterion_B}}.
+#'   \code{TRUE} (default) assumes a decline is present - as \pkg{ConR} does, and
+#'   as the habitat-conversion data support (sub-criterion b(iii)) - so a
+#'   small-range, few-location taxon is reported at its CR/EN/VU size-and-location
+#'   level instead of collapsing to \strong{NT}. \code{FALSE} restores the strict
+#'   screening where an undocumented decline is not met (NT until a decline is
+#'   supplied). The \code{decline_assumed} column flags each species for which
+#'   (b) was assumed rather than documented.
+#' @param infer_decline_from_habitat Logical; when \code{TRUE} (default) and
+#'   \code{decline} is not documented for a species, a continuing decline (b) is
+#'   \emph{inferred from the measured habitat loss} whenever land cover ran and
+#'   the range holds any converted (anthropic) area. The IUCN guidelines (v16,
+#'   sect. 4.6) explicitly allow a continuing decline in the area/quality of
+#'   habitat (sub-criterion b(iii)) to be inferred "from rate of habitat loss"
+#'   under B1b/B2b, "at any rate" (no magnitude threshold). This is recorded as
+#'   \code{decline_basis = "inferred (habitat loss)"} - distinct from
+#'   \code{"assumed"} (the ConR-style global fallback used when no conversion is
+#'   available), \code{"documented"} / \code{"documented (absent)"} (an explicit
+#'   \code{decline}), or \code{"not documented"}. Set \code{FALSE} to rely only
+#'   on \code{decline} / \code{assume_decline}.
 #' @param min_records Minimum records required to attempt an assessment.
 #' @param verbose Logical; print progress (default \code{TRUE}).
 #' @return An object of class \code{geoconv_assessment}: a list with
@@ -122,7 +145,8 @@ assess_species <- function(occ, initiative = "brazil",
                            water_in_denominator = FALSE,
                            area_max_pixels = 5e7,
                            decline = NA, extreme_fluctuation = NA,
-                           severe_fragmentation = NA,
+                           severe_fragmentation = NA, assume_decline = TRUE,
+                           infer_decline_from_habitat = TRUE,
                            min_records = 1, verbose = TRUE) {
   .assert_points(occ, "occ")
   # Run the whole assessment with planar (GEOS) geometry. The S2 spherical
@@ -290,6 +314,31 @@ assess_species <- function(occ, initiative = "brazil",
       pa$aoo_nat_uc_pct_in <- a_nat$nat_pct_uc
     }
     
+    # Resolve continuing decline (sub-criterion b) for this species and record
+    # its basis. A documented value always wins; otherwise, when land cover ran
+    # and the range shows measurable habitat conversion, a continuing decline in
+    # the area/quality of habitat is INFERRED from the rate of habitat loss -
+    # which the IUCN guidelines (v16, sect. 4.6 and Table in sect. 3.1)
+    # explicitly permit under B1b/B2b, sub-criterion b(iii), "at any rate";
+    # failing that it falls back to the global assumption (assume_decline).
+    user_decline <- .pick_subcrit(decline, sp)
+    decline_eff  <- user_decline
+    decline_basis <- if (isTRUE(user_decline)) "documented"
+                     else if (identical(as.logical(user_decline), FALSE))
+                       "documented (absent)"
+                     else NA_character_
+    if (is.na(decline_eff) && isTRUE(infer_decline_from_habitat) && mapbiomas &&
+        max(.anthropic_km2(eoo_conv), .anthropic_km2(aoo_conv)) > 0) {
+      decline_eff   <- TRUE
+      decline_basis <- "inferred (habitat loss)"
+    }
+    if (is.na(decline_basis))
+      decline_basis <- if (isTRUE(assume_decline)) "assumed" else "not documented"
+    # When (b) is inferred from habitat loss the declining element is the
+    # area/extent/quality of habitat, i.e. b(iii) in the IUCN code notation.
+    decline_detail <- if (identical(decline_basis, "inferred (habitat loss)"))
+                        "iii" else NULL
+
     # Apply Criterion B (size thresholds + sub-criteria) with the (final)
     # number of locations - which the protected-area branch above may have
     # recomputed - and the expert sub-criteria inputs (b/c/fragmentation).
@@ -297,8 +346,9 @@ assess_species <- function(occ, initiative = "brazil",
       eoo_km2 = eoo$area_km2, aoo_km2 = aoo$area_km2,
       n_locations = loc$n_locations,
       severe_fragmentation = .pick_subcrit(severe_fragmentation, sp),
-      decline = .pick_subcrit(decline, sp),
-      extreme_fluctuation = .pick_subcrit(extreme_fluctuation, sp))
+      decline = decline_eff,
+      extreme_fluctuation = .pick_subcrit(extreme_fluctuation, sp),
+      assume_decline = assume_decline, decline_detail = decline_detail)
 
     row <- data.frame(
       species = sp,
@@ -321,6 +371,8 @@ assess_species <- function(occ, initiative = "brazil",
       subcrit_a = critB$a,
       subcrit_b = critB$b,
       subcrit_c = critB$c,
+      decline_assumed = isTRUE(critB$decline_assumed),
+      decline_basis = decline_basis,
       mapbiomas_initiative = eff_ini,
       mapbiomas_year = eff_year,
       mapbiomas_collection = eff_coll,
@@ -368,6 +420,9 @@ assess_species <- function(occ, initiative = "brazil",
                                  fire_collection = fire_collection,
                                  fire_host_collection = fire_host_collection,
                                  protected = protected,
+                                 assume_decline = assume_decline,
+                                 infer_decline_from_habitat =
+                                   infer_decline_from_habitat,
                                  water_in_denominator = water_in_denominator)),
             class = "geoconv_assessment")
 }
@@ -396,6 +451,18 @@ assess_species <- function(occ, initiative = "brazil",
   if (is.null(conv)) return(0)
   a <- suppressWarnings(as.numeric(conv$natural_km2) +
                           as.numeric(conv$anthropic_km2))
+  if (length(a) == 0 || is.na(a)) 0 else a
+}
+
+#' Converted (anthropic) area (km^2) of a conversion result; 0 if empty/absent.
+#' A value > 0 is measured habitat loss, the basis on which the IUCN guidelines
+#' allow a continuing decline in habitat (b(iii)) to be inferred "from rate of
+#' habitat loss" under B1b/B2b.
+#' @keywords internal
+#' @noRd
+.anthropic_km2 <- function(conv) {
+  if (is.null(conv)) return(0)
+  a <- suppressWarnings(as.numeric(conv$anthropic_km2))
   if (length(a) == 0 || is.na(a)) 0 else a
 }
 

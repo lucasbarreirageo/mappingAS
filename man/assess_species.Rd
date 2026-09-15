@@ -30,6 +30,8 @@ assess_species(
   decline = NA,
   extreme_fluctuation = NA,
   severe_fragmentation = NA,
+  assume_decline = TRUE,
+  infer_decline_from_habitat = TRUE,
   min_records = 1,
   verbose = TRUE
 )
@@ -129,12 +131,37 @@ of the size thresholds to yield an applicable category (\code{category_B}
 and \code{criterion_B_code} in the summary). \code{decline} is
 sub-criterion (b) (a continuing decline), \code{extreme_fluctuation} is (c),
 and \code{severe_fragmentation} feeds (a) alongside the estimated number of
-locations. Each may be a single value applied to every species, or a named
-logical vector keyed by species name. \code{NA} (default) means \emph{not
-documented} (treated as not met), so by default a range that only meets a
-size threshold is reported as \strong{NT} until a decline or fragmentation
-is supplied. Sub-criteria (b)/(c) cannot be inferred from occurrence points,
-hence they are inputs, not computed. DD/NE are never assigned automatically.}
+locations, which \emph{caps} the category (a small range spread over many
+locations is held to the less threatened level its location count supports;
+see \code{\link{iucn_criterion_B}}). Each may be a single value applied to
+every species, or a named logical vector keyed by species name. \code{NA}
+(default) means \emph{not documented}: (a)/(c) are then treated as not met,
+while an undocumented decline (b) is resolved by \code{assume_decline}.
+Sub-criteria (b)/(c) cannot be inferred from occurrence points, hence they
+are inputs, not computed. DD/NE are never assigned automatically.}
+
+\item{assume_decline}{Logical; how an undocumented continuing decline
+(\code{decline = NA}) is treated by \code{\link{iucn_criterion_B}}.
+\code{TRUE} (default) assumes a decline is present - as \pkg{ConR} does, and
+as the habitat-conversion data support (sub-criterion b(iii)) - so a
+small-range, few-location taxon is reported at its CR/EN/VU size-and-location
+level instead of collapsing to \strong{NT}. \code{FALSE} restores the strict
+screening where an undocumented decline is not met (NT until a decline is
+supplied). The \code{decline_assumed} column flags each species for which
+(b) was assumed rather than documented.}
+
+\item{infer_decline_from_habitat}{Logical; when \code{TRUE} (default) and
+\code{decline} is not documented for a species, a continuing decline (b) is
+\emph{inferred from the measured habitat loss} whenever land cover ran and
+the range holds any converted (anthropic) area. The IUCN guidelines (v16,
+sect. 4.6) explicitly allow a continuing decline in the area/quality of
+habitat (sub-criterion b(iii)) to be inferred "from rate of habitat loss"
+under B1b/B2b, "at any rate" (no magnitude threshold). This is recorded as
+\code{decline_basis = "inferred (habitat loss)"} - distinct from
+\code{"assumed"} (the ConR-style global fallback used when no conversion is
+available), \code{"documented"} / \code{"documented (absent)"} (an explicit
+\code{decline}), or \code{"not documented"}. Set \code{FALSE} to rely only
+on \code{decline} / \code{assume_decline}.}
 
 \item{min_records}{Minimum records required to attempt an assessment.}
 

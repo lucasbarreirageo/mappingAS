@@ -287,20 +287,40 @@ assessment_report <- function(assessment, species = NULL,
       have <- character(0)
       if (isTRUE(r$subcrit_a)) have <- c(have, L("(a) severe fragmentation / few locations",
                                                   "(a) fragmentacao severa / poucas localidades"))
-      if (isTRUE(r$subcrit_b)) have <- c(have, L("(b) continuing decline",
-                                                  "(b) declinio continuo"))
+      b_basis <- if ("decline_basis" %in% names(r)) as.character(r$decline_basis)[1]
+                 else if ("decline_assumed" %in% names(r) && isTRUE(r$decline_assumed))
+                   "assumed" else "documented"
+      if (isTRUE(r$subcrit_b)) have <- c(have,
+        if (identical(b_basis, "inferred (habitat loss)"))
+          L("(b) continuing decline (inferred from habitat loss)",
+            "(b) declinio continuo (inferido da perda de habitat)")
+        else if (identical(b_basis, "assumed"))
+          L("(b) continuing decline (assumed)", "(b) declinio continuo (assumido)")
+        else L("(b) continuing decline", "(b) declinio continuo"))
       if (isTRUE(r$subcrit_c)) have <- c(have, L("(c) extreme fluctuation",
                                                   "(c) flutuacao extrema"))
       if (length(have)) paste(have, collapse = ", ") else L("none", "nenhum")
     }
+    b_basis <- if ("decline_basis" %in% names(r)) as.character(r$decline_basis)[1]
+               else if ("decline_assumed" %in% names(r) && isTRUE(r$decline_assumed))
+                 "assumed" else "documented"
+    b_assumed <- identical(b_basis, "assumed")
+    b_inferred <- identical(b_basis, "inferred (habitat loss)")
     app_p <- c(sprintf(L(
-      "Combining the size thresholds with the sub-criteria set for this assessment, the applied Criterion B category is <b>%s</b>%s. The sub-criteria considered met are: %s.",
-      "Combinando os limiares de tamanho com os subcriterios definidos para esta avaliacao, a categoria aplicada do Criterio B e <b>%s</b>%s. Os subcriterios considerados atendidos sao: %s."),
+      "Combining the size thresholds with the sub-criteria set for this assessment, the applied Criterion B category is <b>%s</b>%s. The sub-criteria considered met are: %s. The number of locations caps the category under sub-criterion (a).",
+      "Combinando os limiares de tamanho com os subcriterios definidos para esta avaliacao, a categoria aplicada do Criterio B e <b>%s</b>%s. Os subcriterios considerados atendidos sao: %s. O numero de localidades limita a categoria pelo subcriterio (a)."),
       cat_txt(app_cat),
       if (!is.na(app_code) && nzchar(app_code)) sprintf(" (%s)", app_code) else "",
       sub_txt()),
-      L("This applied category incorporates expert input on continuing decline and extreme fluctuation (which cannot be read from occurrence points) and, as with the provisional category, is a screening aid rather than a formal Red List assessment.",
-        "Esta categoria aplicada incorpora a avaliacao do especialista sobre declinio continuo e flutuacao extrema (que nao podem ser lidos apenas dos pontos de ocorrencia) e, como a categoria provisoria, e um apoio de triagem e nao uma avaliacao formal da Lista Vermelha."))
+      if (b_inferred)
+        L("The continuing decline (sub-criterion b) was inferred from the habitat loss (converted land cover) measured within the range: the IUCN guidelines allow a continuing decline in the area, extent and/or quality of habitat (b(iii)) to be inferred from the rate of habitat loss under B1b/B2b, at any rate. As with the provisional category, this is a screening aid rather than a formal Red List assessment, and the inference should be checked against the trend of the specific habitat the taxon depends on.",
+          "O declinio continuo (subcriterio b) foi inferido da perda de habitat (cobertura convertida) medida na distribuicao: as diretrizes da IUCN permitem inferir um declinio continuo na area, extensao e/ou qualidade do habitat (b(iii)) a partir da taxa de perda de habitat sob B1b/B2b, a qualquer taxa. Como a categoria provisoria, e um apoio de triagem e nao uma avaliacao formal da Lista Vermelha, e a inferencia deve ser verificada com a tendencia do habitat especifico do qual o taxon depende.")
+      else if (b_assumed)
+        L("A continuing decline (sub-criterion b) was assumed rather than documented, as recommended for range-restricted taxa in converting landscapes; it should be confirmed against the trend of the specific habitat. As with the provisional category, this is a screening aid rather than a formal Red List assessment.",
+          "Um declinio continuo (subcriterio b) foi assumido em vez de documentado, como recomendado para taxons de distribuicao restrita em paisagens em conversao; deve ser confirmado com a tendencia do habitat especifico. Como a categoria provisoria, e um apoio de triagem e nao uma avaliacao formal da Lista Vermelha.")
+      else
+        L("This applied category incorporates expert input on continuing decline and extreme fluctuation (which cannot be read from occurrence points) and, as with the provisional category, is a screening aid rather than a formal Red List assessment.",
+          "Esta categoria aplicada incorpora a avaliacao do especialista sobre declinio continuo e flutuacao extrema (que nao podem ser lidos apenas dos pontos de ocorrencia) e, como a categoria provisoria, e um apoio de triagem e nao uma avaliacao formal da Lista Vermelha."))
     add(L("Applied Criterion B category", "Categoria aplicada (Criterio B)"), app_p)
   }
 

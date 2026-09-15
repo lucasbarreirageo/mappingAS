@@ -221,9 +221,10 @@ iucn_category_B <- function(eoo_km2 = NA_real_, aoo_km2 = NA_real_) {
 #' Combines the EOO (B1) and AOO (B2) \emph{size} thresholds of Criterion B with
 #' the sub-criteria required for a threatened listing, following the IUCN Red
 #' List Categories and Criteria (v3.1) and the Guidelines for Using them
-#' (Section 6, Criterion B; Section 10, DD/NT/NE). Unlike
-#' \code{\link{iucn_category_B}} (size flags only), this returns a category that
-#' can actually be applied.
+#' (Section 6, Criterion B; Section 10, DD/NT/NE), and aligning the category
+#' selection with the \pkg{ConR} package (Dauby \emph{et al.} 2017,
+#' \code{cat_criterion_b()}). Unlike \code{\link{iucn_category_B}} (size flags
+#' only), this returns a category that can actually be applied.
 #'
 #' A taxon qualifies for a threatened category (CR, EN, VU) only if it meets the
 #' size threshold \emph{and} at least two of these three sub-criteria:
@@ -234,47 +235,102 @@ iucn_category_B <- function(eoo_km2 = NA_real_, aoo_km2 = NA_real_) {
 #'     habitat, number of locations/subpopulations, or mature individuals);
 #'   \item \strong{(c)} extreme fluctuations.
 #' }
-#' Sub-criterion (a) is derived here from \code{n_locations} (and
-#' \code{severe_fragmentation} when supplied). Sub-criteria (b) and (c) cannot be
-#' inferred from occurrence points, so they are \strong{expert inputs}; left as
-#' \code{NA} they are treated as \emph{not documented} (not met).
+#'
+#' \strong{Relation to the number of locations.} Sub-criterion (a) is derived
+#' from \code{n_locations} (and \code{severe_fragmentation} when supplied), and
+#' it \emph{caps} the category exactly as ConR does: the returned category is the
+#' \emph{less threatened} of the level implied by range size and the level
+#' implied by the number of locations. A range whose EOO/AOO alone would be CR or
+#' EN but that is spread over, say, eight locations is therefore returned as
+#' \strong{VU} (\eqn{\le 10} locations), not EN - the number of locations, not
+#' size alone, sets the category. Equivalently, per level: CR needs a single
+#' location, EN \eqn{\le 5}, VU \eqn{\le 10} (unless severely fragmented, which
+#' meets condition (a) at any level).
+#'
+#' \strong{Continuing decline (b), assumed by default.} Sub-criteria (b) and (c)
+#' cannot be read from occurrence points. Following ConR - and because
+#' \pkg{mappingAS} is built around habitat-conversion data, which is direct
+#' evidence of a continuing decline in the area, extent and quality of habitat
+#' (sub-criterion b(iii)) - a continuing decline is \strong{assumed to be
+#' present} when it is not explicitly documented (\code{decline = NA} with
+#' \code{assume_decline = TRUE}, the default). This is what makes the screening
+#' track the IUCN thresholds instead of collapsing every undocumented taxon to
+#' NT: with the location condition (a) met and decline (b) assumed, a
+#' small-range, few-location taxon is returned at its CR/EN/VU size-and-location
+#' level. Set \code{assume_decline = FALSE} (or \code{decline = FALSE}) to
+#' require a documented decline instead, in which case a size-and-location match
+#' with no second sub-criterion falls to NT. Extreme fluctuation (c) is never
+#' assumed.
 #'
 #' Following Section 10: a taxon that meets a size threshold but not two
-#' sub-criteria is returned as \strong{NT} (Near Threatened, it "nearly meets"
-#' the requirements); one clearly far from every threshold as \strong{LC}.
-#' \strong{DD} and \strong{NE} are \emph{never} assigned automatically - they
-#' require the assessor's judgement about data adequacy and are left to the user.
+#' sub-criteria (for example a small range spread over too many locations, or
+#' with decline explicitly absent) is returned as \strong{NT} (Near Threatened,
+#' it "nearly meets" the requirements); one clearly far from every threshold as
+#' \strong{LC}. \strong{DD} and \strong{NE} are \emph{never} assigned
+#' automatically - they require the assessor's judgement about data adequacy and
+#' are left to the user.
 #'
 #' @param eoo_km2,aoo_km2 EOO and AOO in km^2 (\code{NA} if undefined).
-#' @param n_locations Estimated number of locations (\code{NA} if unknown).
+#' @param n_locations Estimated number of locations (\code{NA} if unknown). This
+#'   is the value that caps the category through sub-criterion (a); see Details.
 #' @param severe_fragmentation Logical; \code{TRUE} if the taxon is severely
-#'   fragmented. \code{NA} (default) = not assessed.
+#'   fragmented (meets condition (a) at any level). \code{NA} (default) = not
+#'   assessed.
 #' @param decline Logical; \code{TRUE} if there is a continuing decline
-#'   (sub-criterion b). \code{NA} (default) = not documented.
+#'   (sub-criterion b), \code{FALSE} if a decline is known to be absent.
+#'   \code{NA} (default) = not documented, resolved by \code{assume_decline}.
 #' @param extreme_fluctuation Logical; \code{TRUE} if there are extreme
-#'   fluctuations (sub-criterion c). \code{NA} (default) = not documented.
+#'   fluctuations (sub-criterion c). \code{NA} (default) = not documented (never
+#'   assumed).
+#' @param assume_decline Logical; how an undocumented decline
+#'   (\code{decline = NA}) is treated. \code{TRUE} (default) assumes a continuing
+#'   decline is present, as ConR does and as the conversion data support;
+#'   \code{FALSE} treats it as not met (a stricter, more conservative screening).
+#'   Ignored when \code{decline} is \code{TRUE}/\code{FALSE}.
+#' @param decline_detail Optional character giving the element(s) of the
+#'   continuing decline for the IUCN code notation (v16, Section 6), appended in
+#'   parentheses after the \code{b} in \code{code}: \code{"i"} EOO, \code{"ii"}
+#'   AOO, \code{"iii"} area/extent/quality of habitat, \code{"iv"} number of
+#'   locations/subpopulations, \code{"v"} number of mature individuals (combine
+#'   with commas, e.g. \code{"ii,iii"}). \code{NULL} (default) omits it, so the
+#'   code reads e.g. \code{"EN B1ab"}; with \code{"iii"} it reads
+#'   \code{"EN B1ab(iii)"}.
 #' @return A list with \code{category} (one of \code{"CR"}, \code{"EN"},
 #'   \code{"VU"}, \code{"NT"}, \code{"LC"}, or \code{NA} when neither EOO nor AOO
 #'   is available), \code{code} (e.g. \code{"VU B1ab"}), \code{qualifies_size}
-#'   (the highest size level met, or \code{NA}) and the evaluated sub-criteria
-#'   \code{a}, \code{b}, \code{c}.
+#'   (the highest size level met, or \code{NA}), the evaluated sub-criteria
+#'   \code{a}, \code{b}, \code{c}, and \code{decline_assumed} (\code{TRUE} when
+#'   sub-criterion (b) was assumed rather than documented).
 #' @examples
-#' # EN size, few locations and a documented decline -> EN B1ab
+#' # EN-sized range with few locations: decline assumed by default -> EN B1ab
+#' iucn_criterion_B(eoo_km2 = 3000, aoo_km2 = 400, n_locations = 4)$code
+#' # Same size but spread over 8 locations -> capped to VU by the location count
+#' iucn_criterion_B(eoo_km2 = 3000, aoo_km2 = 400, n_locations = 8)$category
+#' # Require a documented decline: with none, a size/location match falls to NT
 #' iucn_criterion_B(eoo_km2 = 3000, aoo_km2 = 400, n_locations = 4,
-#'                  decline = TRUE)$code
-#' # Same size but decline not documented -> only one sub-criterion -> NT
-#' iucn_criterion_B(eoo_km2 = 3000, aoo_km2 = 400, n_locations = 4)$category
+#'                  assume_decline = FALSE)$category
 #' @seealso \code{\link{iucn_category_B}}
+#' @references
+#' Dauby G. \emph{et al.} (2017) ConR: An R package to assist large-scale
+#'   multispecies preliminary conservation assessments using distribution data.
+#'   \emph{Ecology and Evolution} 7:11292-11303. \doi{10.1002/ece3.3704}
 #' @export
 iucn_criterion_B <- function(eoo_km2 = NA_real_, aoo_km2 = NA_real_,
                              n_locations = NA_real_,
                              severe_fragmentation = NA,
-                             decline = NA, extreme_fluctuation = NA) {
+                             decline = NA, extreme_fluctuation = NA,
+                             assume_decline = TRUE, decline_detail = NULL) {
   levels <- list(
     CR = list(eoo = 100,   aoo = 10,   loc = 1),
     EN = list(eoo = 5000,  aoo = 500,  loc = 5),
     VU = list(eoo = 20000, aoo = 2000, loc = 10))
-  b    <- isTRUE(decline)
+  # Condition (b): a continuing decline is assumed present when undocumented
+  # (ConR default), which the habitat-conversion data support; assume_decline =
+  # FALSE restores the strict "not documented = not met" behaviour. A NULL or
+  # non-scalar decline is treated as undocumented.
+  if (length(decline) != 1L) decline <- NA
+  b_assumed <- is.na(decline) && isTRUE(assume_decline)
+  b    <- isTRUE(decline) || b_assumed
   cc   <- isTRUE(extreme_fluctuation)
   frag <- isTRUE(severe_fragmentation)
   nloc <- suppressWarnings(as.numeric(n_locations))
@@ -286,12 +342,24 @@ iucn_criterion_B <- function(eoo_km2 = NA_real_, aoo_km2 = NA_real_,
     size_b1 <- is.finite(eoo) && eoo < th$eoo
     size_b2 <- is.finite(aoo) && aoo < th$aoo
     if (!size_b1 && !size_b2) next
+    # Condition (a): severe fragmentation, or the number of locations within the
+    # threshold for THIS level. Because the loop returns the most threatened
+    # level whose size AND location count both qualify, the location count caps
+    # the category (ConR's max() of the size- and location-implied levels).
     a <- frag || (is.finite(nloc) && nloc <= th$loc)
     if (sum(a, b, cc) >= 2) {
       axes <- paste0(c(if (size_b1) "1", if (size_b2) "2"), collapse = "+")
-      lett <- paste0(c(if (a) "a", if (b) "b", if (cc) "c"), collapse = "")
+      # IUCN code notation (v16, sect. 6, e.g. "EN B1ab(iii)"): the letters a/b/c
+      # name the conditions met and, for (b), the parenthetical roman numeral(s)
+      # name the element(s) in continuing decline (i EOO, ii AOO, iii habitat,
+      # iv locations/subpopulations, v mature individuals).
+      b_lab <- if (b) paste0("b", if (!is.null(decline_detail) &&
+                                        nzchar(decline_detail))
+                                    paste0("(", decline_detail, ")") else "")
+      lett <- paste0(c(if (a) "a", b_lab, if (cc) "c"), collapse = "")
       return(list(category = lv, code = paste0(lv, " B", axes, lett),
-                  qualifies_size = lv, a = a, b = b, c = cc))
+                  qualifies_size = lv, a = a, b = b, c = cc,
+                  decline_assumed = b_assumed))
     }
   }
 
@@ -300,12 +368,14 @@ iucn_criterion_B <- function(eoo_km2 = NA_real_, aoo_km2 = NA_real_,
               (is.finite(aoo) && aoo < levels$VU$aoo)
   if (size_any)
     return(list(category = "NT", code = "NT (meets B size only)",
-                qualifies_size = "VU", a = a_vu, b = b, c = cc))
+                qualifies_size = "VU", a = a_vu, b = b, c = cc,
+                decline_assumed = b_assumed))
   if (!is.finite(eoo) && !is.finite(aoo))
     return(list(category = NA_character_, code = NA_character_,
-                qualifies_size = NA_character_, a = a_vu, b = b, c = cc))
+                qualifies_size = NA_character_, a = a_vu, b = b, c = cc,
+                decline_assumed = b_assumed))
   list(category = "LC", code = "LC", qualifies_size = NA_character_,
-       a = a_vu, b = b, c = cc)
+       a = a_vu, b = b, c = cc, decline_assumed = b_assumed)
 }
 
 #' Conservation-group labels and colours (single source of truth)

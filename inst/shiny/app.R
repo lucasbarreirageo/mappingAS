@@ -377,18 +377,25 @@ ui <- bslib::page_sidebar(
         bslib::card_header("IUCN Criterion B — applied category"),
         bslib::card_body(
           helpText(htmltools::HTML(
-            "The size thresholds alone are only a screening flag. A threatened ",
-            "listing (CR/EN/VU) also needs <b>at least two</b> sub-criteria. ",
-            "Sub-criterion <b>(a)</b> (few locations) is derived from the data; ",
-            "<b>(b)</b> continuing decline and <b>(c)</b> extreme fluctuation ",
-            "cannot be read from occurrence points, so set them here for the ",
-            "selected species. A range that meets a size threshold but not two ",
-            "sub-criteria is <b>NT</b>. DD/NE are left to your judgement.")),
+            "The buttons below <b>start out showing the automatic result</b> for ",
+            "the selected species: the sub-criteria the assessment found are ",
+            "pre-checked, and the category badge reflects them. You keep full ",
+            "control - <b>uncheck</b> any sub-criterion to override it (for ",
+            "example, drop the taxon to <b>NT</b> or <b>LC</b>), and re-checking ",
+            "the automatic state restores the computed category. A threatened ",
+            "listing (CR/EN/VU) needs the size threshold plus <b>at least two</b> ",
+            "sub-criteria. <b>(a)</b> (few locations / fragmented) is derived from ",
+            "the data and <b>caps</b> the category by the number of locations; ",
+            "<b>(b)</b> continuing decline is inferred from the habitat loss (or ",
+            "assumed when no land cover is available); <b>(c)</b> extreme ",
+            "fluctuation cannot be read from occurrence points. A range that meets ",
+            "a size threshold but not two sub-criteria (e.g. too many locations, ",
+            "or decline unchecked) is <b>NT</b>. DD/NE are left to your judgement.")),
           fluidRow(
             column(4, checkboxInput(
               "cb_decline",
               "(b) Continuing decline (EOO/AOO/habitat/locations/individuals)",
-              FALSE)),
+              TRUE)),
             column(4, checkboxInput(
               "cb_fluct", "(c) Extreme fluctuations", FALSE)),
             column(4, checkboxInput(
@@ -762,9 +769,29 @@ server <- function(input, output, session) {
   # re-apply iucn_criterion_B() live, without re-running the assessment.
   subcrit_store <- reactiveVal(list())
 
+  # The automatic (assessment) sub-criteria for a species: the default state the
+  # buttons show - what the result WOULD be before any assessor override. (b)
+  # comes from the assessment (documented / inferred from habitat loss / assumed)
+  # and (c) from the assessment; (frag) is not recoverable from the summary, so
+  # it defaults to FALSE (sub-criterion (a) already reflects the locations).
+  .computed_subcrit <- function(sp) {
+    s <- tryCatch(result()$summary, error = function(e) NULL)
+    dflt <- list(b = TRUE, c = FALSE, frag = FALSE)
+    if (is.null(s) || !is.data.frame(s) || !nrow(s) ||
+        is.null(sp) || !nzchar(sp)) return(dflt)
+    r <- s[s$species == sp, , drop = FALSE]
+    if (!nrow(r)) return(dflt)
+    list(b    = if ("subcrit_b" %in% names(r)) isTRUE(r$subcrit_b[1]) else TRUE,
+         c    = if ("subcrit_c" %in% names(r)) isTRUE(r$subcrit_c[1]) else FALSE,
+         frag = FALSE)
+  }
+
+  # The checkbox state for a species: an explicit assessor override if one exists,
+  # otherwise the automatic assessment result (so the buttons start out showing
+  # the computed category and can be unchecked to drop the taxon to NT/LC).
   .get_subcrit <- function(sp) {
     v <- subcrit_store()[[sp]]
-    if (is.null(v)) list(b = FALSE, c = FALSE, frag = FALSE) else v
+    if (is.null(v)) .computed_subcrit(sp) else v
   }
 
   # result()$summary with category_B / criterion_B_code re-applied from the
@@ -787,6 +814,10 @@ server <- function(input, output, session) {
       if ("subcrit_a" %in% names(s)) s$subcrit_a[i] <- cb$a
       if ("subcrit_b" %in% names(s)) s$subcrit_b[i] <- cb$b
       if ("subcrit_c" %in% names(s)) s$subcrit_c[i] <- cb$c
+      # The checkboxes are an explicit assessor choice, so (b) is documented.
+      if ("decline_assumed" %in% names(s)) s$decline_assumed[i] <- FALSE
+      if ("decline_basis" %in% names(s))
+        s$decline_basis[i] <- if (isTRUE(v$b)) "documented" else "documented (absent)"
     }
     s
   })
@@ -815,22 +846,36 @@ server <- function(input, output, session) {
     list(category = cat, code = code)
   }
 
-  # Sync the three checkboxes to the selected species' stored values.
-  observeEvent(input$results_species, {
-    v <- .get_subcrit(input$results_species)
+  # Seed the three checkboxes for the selected species from its current state
+  # (assessment result, or an existing override), so the buttons show what the
+  # result would be. Runs on species change and whenever a new assessment lands.
+  .sync_checkboxes <- function() {
+    sp <- input$results_species
+    if (is.null(sp) || !nzchar(sp)) return()
+    v <- .get_subcrit(sp)
     updateCheckboxInput(session, "cb_decline", value = isTRUE(v$b))
     updateCheckboxInput(session, "cb_fluct",   value = isTRUE(v$c))
     updateCheckboxInput(session, "cb_frag",    value = isTRUE(v$frag))
+  }
+  observeEvent(input$results_species, .sync_checkboxes(), ignoreInit = FALSE)
+  # A fresh assessment invalidates prior per-species overrides; clear them and
+  # re-seed the buttons from the new result.
+  observeEvent(result(), {
+    subcrit_store(list())
+    .sync_checkboxes()
   }, ignoreInit = TRUE)
 
-  # Persist checkbox edits back into the per-species store.
+  # Persist checkbox edits. Only a state that DIFFERS from the automatic result
+  # is stored as an override; reverting the buttons to the computed default drops
+  # the override, so the taxon returns to its assessment category.
   observeEvent(list(input$cb_decline, input$cb_fluct, input$cb_frag), {
     sp <- input$results_species
     if (is.null(sp) || !nzchar(sp)) return()
+    new <- list(b = isTRUE(input$cb_decline),
+                c = isTRUE(input$cb_fluct),
+                frag = isTRUE(input$cb_frag))
     st <- subcrit_store()
-    st[[sp]] <- list(b = isTRUE(input$cb_decline),
-                     c = isTRUE(input$cb_fluct),
-                     frag = isTRUE(input$cb_frag))
+    if (identical(new, .computed_subcrit(sp))) st[[sp]] <- NULL else st[[sp]] <- new
     subcrit_store(st)
   }, ignoreInit = TRUE)
 
@@ -1229,9 +1274,11 @@ server <- function(input, output, session) {
       c("provisional_cat", L("Combined provisional category (the more threatened of B1/B2). Screening only.", "Categoria provisoria combinada (a mais ameacada entre B1/B2). Apenas triagem.")),
       c("category_B", L("Applied Criterion B category (CR/EN/VU need size AND >=2 sub-criteria; NT if size met but not; LC otherwise). DD/NE are never automatic.", "Categoria aplicada do Criterio B (CR/EN/VU exigem tamanho E >=2 subcriterios; NT se so o tamanho; senao LC). DD/NE nunca automaticos.")),
       c("criterion_B_code", L("Full Criterion B code, e.g. 'VU B1ab'.", "Codigo completo do Criterio B, ex.: 'VU B1ab'.")),
-      c("subcrit_a", L("Sub-criterion (a): severely fragmented or few locations.", "Subcriterio (a): severamente fragmentada ou poucas localidades.")),
-      c("subcrit_b", L("Sub-criterion (b): continuing decline (expert input).", "Subcriterio (b): declinio continuo (entrada do especialista).")),
+      c("subcrit_a", L("Sub-criterion (a): severely fragmented or few locations; the number of locations caps the category.", "Subcriterio (a): severamente fragmentada ou poucas localidades; o numero de localidades limita a categoria.")),
+      c("subcrit_b", L("Sub-criterion (b): continuing decline. Assumed present by default (ConR-style, supported by the conversion data); uncheck to require documentation.", "Subcriterio (b): declinio continuo. Assumido presente por padrao (estilo ConR, apoiado pelos dados de conversao); desmarque para exigir documentacao.")),
       c("subcrit_c", L("Sub-criterion (c): extreme fluctuations (expert input).", "Subcriterio (c): flutuacoes extremas (entrada do especialista).")),
+      c("decline_assumed", L("TRUE when sub-criterion (b) was assumed present rather than documented.", "TRUE quando o subcriterio (b) foi assumido presente em vez de documentado.")),
+      c("decline_basis", L("How sub-criterion (b) was set: 'documented', 'inferred (habitat loss)' (from measured conversion, per IUCN b(iii) 'rate of habitat loss'), 'assumed' (ConR fallback) or 'not documented'.", "Como o subcriterio (b) foi definido: 'documented', 'inferred (habitat loss)' (da conversao medida, conforme b(iii) 'taxa de perda de habitat' da IUCN), 'assumed' (fallback ConR) ou 'not documented'.")),
       c("mapbiomas_initiative", L("Land-cover product used (a MapBiomas country, or 'sentinel2' for the global Esri/Sentinel-2 layer).", "Produto de cobertura usado (um pais do MapBiomas, ou 'sentinel2' para a camada global Esri/Sentinel-2).")),
       c("mapbiomas_year", L("Land-cover year used.", "Ano da cobertura usada.")),
       c("mapbiomas_collection", L("Land-cover collection number (NA for Sentinel-2).", "Numero da colecao de cobertura (NA para Sentinel-2).")),

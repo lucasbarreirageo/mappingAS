@@ -10,37 +10,60 @@ iucn_criterion_B(
   n_locations = NA_real_,
   severe_fragmentation = NA,
   decline = NA,
-  extreme_fluctuation = NA
+  extreme_fluctuation = NA,
+  assume_decline = TRUE,
+  decline_detail = NULL
 )
 }
 \arguments{
 \item{eoo_km2, aoo_km2}{EOO and AOO in km^2 (\code{NA} if undefined).}
 
-\item{n_locations}{Estimated number of locations (\code{NA} if unknown).}
+\item{n_locations}{Estimated number of locations (\code{NA} if unknown). This
+is the value that caps the category through sub-criterion (a); see Details.}
 
 \item{severe_fragmentation}{Logical; \code{TRUE} if the taxon is severely
-fragmented. \code{NA} (default) = not assessed.}
+fragmented (meets condition (a) at any level). \code{NA} (default) = not
+assessed.}
 
 \item{decline}{Logical; \code{TRUE} if there is a continuing decline
-(sub-criterion b). \code{NA} (default) = not documented.}
+(sub-criterion b), \code{FALSE} if a decline is known to be absent.
+\code{NA} (default) = not documented, resolved by \code{assume_decline}.}
 
 \item{extreme_fluctuation}{Logical; \code{TRUE} if there are extreme
-fluctuations (sub-criterion c). \code{NA} (default) = not documented.}
+fluctuations (sub-criterion c). \code{NA} (default) = not documented (never
+assumed).}
+
+\item{assume_decline}{Logical; how an undocumented decline
+(\code{decline = NA}) is treated. \code{TRUE} (default) assumes a continuing
+decline is present, as ConR does and as the conversion data support;
+\code{FALSE} treats it as not met (a stricter, more conservative screening).
+Ignored when \code{decline} is \code{TRUE}/\code{FALSE}.}
+
+\item{decline_detail}{Optional character giving the element(s) of the
+continuing decline for the IUCN code notation (v16, Section 6), appended in
+parentheses after the \code{b} in \code{code}: \code{"i"} EOO, \code{"ii"}
+AOO, \code{"iii"} area/extent/quality of habitat, \code{"iv"} number of
+locations/subpopulations, \code{"v"} number of mature individuals (combine
+with commas, e.g. \code{"ii,iii"}). \code{NULL} (default) omits it, so the
+code reads e.g. \code{"EN B1ab"}; with \code{"iii"} it reads
+\code{"EN B1ab(iii)"}.}
 }
 \value{
 A list with \code{category} (one of \code{"CR"}, \code{"EN"},
 \code{"VU"}, \code{"NT"}, \code{"LC"}, or \code{NA} when neither EOO nor AOO
 is available), \code{code} (e.g. \code{"VU B1ab"}), \code{qualifies_size}
-(the highest size level met, or \code{NA}) and the evaluated sub-criteria
-\code{a}, \code{b}, \code{c}.
+(the highest size level met, or \code{NA}), the evaluated sub-criteria
+\code{a}, \code{b}, \code{c}, and \code{decline_assumed} (\code{TRUE} when
+sub-criterion (b) was assumed rather than documented).
 }
 \description{
 Combines the EOO (B1) and AOO (B2) \emph{size} thresholds of Criterion B with
 the sub-criteria required for a threatened listing, following the IUCN Red
 List Categories and Criteria (v3.1) and the Guidelines for Using them
-(Section 6, Criterion B; Section 10, DD/NT/NE). Unlike
-\code{\link{iucn_category_B}} (size flags only), this returns a category that
-can actually be applied.
+(Section 6, Criterion B; Section 10, DD/NT/NE), and aligning the category
+selection with the \pkg{ConR} package (Dauby \emph{et al.} 2017,
+\code{cat_criterion_b()}). Unlike \code{\link{iucn_category_B}} (size flags
+only), this returns a category that can actually be applied.
 }
 \details{
 A taxon qualifies for a threatened category (CR, EN, VU) only if it meets the
@@ -52,23 +75,54 @@ size threshold \emph{and} at least two of these three sub-criteria:
 habitat, number of locations/subpopulations, or mature individuals);
 \item \strong{(c)} extreme fluctuations.
 }
-Sub-criterion (a) is derived here from \code{n_locations} (and
-\code{severe_fragmentation} when supplied). Sub-criteria (b) and (c) cannot be
-inferred from occurrence points, so they are \strong{expert inputs}; left as
-\code{NA} they are treated as \emph{not documented} (not met).
+
+\strong{Relation to the number of locations.} Sub-criterion (a) is derived
+from \code{n_locations} (and \code{severe_fragmentation} when supplied), and
+it \emph{caps} the category exactly as ConR does: the returned category is the
+\emph{less threatened} of the level implied by range size and the level
+implied by the number of locations. A range whose EOO/AOO alone would be CR or
+EN but that is spread over, say, eight locations is therefore returned as
+\strong{VU} (\eqn{\le 10} locations), not EN - the number of locations, not
+size alone, sets the category. Equivalently, per level: CR needs a single
+location, EN \eqn{\le 5}, VU \eqn{\le 10} (unless severely fragmented, which
+meets condition (a) at any level).
+
+\strong{Continuing decline (b), assumed by default.} Sub-criteria (b) and (c)
+cannot be read from occurrence points. Following ConR - and because
+\pkg{mappingAS} is built around habitat-conversion data, which is direct
+evidence of a continuing decline in the area, extent and quality of habitat
+(sub-criterion b(iii)) - a continuing decline is \strong{assumed to be
+present} when it is not explicitly documented (\code{decline = NA} with
+\code{assume_decline = TRUE}, the default). This is what makes the screening
+track the IUCN thresholds instead of collapsing every undocumented taxon to
+NT: with the location condition (a) met and decline (b) assumed, a
+small-range, few-location taxon is returned at its CR/EN/VU size-and-location
+level. Set \code{assume_decline = FALSE} (or \code{decline = FALSE}) to
+require a documented decline instead, in which case a size-and-location match
+with no second sub-criterion falls to NT. Extreme fluctuation (c) is never
+assumed.
 
 Following Section 10: a taxon that meets a size threshold but not two
-sub-criteria is returned as \strong{NT} (Near Threatened, it "nearly meets"
-the requirements); one clearly far from every threshold as \strong{LC}.
-\strong{DD} and \strong{NE} are \emph{never} assigned automatically - they
-require the assessor's judgement about data adequacy and are left to the user.
+sub-criteria (for example a small range spread over too many locations, or
+with decline explicitly absent) is returned as \strong{NT} (Near Threatened,
+it "nearly meets" the requirements); one clearly far from every threshold as
+\strong{LC}. \strong{DD} and \strong{NE} are \emph{never} assigned
+automatically - they require the assessor's judgement about data adequacy and
+are left to the user.
 }
 \examples{
-# EN size, few locations and a documented decline -> EN B1ab
+# EN-sized range with few locations: decline assumed by default -> EN B1ab
+iucn_criterion_B(eoo_km2 = 3000, aoo_km2 = 400, n_locations = 4)$code
+# Same size but spread over 8 locations -> capped to VU by the location count
+iucn_criterion_B(eoo_km2 = 3000, aoo_km2 = 400, n_locations = 8)$category
+# Require a documented decline: with none, a size/location match falls to NT
 iucn_criterion_B(eoo_km2 = 3000, aoo_km2 = 400, n_locations = 4,
-                 decline = TRUE)$code
-# Same size but decline not documented -> only one sub-criterion -> NT
-iucn_criterion_B(eoo_km2 = 3000, aoo_km2 = 400, n_locations = 4)$category
+                 assume_decline = FALSE)$category
+}
+\references{
+Dauby G. \emph{et al.} (2017) ConR: An R package to assist large-scale
+multispecies preliminary conservation assessments using distribution data.
+\emph{Ecology and Evolution} 7:11292-11303. \doi{10.1002/ece3.3704}
 }
 \seealso{
 \code{\link{iucn_category_B}}
