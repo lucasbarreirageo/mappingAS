@@ -29,6 +29,12 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
+      # Force HTTP/1.1 for package downloads. pak's HTTP/2 downloads are
+      # occasionally truncated on the GitHub runners (notably macOS arm64),
+      # which surfaces during dependency installation as
+      # "Cannot extract <pkg>.tgz, unknown archive type". HTTP/1.1 avoids the
+      # corrupted download and is otherwise harmless.
+      PKGCACHE_HTTP_VERSION: "1.1"
 
     steps:
       - uses: actions/checkout@v4
@@ -45,6 +51,10 @@ jobs:
         with:
           extra-packages: any::rcmdcheck
           needs: check
+          # The development pak has fixed several binary-extraction bugs; use it
+          # only on macOS, where the "unknown archive type" failure occurs, so
+          # the other platforms keep the stable pak.
+          pak-version: ${{ matrix.config.os == 'macos-latest' && 'devel' || 'stable' }}
 
       - uses: r-lib/actions/check-r-package@v2
         with:
