@@ -216,6 +216,63 @@ iucn_category_B <- function(eoo_km2 = NA_real_, aoo_km2 = NA_real_) {
   list(eoo_category = cat_eoo, aoo_category = cat_aoo, combined = combined)
 }
 
+#' Criterion B \emph{size} category range under AOO uncertainty
+#'
+#' Combines the fixed EOO (B1) size flag with the \emph{bracketed} AOO (B2) size
+#' flags - from a lower (occurrence-based) and an upper (habitat-based) AOO
+#' bound - into the plausible \emph{range} of Criterion B screening categories.
+#' This is the size-only companion to \code{\link{iucn_category_B}} that lets an
+#' assessment report the uncertainty explicitly, as the sRedList summary does,
+#' rather than a single point estimate. Like \code{\link{iucn_category_B}} it
+#' reflects size thresholds only (the sub-criteria still apply on top).
+#'
+#' Because the EOO is a single value, the most-threatened plausible flag pairs
+#' B1 with B2 at the \emph{lower} AOO, and the least-threatened plausible flag
+#' pairs B1 with B2 at the \emph{upper} AOO; in each case the more threatened of
+#' the two axes wins (as in \code{\link{iucn_category_B}}).
+#'
+#' @param eoo_km2 EOO in km^2 (\code{NA} if undefined).
+#' @param aoo_lower_km2 Lower (occurrence-based) AOO bound in km^2.
+#' @param aoo_upper_km2 Upper (habitat-based) AOO bound in km^2. \code{NA}
+#'   (default) reuses the lower bound (no uncertainty).
+#' @return A list with \code{b1_category} (from EOO), \code{b2_lower} /
+#'   \code{b2_upper} (B2 size flags at the two AOO bounds), \code{worst} and
+#'   \code{best} (the most- and least-threatened plausible screening categories,
+#'   as short codes \code{"CR"/"EN"/"VU"/"NT-/LC-level"}) and \code{range} (a
+#'   compact label such as \code{"EN-VU"}, or a single code when they agree).
+#' @seealso \code{\link{iucn_category_B}}, \code{\link{aoo_bounds}}
+#' @examples
+#' iucn_category_B_range(eoo_km2 = 6000, aoo_lower_km2 = 48, aoo_upper_km2 = 900)
+#' @export
+iucn_category_B_range <- function(eoo_km2 = NA_real_, aoo_lower_km2 = NA_real_,
+                                  aoo_upper_km2 = NA_real_) {
+  eoo <- suppressWarnings(as.numeric(eoo_km2))[1]
+  lo  <- suppressWarnings(as.numeric(aoo_lower_km2))[1]
+  up  <- suppressWarnings(as.numeric(aoo_upper_km2))[1]
+  if (!is.finite(up)) up <- lo
+
+  b1 <- iucn_category_B(eoo_km2 = eoo)$eoo_category
+  b2_lo <- iucn_category_B(aoo_km2 = lo)$aoo_category
+  b2_up <- iucn_category_B(aoo_km2 = up)$aoo_category
+
+  rank <- function(x) {
+    if (is.null(x) || is.na(x)) return(0L)
+    if (grepl("^CR", x)) 3L else if (grepl("^EN", x)) 2L else
+      if (grepl("^VU", x)) 1L else 0L
+  }
+  short <- function(r) c("VU", "EN", "CR")[r] # r in 1:3
+  # Most threatened plausible: B1 vs B2 at the lower (smaller) AOO.
+  worst_r <- max(rank(b1), rank(b2_lo))
+  # Least threatened plausible: B1 vs B2 at the upper (larger) AOO.
+  best_r  <- max(rank(b1), rank(b2_up))
+  code <- function(r) if (r >= 1L) short(r) else "not VU/EN/CR (size)"
+  worst <- code(worst_r); best <- code(best_r)
+  rng <- if (identical(worst, best)) worst else paste0(worst, "-", best)
+
+  list(b1_category = b1, b2_lower = b2_lo, b2_upper = b2_up,
+       worst = worst, best = best, range = rng)
+}
+
 #' Apply IUCN Red List Criterion B (size thresholds plus sub-criteria)
 #'
 #' Combines the EOO (B1) and AOO (B2) \emph{size} thresholds of Criterion B with

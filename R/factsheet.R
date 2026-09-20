@@ -551,7 +551,7 @@ factsheet_html <- function(assessment, species = NULL,
     sprintf("<div class='fs-metric'><span class='k'>%s</span><span class='v'>%s</span></div>",
             lbl, val)
   # Applied Criterion B category: prefer the value passed by the app (the user's
-  # sub-criteria choices on the Results tab); fall back to the summary column.
+  # sub-criteria choices on the Assessment tab); fall back to the summary column.
   app_cat  <- if (!.blank(applied_category)) applied_category
               else if ("category_B" %in% names(r)) r$category_B else NA
   app_code <- if (!.blank(applied_code)) applied_code

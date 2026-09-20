@@ -188,6 +188,124 @@ map_species <- function(assessment, species = NULL, mapbiomas = TRUE,
   m
 }
 
+#' Interactive Area of Habitat (AOH) map for one species
+#'
+#' Builds a \pkg{leaflet} map of the terrestrial Area of Habitat: the
+#' \emph{suitable} land-cover classes within the EOO, optionally restricted to
+#' an elevation band, drawn as a single green overlay together with the EOO hull
+#' and the occurrence points. It is the map companion to \code{\link{calc_aoh}}
+#' and uses the same suitable-class and elevation definitions, so the map shows
+#' exactly the area \code{calc_aoh()} measures.
+#'
+#' Suitable habitat is, by default, the \strong{natural} conservation group of
+#' the land-cover legend; pass \code{suitable_groups} (one or more groups) or
+#' \code{suitable_codes} (specific land-cover class codes, e.g. the classes that
+#' make ecological sense for the species) to change it. When an elevation band
+#' is given, an elevation model read over the EOO (via \code{elev_src} or the
+#' optional \pkg{elevatr} package) masks out the habitat outside
+#' \code{[elev_min, elev_max]}.
+#'
+#' @param assessment A \code{geoconv_assessment} from \code{\link{assess_species}}.
+#' @param species Species name. \code{NULL} (default) uses the first.
+#' @param suitable_groups Conservation group(s) counted as suitable habitat
+#'   (default \code{"natural"}). Ignored when \code{suitable_codes} is given.
+#' @param suitable_codes Optional integer land-cover class codes counted as
+#'   suitable, overriding \code{suitable_groups}.
+#' @param elev_min,elev_max Elevation band in metres (\code{NA} leaves that side
+#'   open; both \code{NA} skips the elevation mask).
+#' @param z Terrain-tile zoom for \pkg{elevatr} (default \code{9}).
+#' @param elev_src,src Optional DEM and land-cover overrides (path/URL).
+#' @param max_pixels Display pixel budget for the land-cover read (default
+#'   \code{800}).
+#' @param lang \code{"pt"} (default) or \code{"en"} for the legend labels.
+#' @return A \code{leaflet} widget, or a base map with just the points/EOO when
+#'   the land cover cannot be read.
+#' @seealso \code{\link{calc_aoh}}, \code{\link{map_species}}
+#' @export
+map_aoh <- function(assessment, species = NULL, suitable_groups = "natural",
+                    suitable_codes = NULL, elev_min = NA, elev_max = NA,
+                    z = 9, elev_src = NULL, src = NULL, max_pixels = 800,
+                    lang = c("pt", "en")) {
+  lang <- match.arg(lang)
+  stopifnot(inherits(assessment, "geoconv_assessment"))
+  if (!requireNamespace("leaflet", quietly = TRUE))
+    stop("Package 'leaflet' is required.", call. = FALSE)
+  d <- assessment$detail
+  if (is.null(species)) species <- names(d)[1]
+  obj <- d[[species]]
+  if (is.null(obj)) stop("Species not found in assessment: ", species, call. = FALSE)
+  st <- assessment$settings
+  hull <- obj$eoo$hull
+  if (is.null(hull)) stop("The EOO polygon is undefined (needs >= 3 points).",
+                          call. = FALSE)
+
+  grp_aoh <- if (lang == "en") "Area of Habitat (AOH)" else "Area de Habitat (AOH)"
+  grp_eoo <- "EOO (hull)"
+  grp_occ <- if (lang == "en") "Occurrences" else "Ocorrencias"
+
+  m <- leaflet::leaflet()
+  m <- leaflet::addProviderTiles(m, "Esri.WorldStreetMap", group = "Light")
+  m <- leaflet::addProviderTiles(m, "Esri.WorldImagery", group = "Satellite")
+
+  aoh_on <- FALSE
+  if (requireNamespace("terra", quietly = TRUE)) {
+    lc_ini  <- obj$initiative %||% st$initiative %||% "brazil"
+    lc_year <- obj$year %||% st$year
+    lc_coll <- obj$collection %||% st$collection
+    suit <- tryCatch({
+      r <- .mb_raster_display(hull, lc_year, lc_coll, src, max_pixels = max_pixels,
+                              crs = NULL, initiative = lc_ini)
+      leg <- mb_legend(lc_coll, lc_ini)
+      codes <- if (!is.null(suitable_codes) && length(suitable_codes))
+        suitable_codes else leg$code[leg$group %in% suitable_groups]
+      codes <- unique(stats::na.omit(as.integer(codes)))
+      # Suitable mask: 1 where the class is suitable, NA otherwise (base %in%
+      # over the small display raster's values - robust across terra versions).
+      vals <- terra::values(r)[, 1]
+      mv <- ifelse(!is.na(vals) & vals %in% codes, 1L, NA_integer_)
+      s <- terra::setValues(r, mv)
+      # Optional elevation mask.
+      if (is.finite(elev_min) || is.finite(elev_max)) {
+        dem <- .get_dem(hull, z = z, src = elev_src)
+        if (!is.null(dem)) {
+          dem2 <- terra::project(dem, s, method = "bilinear")
+          lo <- if (is.finite(elev_min)) elev_min else -Inf
+          hi <- if (is.finite(elev_max)) elev_max else Inf
+          elevok <- terra::ifel(dem2 >= lo & dem2 <= hi, 1L, NA)
+          s <- terra::mask(s, elevok)
+        }
+      }
+      s
+    }, error = function(e) {
+      warning("AOH layer skipped: ", conditionMessage(e), call. = FALSE); NULL })
+    if (!is.null(suit) &&
+        any(is.finite(terra::values(suit)[, 1]))) {
+      pal <- leaflet::colorFactor("#1f8d49", levels = 1L,
+                                  na.color = "transparent")
+      m <- leaflet::addRasterImage(m, suit, colors = pal, opacity = 0.75,
+                                   method = "ngb", project = TRUE, group = grp_aoh)
+      m <- leaflet::addLegend(m, position = "bottomright", colors = "#1f8d49",
+                              labels = grp_aoh, opacity = 0.75, title = grp_aoh)
+      aoh_on <- TRUE
+    }
+  }
+
+  m <- leaflet::addPolygons(m, data = sf::st_transform(hull, 4326),
+                            color = "#1f4e79", weight = 2, fill = FALSE,
+                            group = grp_eoo)
+  pts <- sf::st_transform(sf::st_geometry(obj$points), 4326)
+  co <- sf::st_coordinates(pts)
+  m <- leaflet::addCircleMarkers(m, lng = co[, 1], lat = co[, 2], radius = 4,
+                                 color = "#111111", fillColor = "#f1c40f",
+                                 fillOpacity = 0.9, weight = 1, group = grp_occ)
+  overlay <- c(grp_eoo, grp_occ)
+  if (aoh_on) overlay <- c(grp_aoh, overlay)
+  m <- leaflet::addLayersControl(
+    m, baseGroups = c("Light", "Satellite"), overlayGroups = overlay,
+    options = leaflet::layersControlOptions(collapsed = FALSE))
+  m
+}
+
 #' Habitat composition chart (natural / altered / water / other) for EOO and AOO
 #'
 #' Draws, for one species, two horizontal stacked bars (EOO and AOO) showing the

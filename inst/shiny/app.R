@@ -369,53 +369,6 @@ ui <- bslib::page_sidebar(
       )
     ),
     bslib::nav_panel(
-      "Results", icon = icon("table"),
-      selectInput("results_species", "Species", choices = NULL),
-      uiOutput("results_cards"),
-      bslib::card(
-        class = "mb-3",
-        bslib::card_header("IUCN Criterion B — applied category"),
-        bslib::card_body(
-          helpText(htmltools::HTML(
-            "The buttons below <b>start out showing the automatic result</b> for ",
-            "the selected species: the sub-criteria the assessment found are ",
-            "pre-checked, and the category badge reflects them. You keep full ",
-            "control - <b>uncheck</b> any sub-criterion to override it (for ",
-            "example, drop the taxon to <b>NT</b> or <b>LC</b>), and re-checking ",
-            "the automatic state restores the computed category. A threatened ",
-            "listing (CR/EN/VU) needs the size threshold plus <b>at least two</b> ",
-            "sub-criteria. <b>(a)</b> (few locations / fragmented) is derived from ",
-            "the data and <b>caps</b> the category by the number of locations; ",
-            "<b>(b)</b> continuing decline is inferred from the habitat loss (or ",
-            "assumed when no land cover is available); <b>(c)</b> extreme ",
-            "fluctuation cannot be read from occurrence points. A range that meets ",
-            "a size threshold but not two sub-criteria (e.g. too many locations, ",
-            "or decline unchecked) is <b>NT</b>. DD/NE are left to your judgement.")),
-          fluidRow(
-            column(4, checkboxInput(
-              "cb_decline",
-              "(b) Continuing decline (EOO/AOO/habitat/locations/individuals)",
-              TRUE)),
-            column(4, checkboxInput(
-              "cb_fluct", "(c) Extreme fluctuations", FALSE)),
-            column(4, checkboxInput(
-              "cb_frag", "Severely fragmented (feeds sub-criterion a)", FALSE))
-          ),
-          uiOutput("results_appliedB")
-        )
-      ),
-      bslib::accordion(
-        open = FALSE,
-        bslib::accordion_panel(
-          "Column glossary - what each field means",
-          uiOutput("results_glossary")
-        )
-      ),
-      div(class = "mt-3 mb-2",
-          downloadButton("dl_csv", "Download results (CSV)")),
-      DT::DTOutput("tbl")
-    ),
-    bslib::nav_panel(
       "Conversion", icon = icon("chart-pie"),
       selectInput("chart_species", "Species", choices = NULL),
       downloadButton("dl_chart_png", "Save image (PNG)", class = "mb-2"),
@@ -559,6 +512,259 @@ ui <- bslib::page_sidebar(
           DT::DTOutput("fire_tbl")))
     ),
 
+    # TAB: COUNTRIES OF OCCURRENCE AND BIOGEOGRAPHICAL REALMS (from the range)
+    bslib::nav_panel(
+      "Countries", icon = icon("earth-americas"),
+      selectInput("coo_species", "Species", choices = NULL),
+      helpText(htmltools::HTML(
+        "Countries of occurrence and biogeographical realm(s), derived from the ",
+        "range (EOO) and the occurrence points - the IUCN Red List supporting ",
+        "information that sRedList extracts automatically. <b>Extant</b> = the ",
+        "country holds at least one record; <b>Possibly Extant</b> = the range ",
+        "overlaps the country but no record falls inside. Needs the ",
+        "<code>rnaturalearth</code> package; the realm is a coarse ",
+        "continent-based approximation (exact for South America).")),
+      uiOutput("coo_summary"),
+      downloadButton("dl_coo", "Download countries (CSV)", class = "mb-3"),
+      DT::DTOutput("coo_tbl")
+    ),
+    # TAB: AREA OF HABITAT AND LOWER/UPPER AOO BOUNDS (criterion B2 range)
+    bslib::nav_panel(
+      "Habitat & AOO", icon = icon("layer-group"),
+      selectInput("aoh_species", "Species", choices = NULL),
+      helpText(htmltools::HTML(
+        "<b>Area of Habitat (AOH)</b> and the resulting <b>lower-upper bounds of ",
+        "AOO</b> for criterion B2. The <b>lower bound</b> is the occurrence-based ",
+        "AOO (occupied 2 km cells); the <b>upper bound</b> is the <b>AOH</b> - the ",
+        "suitable habitat within the EOO, capped at the EOO. The true AOO lies ",
+        "between them (Brooks et al. 2019), so B2 spans a <b>range of ",
+        "categories</b>. Needs land cover (tick 'Calculate land-cover conversion' ",
+        "before assessing).")),
+      fluidRow(
+        column(6, selectizeInput(
+          "aoh_classes", "Suitable habitat classes (default: all natural)",
+          choices = NULL, multiple = TRUE,
+          options = list(placeholder = "Leave empty to use every natural class"))),
+        column(3, numericInput("aoh_occupancy",
+                               "% of habitat occupied", value = 100,
+                               min = 1, max = 100, step = 5)),
+        column(3, div(class = "pt-4 d-flex gap-2 flex-wrap",
+                      actionButton("aoh_pick_classes", "Choose from land cover",
+                                   icon = icon("layer-group"),
+                                   class = "btn-outline-primary btn-sm"),
+                      actionButton("aoh_classes_reset", "Reset",
+                                   class = "btn-outline-secondary btn-sm")))
+      ),
+      helpText(htmltools::HTML(
+        "Pick the land-cover classes that make ecological sense as habitat for ",
+        "the species (<b>'Choose from land cover'</b> opens a window listing the ",
+        "classes actually present in the range, with their area, where you mark ",
+        "each as <b>suitable</b> or <b>marginal</b>). The AOH, the AOO upper bound ",
+        "and the map use this selection plus the elevation band. <b>% of habitat ",
+        "occupied</b> scales the potential habitat down to occupied habitat ",
+        "(IUCN 4.10.7 condition ii); leave 100 if unknown.")),
+      bslib::accordion(
+        open = FALSE,
+        bslib::accordion_panel(
+          "How AOH feeds AOO/EOO - IUCN conditions (4.10.7)",
+          htmltools::HTML(
+            "<div style='font-size:.85rem'>A habitat map shows <i>potential</i> ",
+            "habitat and is usually larger than the occupied area, so it is an ",
+            "<b>upper bound</b>, valid only when: <b>(i)</b> the habitat classes ",
+            "are an accurate, independently justified representation of the ",
+            "species' requirements (define habitat in the strict sense - not just ",
+            "a land-cover type); <b>(ii)</b> the potential habitat is adjusted by ",
+            "the <b>proportion occupied</b> to estimate occupied habitat; and ",
+            "<b>(iii)</b> the area is taken at the reference scale - AOO from ",
+            "2 km cells intersecting the habitat, EOO from the minimum convex ",
+            "polygon around it. A decline in mapped habitat also supports a ",
+            "<b>continuing decline</b> under criterion B.</div>"))
+      ),
+      uiOutput("aoh_cards"),
+      tags$div(
+        class = "card mb-3",
+        tags$div(
+          class = "card-body",
+          tags$h6("Elevation refinement (optional)", class = "card-title"),
+          helpText(htmltools::HTML(
+            "Refine the AOH to a species' elevation band, as sRedList does. ",
+            "'Suggest from occurrences' reads a DEM at the points (windowed) and ",
+            "fills the limits; 'Compute AOH' then intersects the suitable habitat ",
+            "with the band and re-derives the AOO upper bound. Needs the ",
+            "<code>elevatr</code> package (AWS terrain tiles, no account) or a DEM ",
+            "file, plus land cover for the species.")),
+          fluidRow(
+            column(3, numericInput("aoh_elev_min", "Min elevation (m)",
+                                   value = NA, step = 50)),
+            column(3, numericInput("aoh_elev_max", "Max elevation (m)",
+                                   value = NA, step = 50)),
+            column(3, selectInput("aoh_z", "DEM detail (zoom)",
+                                  choices = c("Coarse (z7)" = 7, "Medium (z9)" = 9,
+                                              "Fine (z10)" = 10), selected = 9)),
+            column(3, div(class = "pt-4 d-flex gap-2 flex-wrap",
+                          actionButton("aoh_elev_suggest", "Suggest from occurrences",
+                                       class = "btn-outline-secondary btn-sm"),
+                          actionButton("aoh_run", "Compute AOH",
+                                       class = "btn-primary btn-sm")))
+          ),
+          uiOutput("aoh_elev_summary")
+        )
+      ),
+      tags$div(
+        class = "card mb-3",
+        tags$div(
+          class = "card-body",
+          tags$h6("Population size & density (criteria C / D)",
+                  class = "card-title"),
+          helpText(htmltools::HTML(
+            "Population size = <b>AOH &times; density</b> (mature individuals per ",
+            "km&sup2; of suitable habitat). Enter the density directly, or use the ",
+            "calculator: density in occupied habitat &times; % mature &times; % of ",
+            "suitable habitat occupied. A range (e.g. <code>3-8</code>) gives a ",
+            "low&ndash;high estimate. Compute the AOH above first.")),
+          fluidRow(
+            column(3, textInput("pop_density", "Density (mature ind/km2)",
+                                value = "", placeholder = "e.g. 5  or  3-8")),
+            column(3, numericInput("pop_dens_total",
+                                   "or density in occupied habitat", value = NA,
+                                   min = 0)),
+            column(3, numericInput("pop_pct_mature", "% mature", value = NA,
+                                   min = 0, max = 100)),
+            column(3, numericInput("pop_pct_occupied",
+                                   "% suitable habitat occupied", value = NA,
+                                   min = 0, max = 100))
+          ),
+          uiOutput("aoh_popsize")
+        )
+      ),
+      div(style = "height:430px; min-height:430px;",
+          plotly::plotlyOutput("aoh_plot", height = "100%")),
+      tags$hr(),
+      tags$h6("Area of Habitat map"),
+      helpText(htmltools::HTML(
+        "Suitable habitat (the selected classes, within the elevation band if ",
+        "set) inside the EOO, in green, with the EOO hull and the occurrence ",
+        "points. Click <b>'Compute AOH'</b> above to build it. Reads land cover ",
+        "(and a DEM when an elevation band is set); may take a few seconds.")),
+      leaflet::leafletOutput("aoh_map", height = "70vh")
+    ),
+    # TAB: SEVERE FRAGMENTATION (criterion B sub-criterion a)
+    bslib::nav_panel(
+      "Fragmentation", icon = icon("puzzle-piece"),
+      selectInput("frag_species", "Species", choices = NULL),
+      helpText(htmltools::HTML(
+        "<b>Severe fragmentation</b> (criterion B sub-criterion <b>a</b>). Per the ",
+        "IUCN guidelines, a taxon is severely fragmented when <b>&gt;50% of its ",
+        "population (or occupied habitat) is in patches that are both (1) too ",
+        "<b>small</b> to be viable and (2) <b>isolated</b> by a distance large ",
+        "relative to the species' dispersal</b>. Two subpopulations far apart, or ",
+        "even a single subpopulation too small to be viable, can qualify. This is ",
+        "independent of the number of locations. Set it on the Assessment tab - ",
+        "it is never ticked automatically.")),
+      helpText(htmltools::HTML(
+        "<b>Recommended (guideline-compliant, Santini et al. 2019):</b> enter a ",
+        "<b>density</b> (mature individuals per km&sup2; of suitable habitat) - ",
+        "the analysis then splits the <b>Area of Habitat</b> (the suitable classes ",
+        "from the <i>Habitat &amp; AOO</i> tab, within the elevation band) into ",
+        "patches, groups patches closer than the isolation distance into ",
+        "subpopulations, and sizes each in <b>individuals</b> (area &times; ",
+        "density). Leave density empty for a rough <b>occurrence-count</b> proxy. ",
+        "Note: 'habitat' should be the area truly habitable by the species, not a ",
+        "land-cover type - treat the land-cover AOH as an approximation.")),
+      fluidRow(
+        column(3, numericInput("frag_iso_km", "Isolation distance (km)",
+                               value = 20, min = 0.1, step = 1)),
+        column(3, textInput("frag_density",
+                            "Density (ind/km2; blank = proxy)",
+                            value = "", placeholder = "e.g. 5  or  3-8")),
+        column(3, numericInput("frag_small",
+                               "'Small' size (individuals; e.g. 100)",
+                               value = NA, min = 0, step = 1)),
+        column(3, div(class = "pt-4",
+                      actionButton("frag_run", "Analyse fragmentation",
+                                   class = "btn-primary")))
+      ),
+      helpText(htmltools::HTML(
+        "'Small' is the viable-population threshold (for many vertebrates, ",
+        "subpopulations of fewer than ~100 individuals may be too small to be ",
+        "viable); leave it blank to read it off the <b>median</b> line (dashed) - ",
+        "the size below which half the population lives. The isolation distance ",
+        "should be several times the species' average dispersal distance.")),
+      uiOutput("frag_summary"),
+      bslib::layout_columns(
+        col_widths = c(6, 6),
+        div(style = "height:440px; min-height:440px;",
+            plotly::plotlyOutput("frag_curve", height = "100%")),
+        div(
+          tags$div(class = "text-muted small mb-1",
+                   "Subpopulations (clusters) and occurrences"),
+          leaflet::leafletOutput("frag_map", height = "410px"))
+      ),
+      downloadButton("dl_frag", "Download subpopulations (CSV)", class = "mt-2"),
+      DT::DTOutput("frag_tbl")
+    ),
+    bslib::nav_panel(
+      "Assessment", icon = icon("clipboard-check"),
+      selectInput("results_species", "Species", choices = NULL),
+      uiOutput("results_cards"),
+      bslib::card(
+        class = "mb-3",
+        bslib::card_header("IUCN Criterion B — applied category"),
+        bslib::card_body(
+          helpText(htmltools::HTML(
+            "The buttons below <b>start out showing the automatic result</b> for ",
+            "the selected species: the sub-criteria the assessment found are ",
+            "pre-checked, and the category badge reflects them. You keep full ",
+            "control - <b>uncheck</b> any sub-criterion to override it (for ",
+            "example, drop the taxon to <b>NT</b> or <b>LC</b>), and re-checking ",
+            "the automatic state restores the computed category. A threatened ",
+            "listing (CR/EN/VU) needs the size threshold plus <b>at least two</b> ",
+            "sub-criteria. <b>(a)</b> (few locations / fragmented) is derived from ",
+            "the data and <b>caps</b> the category by the number of locations; ",
+            "<b>(b)</b> continuing decline is inferred from the habitat loss (or ",
+            "assumed when no land cover is available); <b>(c)</b> extreme ",
+            "fluctuation cannot be read from occurrence points. A range that meets ",
+            "a size threshold but not two sub-criteria (e.g. too many locations, ",
+            "or decline unchecked) is <b>NT</b>. DD/NE are left to your judgement.")),
+          fluidRow(
+            column(4, checkboxInput(
+              "cb_decline",
+              "(b) Continuing decline (EOO/AOO/habitat/locations/individuals)",
+              TRUE)),
+            column(4, checkboxInput(
+              "cb_fluct", "(c) Extreme fluctuations", FALSE)),
+            column(4, checkboxInput(
+              "cb_frag", "Severely fragmented (feeds sub-criterion a)", FALSE))
+          ),
+          uiOutput("results_appliedB")
+        )
+      ),
+      bslib::card(
+        class = "mb-3",
+        bslib::card_header("Diagnosis under uncertainty - Criterion B category range"),
+        bslib::card_body(
+          helpText(htmltools::HTML(
+            "Brings the analyses together: B1 from the EOO (a single value) and ",
+            "B2 from the <b>bracketed AOO</b> - <b>lower</b> = occupied occurrence ",
+            "cells, <b>upper</b> = <b>AOH</b> (Area of Habitat within the EOO). ",
+            "The plausible screening category runs from the most-threatened ",
+            "pairing (B1 with the lower AOO) to the least-threatened (B1 with the ",
+            "upper AOO). A single value means the bounds agree. The sub-criteria ",
+            "(a/b/c) above still apply on top of these size flags.")),
+          uiOutput("assess_uncertainty")
+        )
+      ),
+      bslib::accordion(
+        open = FALSE,
+        bslib::accordion_panel(
+          "Column glossary - what each field means",
+          uiOutput("results_glossary")
+        )
+      ),
+      div(class = "mt-3 mb-2",
+          downloadButton("dl_csv", "Download results (CSV)")),
+      DT::DTOutput("tbl")
+    ),
     bslib::nav_panel(
       "Report", icon = icon("file-word"),
       selectInput("report_species", "Species", choices = NULL),
@@ -664,6 +870,36 @@ ui <- bslib::page_sidebar(
           <li><b>Burned area &amp; fire frequency</b>: percentage of the EOO/AOO
               that has burned at least once, and the number of years burned per
               pixel, from MapBiomas Fire (accumulated and frequency layers).</li>
+        </ul>
+
+        <h4>Full-criteria analyses (assimilated from sRedList)</h4>
+        <p>Beyond the size metrics, three analyses - inspired by the sRedList
+        platform (Cazalis <i>et al.</i> 2024) and computed entirely from the data
+        above - sharpen the Criterion B diagnosis. They appear as dedicated tabs
+        just before the <b>Assessment</b> tab, where the results are brought
+        together.</p>
+        <ul>
+          <li><b>Countries of occurrence &amp; realms</b>: the countries the range
+              overlaps (flagged <i>Extant</i> where a record falls inside, else
+              <i>Possibly Extant</i>) and an approximate biogeographical realm,
+              from the Natural Earth base map (needs the <code>rnaturalearth</code>
+              package). Required/recommended Red List supporting information.</li>
+          <li><b>Area of Habitat &amp; AOO bounds</b>: the AOO is bracketed between
+              a <i>lower</i> bound (the occurrence-based occupied cells) and an
+              <i>upper</i> bound (the natural/suitable habitat within the EOO, i.e.
+              the Area of Habitat, capped at the EOO). The true AOO lies between
+              them (Brooks <i>et al.</i> 2019), so B2 spans a <b>range</b> of size
+              categories instead of a single value. Optionally, the AOH can be
+              <b>refined by elevation</b>: a DEM read over the range (windowed,
+              via the <code>elevatr</code> package or a DEM file) restricts the
+              suitable habitat to the species' elevation band, and the limits can
+              be suggested from the elevation of the occurrence records.</li>
+          <li><b>Severe fragmentation</b>: occurrences within a user-set isolation
+              distance are clustered into subpopulations; the tool reports the
+              share of the population in small subpopulations (a screening proxy
+              after Santini <i>et al.</i> 2019), to guide sub-criterion (a). It is
+              never ticked automatically - the judgement stays with the
+              assessor.</li>
         </ul>
 
         <h4>Provisional categories</h4>
@@ -824,7 +1060,7 @@ server <- function(input, output, session) {
 
   # The assessment with the user's applied Criterion B category folded into its
   # $summary, so the Report and Factsheet reflect the sub-criteria set on the
-  # Results tab (buttons under "IUCN Criterion B - applied category") instead of
+  # Assessment tab (buttons under "IUCN Criterion B - applied category") instead of
   # the size-only defaults.
   result_applied <- reactive({
     res <- result(); req(res)
@@ -903,6 +1139,616 @@ server <- function(input, output, session) {
       sub(r$subcrit_a, "(a) few locations / fragmented"),
       sub(r$subcrit_b, "(b) continuing decline"),
       sub(r$subcrit_c, "(c) extreme fluctuation")))
+  })
+
+  # ===========================================================================
+  # sRedList-assimilated analyses, all computed from the assessment detail
+  # (points, EOO, AOO and the natural-habitat area assess_species() already
+  # measured) - no new data source and no re-run:
+  #   * countries of occurrence & biogeographical realm(s);
+  #   * Area of Habitat and the lower/upper AOO bounds (Criterion B2 range);
+  #   * severe fragmentation (Criterion B sub-criterion a).
+  # ===========================================================================
+  .detail_for <- function(sp) {
+    d <- tryCatch(result()$detail, error = function(e) NULL)
+    if (is.null(d) || is.null(sp) || !nzchar(sp)) return(NULL)
+    d[[sp]]
+  }
+
+  # ---- Countries of occurrence & biogeographical realms ---------------------
+  coo_data <- reactive({
+    req(result(), input$coo_species)
+    obj <- .detail_for(input$coo_species); req(obj)
+    hull <- tryCatch(obj$eoo$hull, error = function(e) NULL)
+    rng <- if (!is.null(hull)) hull else obj$points
+    tryCatch(
+      mappingAS::countries_of_occurrence(rng, points = obj$points),
+      error = function(e) NULL)
+  })
+
+  output$coo_summary <- renderUI({
+    req(result(), input$coo_species)
+    df <- coo_data()
+    if (is.null(df) || !nrow(df))
+      return(helpText(htmltools::HTML(
+        "No countries found. This needs the <code>rnaturalearth</code> package ",
+        "(install.packages(\"rnaturalearth\")) and at least one occurrence ",
+        "over land.")))
+    ext <- sum(df$presence == "Extant")
+    pos <- sum(df$presence == "Possibly Extant")
+    realms <- sort(unique(stats::na.omit(df$realm)))
+    card <- function(t, v) sprintf(
+      "<div style='flex:1;min-width:150px;border:1px solid #e4ddce;border-radius:.6rem;padding:10px 12px;background:#fffdf8'><div style='color:#7a857b;font-size:.78rem'>%s</div><div style='font-family:monospace;font-weight:700;font-size:1.05rem'>%s</div></div>",
+      t, v)
+    htmltools::HTML(sprintf(
+      "<div style='display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px'>%s%s%s%s</div>",
+      card("Countries (total)", nrow(df)),
+      card("Extant", ext),
+      card("Possibly Extant", pos),
+      card("Realm(s)", if (length(realms)) paste(realms, collapse = ", ") else "&mdash;")))
+  })
+
+  output$coo_tbl <- DT::renderDT({
+    req(result(), input$coo_species)
+    df <- coo_data()
+    validate(need(!is.null(df) && nrow(df) > 0,
+                  "No countries found (needs the 'rnaturalearth' package)."))
+    .mas_dt(df, page = 15, caption = "Countries of occurrence and realm(s)")
+  })
+
+  output$dl_coo <- downloadHandler(
+    filename = function() paste0("mappingAS_countries_",
+                                 input$coo_species, "_", Sys.Date(), ".csv"),
+    content = .safe_download(function(file) {
+      df <- coo_data()
+      utils::write.csv(if (is.null(df)) data.frame() else df, file,
+                       row.names = FALSE)
+    })
+  )
+
+  # ---- Area of Habitat and lower/upper AOO bounds (Criterion B2 range) -------
+  # Elevation-refined AOH (button-triggered): reads land cover + a DEM over the
+  # EOO and restricts the suitable habitat to the elevation band.
+  # Marginal / unknown-suitability class codes (chosen in the modal below).
+  aoh_marginal <- reactiveVal(character(0))
+
+  # Land-cover classes actually present in a species' EOO, with area and %.
+  .aoh_present_classes <- function(sp) {
+    obj <- .detail_for(sp); if (is.null(obj)) return(NULL)
+    bc <- tryCatch(obj$eoo_conversion$by_class, error = function(e) NULL)
+    if (is.null(bc) || !nrow(bc)) return(NULL)
+    labcol <- if ((input$lang %||% "en") == "en") "class_en" else "class_pt"
+    lab <- if (labcol %in% names(bc)) bc[[labcol]] else NULL
+    if (is.null(lab)) lab <- paste("Class", bc$code)
+    lab[is.na(lab)] <- paste("Class", bc$code[is.na(lab)])
+    tot <- sum(bc$area_km2, na.rm = TRUE)
+    pct <- if (tot > 0) 100 * bc$area_km2 / tot else rep(NA_real_, nrow(bc))
+    df <- data.frame(
+      code = as.integer(bc$code), group = as.character(bc$group),
+      area_km2 = as.numeric(bc$area_km2), pct = pct,
+      label = sprintf("%s  [%s] — %s km² (%.1f%%)", lab, bc$group,
+                      formatC(bc$area_km2, format = "f", big.mark = ",",
+                              digits = 1), pct),
+      stringsAsFactors = FALSE)
+    df <- df[is.finite(df$area_km2) & df$area_km2 > 0, , drop = FALSE]
+    df[order(-df$area_km2), , drop = FALSE]
+  }
+
+  # Open a window listing the classes present in the range to mark suitable /
+  # marginal (IUCN 4.10.7 condition i: choose habitat from what is actually there).
+  observeEvent(input$aoh_pick_classes, {
+    req(input$aoh_species)
+    df <- .aoh_present_classes(input$aoh_species)
+    if (is.null(df) || !nrow(df)) {
+      showModal(modalDialog(
+        title = "Habitat classes", easyClose = TRUE,
+        "No land-cover classes found for this species. Run the assessment with ",
+        "'Calculate land-cover conversion' enabled first."))
+      return()
+    }
+    ch <- stats::setNames(as.character(df$code), df$label)
+    cur_suit <- isolate(input$aoh_classes)
+    cur_marg <- isolate(aoh_marginal())
+    showModal(modalDialog(
+      title = "Choose habitat classes present in the range", size = "l",
+      easyClose = TRUE,
+      helpText(htmltools::HTML(
+        "Classes found inside the EOO, largest first. Mark each as <b>Suitable</b> ",
+        "(counts as habitat / AOH) or <b>Marginal</b> (adds an upper AOH). ",
+        "Unmarked = not habitat. Define habitat in the strict sense, not just a ",
+        "land-cover type (IUCN 4.10.7).")),
+      fluidRow(
+        column(6, checkboxGroupInput("aoh_modal_suitable", "Suitable habitat",
+                                     choices = ch, selected = cur_suit)),
+        column(6, checkboxGroupInput("aoh_modal_marginal", "Marginal / unknown",
+                                     choices = ch, selected = cur_marg))
+      ),
+      footer = tagList(modalButton("Cancel"),
+                       actionButton("aoh_modal_apply", "Apply",
+                                    class = "btn-primary"))
+    ))
+  })
+
+  observeEvent(input$aoh_modal_apply, {
+    suit <- input$aoh_modal_suitable %||% character(0)
+    marg <- input$aoh_modal_marginal %||% character(0)
+    marg <- setdiff(marg, suit)   # a class marked both ways counts as suitable
+    updateSelectizeInput(session, "aoh_classes", selected = suit)
+    aoh_marginal(marg)
+    removeModal()
+  })
+
+  aoh_refined <- eventReactive(input$aoh_run, {
+    req(result(), input$aoh_species)
+    obj <- .detail_for(input$aoh_species); req(obj)
+    hull <- tryCatch(obj$eoo$hull, error = function(e) NULL)
+    validate(need(!is.null(hull),
+                  "The EOO polygon is undefined (needs >= 3 unique points)."))
+    st <- result()$settings
+    r <- withProgress(message = "Reading land cover + elevation for AOH...",
+                      value = 0, {
+      codes <- if (length(input$aoh_classes))
+        as.integer(input$aoh_classes) else NULL
+      marg <- aoh_marginal()
+      marg <- if (length(marg)) as.integer(marg) else NULL
+      emin <- if (is.null(input$aoh_elev_min) || is.na(input$aoh_elev_min))
+        NA else input$aoh_elev_min
+      emax <- if (is.null(input$aoh_elev_max) || is.na(input$aoh_elev_max))
+        NA else input$aoh_elev_max
+      zz <- as.integer(input$aoh_z %||% 9)
+      out <- tryCatch(mappingAS::calc_aoh(
+        hull,
+        year = obj$year %||% st$year,
+        collection = obj$collection %||% st$collection,
+        initiative = obj$initiative %||% st$initiative %||% "brazil",
+        elev_min = emin, elev_max = emax, z = zz, suitable_codes = codes,
+        marginal_codes = marg, points = obj$points),
+        error = function(e) {
+          showNotification(paste("AOH:", conditionMessage(e)), type = "error")
+          NULL })
+      incProgress(1)
+      # Keep the exact parameters so the map below matches the computed AOH.
+      list(out = out, params = list(codes = codes, marginal = marg,
+                                    elev_min = emin, elev_max = emax, z = zz))
+    })
+    if (is.null(r$out)) return(NULL)
+    list(species = input$aoh_species, aoh = r$out, params = r$params)
+  })
+
+  # Suggested elevation preferences from the occurrences (button-triggered).
+  elev_pref <- eventReactive(input$aoh_elev_suggest, {
+    req(result(), input$aoh_species)
+    obj <- .detail_for(input$aoh_species); req(obj)
+    r <- withProgress(message = "Reading elevation at occurrences...", value = 0, {
+      out <- tryCatch(
+        mappingAS::elevation_preferences(obj$points,
+                                         z = as.integer(input$aoh_z %||% 9)),
+        error = function(e) {
+          showNotification(paste("Elevation:", conditionMessage(e)),
+                           type = "error"); NULL })
+      incProgress(1); out
+    })
+    r
+  })
+
+  # Push the suggested limits into the numeric inputs when they arrive.
+  observeEvent(elev_pref(), {
+    p <- elev_pref()
+    if (!is.null(p) && is.finite(p$suggested_min))
+      updateNumericInput(session, "aoh_elev_min", value = p$suggested_min)
+    if (!is.null(p) && is.finite(p$suggested_max))
+      updateNumericInput(session, "aoh_elev_max", value = p$suggested_max)
+  }, ignoreInit = TRUE)
+
+  output$aoh_elev_summary <- renderUI({
+    p <- tryCatch(elev_pref(), error = function(e) NULL)
+    if (is.null(p) || !isTRUE(p$n > 0))
+      return(helpText(htmltools::HTML(
+        "Click <b>Suggest from occurrences</b> to read the elevation of the ",
+        "records (needs the <code>elevatr</code> package or a DEM).")))
+    fmt <- function(x) if (is.null(x) || is.na(x)) "&mdash;"
+                       else formatC(x, format = "f", digits = 0, big.mark = ",")
+    htmltools::HTML(sprintf(
+      paste0("<div style='font-size:.85rem'>Elevation at %d occurrences: ",
+             "min <b>%s</b>, max <b>%s</b>, median <b>%s</b> m &middot; ",
+             "suggested band <b>%s&ndash;%s m</b> (filled above).</div>"),
+      as.integer(p$n), fmt(p$min), fmt(p$max), fmt(p$median),
+      fmt(p$suggested_min), fmt(p$suggested_max)))
+  })
+
+  aoh_data <- reactive({
+    req(result(), input$aoh_species)
+    obj <- .detail_for(input$aoh_species); req(obj)
+    proxy <- tryCatch(as.numeric(obj$eoo_conversion$natural_km2),
+                      error = function(e) NA_real_)
+    ref <- tryCatch(aoh_refined(), error = function(e) NULL)
+    refined <- if (!is.null(ref) && identical(ref$species, input$aoh_species))
+      ref$aoh else NULL
+    # Upper-bound habitat area, at the 2 km reference scale when available (IUCN
+    # 4.10.7 condition iii): prefer the rescaled AOO upper, else the broad AOH
+    # area, else the natural-habitat proxy.
+    scale2k <- !is.null(refined) && is.finite(refined$aoo_upper_km2)
+    aoh_pot <- if (!is.null(refined)) {
+      if (scale2k) refined$aoo_upper_km2
+      else if (is.finite(refined$aoh_max_km2)) refined$aoh_max_km2
+      else if (is.finite(refined$aoh_km2)) refined$aoh_km2 else proxy
+    } else proxy
+    # Adjust potential habitat to occupied habitat (IUCN 4.10.7 condition ii).
+    occ <- suppressWarnings(as.numeric(input$aoh_occupancy))
+    if (!is.finite(occ) || occ <= 0 || occ > 100) occ <- 100
+    aoh_eff <- if (is.finite(aoh_pot)) aoh_pot * occ / 100 else aoh_pot
+    list(bounds = mappingAS::aoo_bounds(
+           aoo_lower_km2 = obj$aoo$area_km2, aoh_km2 = aoh_eff,
+           eoo_km2 = obj$eoo$area_km2),
+         eoo = obj$eoo$area_km2, proxy = proxy, refined = refined,
+         occupancy = occ, aoh_potential = aoh_pot, scale2k = scale2k)
+  })
+
+  output$aoh_cards <- renderUI({
+    req(result(), input$aoh_species)
+    a <- aoh_data(); b <- a$bounds
+    fkm <- function(x) if (is.null(x) || is.na(x)) "&mdash;"
+                       else formatC(x, format = "f", big.mark = ",", digits = 2)
+    scat <- function(x) { if (is.null(x) || is.na(x)) return("&mdash;")
+      m <- regmatches(x, regexpr("^(CR|EN|VU|NT|LC)", x))
+      if (length(m) && nzchar(m)) m else "not VU/EN/CR" }
+    card <- function(t, v, sub = "") sprintf(
+      "<div style='flex:1;min-width:170px;border:1px solid #e4ddce;border-radius:.6rem;padding:10px 12px;background:#fffdf8'><div style='color:#7a857b;font-size:.78rem'>%s</div><div style='font-family:monospace;font-weight:700;font-size:1.05rem'>%s</div>%s</div>",
+      t, v, if (nzchar(sub)) sprintf("<div style='color:#7a857b;font-size:.75rem;margin-top:2px'>%s</div>", sub) else "")
+    ref <- a$refined
+    # AOH value/label: strict AOH, and the strict-to-broad range when marginal
+    # classes were added; note the elevation band and the occupancy adjustment.
+    aoh_val <- if (!is.null(ref) && is.finite(ref$aoh_km2)) {
+      if (is.finite(ref$aoh_max_km2) && ref$aoh_max_km2 > ref$aoh_km2)
+        sprintf("%s&ndash;%s", fkm(ref$aoh_km2), fkm(ref$aoh_max_km2))
+      else fkm(ref$aoh_km2)
+    } else fkm(a$aoh_potential)
+    aoh_note <- if (!is.null(ref) && is.finite(ref$aoh_km2))
+                  (if (isTRUE(ref$elev_applied))
+                     sprintf("suitable habitat, elevation %s&ndash;%s m",
+                             if (is.na(ref$elev_min)) "?" else ref$elev_min,
+                             if (is.na(ref$elev_max)) "?" else ref$elev_max)
+                   else "suitable habitat (strict&ndash;broad)")
+                else if (!is.finite(a$aoh_potential)) "run 'Compute AOH' to estimate"
+                else "natural habitat within EOO (proxy)"
+    scale_note <- if (isTRUE(a$scale2k)) "2 km reference scale" else "AOH area"
+    occ_note <- if (isTRUE(a$occupancy < 100))
+      sprintf("%s, %.0f%% occupied", scale_note, a$occupancy)
+      else scale_note
+    pct <- function(x) if (is.null(x) || is.na(x)) "&mdash;" else sprintf("%.0f%%", 100 * x)
+    prev_cards <- ""
+    if (!is.null(ref) && (is.finite(ref$model_prevalence) ||
+                          is.finite(ref$point_prevalence)))
+      prev_cards <- paste0(
+        card("Model prevalence", pct(ref$model_prevalence),
+             "suitable share of range"),
+        card("Point prevalence", pct(ref$point_prevalence),
+             "occurrences in habitat"))
+    htmltools::HTML(sprintf(
+      "<div style='display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px'>%s%s%s%s%s%s</div>",
+      card("AOO lower (occurrence)", paste0(fkm(b$aoo_lower), " km<sup>2</sup>"), scat(b$cat_lower)),
+      card("AOO upper (occupied AOH)", paste0(fkm(b$aoo_upper), " km<sup>2</sup>"),
+           paste0(scat(b$cat_upper), " &middot; ", occ_note)),
+      card("Area of Habitat (AOH)", paste0(aoh_val, " km<sup>2</sup>"), aoh_note),
+      card("EOO (cap)", paste0(fkm(a$eoo), " km<sup>2</sup>"), "extent of occurrence"),
+      card("B2 category range", if (is.na(b$cat_range)) "&mdash;" else b$cat_range, "size flag, lower&ndash;upper"),
+      prev_cards))
+  })
+
+  output$aoh_popsize <- renderUI({
+    a <- tryCatch(aoh_data(), error = function(e) NULL)
+    validate(need(!is.null(a), "Compute the AOH above first."))
+    ref <- a$refined
+    aoh_lo <- if (!is.null(ref) && is.finite(ref$aoh_km2)) ref$aoh_km2
+              else a$aoh_potential
+    aoh_hi <- if (!is.null(ref) && is.finite(ref$aoh_max_km2)) ref$aoh_max_km2
+              else aoh_lo
+    validate(need(is.finite(aoh_lo),
+                  "Compute the AOH above (Compute AOH) to estimate population size."))
+    dens <- .parse_density(input$pop_density)
+    if (!length(dens)) {
+      dt <- suppressWarnings(as.numeric(input$pop_dens_total))
+      if (is.finite(dt) && dt > 0) {
+        pm <- suppressWarnings(as.numeric(input$pop_pct_mature))
+        po <- suppressWarnings(as.numeric(input$pop_pct_occupied))
+        dens <- dt * (if (is.finite(pm)) pm / 100 else 1) *
+          (if (is.finite(po)) po / 100 else 1)
+      }
+    }
+    if (!length(dens))
+      return(helpText(htmltools::HTML(
+        "Enter a <b>density</b> (or the calculator fields) to estimate population ",
+        "size.")))
+    dlo <- min(dens); dhi <- max(dens)
+    pop_lo <- aoh_lo * dlo; pop_hi <- aoh_hi * dhi
+    fnum <- function(x) if (is.null(x) || is.na(x)) "&mdash;"
+                        else formatC(round(x), format = "d", big.mark = ",")
+    fden <- function(x) formatC(x, format = "f", digits = 2, big.mark = ",")
+    card <- function(t, v, sub = "") sprintf(
+      "<div style='flex:1;min-width:170px;border:1px solid #e4ddce;border-radius:.6rem;padding:10px 12px;background:#fffdf8'><div style='color:#7a857b;font-size:.78rem'>%s</div><div style='font-family:monospace;font-weight:700;font-size:1.05rem'>%s</div>%s</div>",
+      t, v, if (nzchar(sub)) sprintf("<div style='color:#7a857b;font-size:.75rem;margin-top:2px'>%s</div>", sub) else "")
+    dens_lbl <- if (length(dens) > 1) sprintf("%s&ndash;%s", fden(dlo), fden(dhi))
+                else fden(dlo)
+    pop_lbl <- if (isTRUE(pop_lo != pop_hi))
+      sprintf("%s&ndash;%s", fnum(pop_lo), fnum(pop_hi)) else fnum(pop_lo)
+    htmltools::HTML(sprintf(
+      "<div style='display:flex;gap:10px;flex-wrap:wrap'>%s%s</div><div style='font-size:.75rem;color:#7a857b;margin-top:6px'>An upper-type estimate (AOH is potential habitat); use the qualifier 'Inferred'. Informs criteria C/D and the fragmentation density.</div>",
+      card("Effective density", paste0(dens_lbl, " ind/km<sup>2</sup>"),
+           "mature per suitable habitat"),
+      card("Population size (est.)", paste0(pop_lbl, " ind."),
+           "AOH &times; density")))
+  })
+
+  output$aoh_plot <- plotly::renderPlotly({
+    req(result(), input$aoh_species)
+    b <- aoh_data()$bounds
+    validate(need(is.finite(b$aoo_lower) || is.finite(b$aoo_upper),
+                  "No AOO available for this species."))
+    vals <- c(b$aoo_lower, b$aoo_upper)
+    labs <- c("AOO lower (occurrence)", "AOO upper (AOH)")
+    p <- plotly::plot_ly(
+      x = vals, y = labs, type = "bar", orientation = "h",
+      marker = list(color = c("#1f8d49", "#7bc47f")),
+      hovertemplate = "%{y}: %{x:.1f} km2<extra></extra>")
+    shapes <- lapply(c(10, 500, 2000), function(x) list(
+      type = "line", x0 = x, x1 = x, yref = "paper", y0 = 0, y1 = 1,
+      line = list(color = "#d4271e", dash = "dot", width = 1)))
+    plotly::layout(
+      p, title = "AOO bounds vs B2 thresholds (CR 10 / EN 500 / VU 2000 km2)",
+      xaxis = list(title = "km2 (log scale)", type = "log"),
+      yaxis = list(title = ""), shapes = shapes)
+  })
+
+  # Land-cover legend for the selected species (used to populate the suitable-
+  # class picker), keyed to the product actually used for that species.
+  .aoh_legend <- function(sp) {
+    obj <- .detail_for(sp); if (is.null(obj)) return(NULL)
+    st <- tryCatch(result()$settings, error = function(e) NULL)
+    ini <- obj$initiative %||% (if (is.null(st)) "brazil" else st$initiative) %||% "brazil"
+    coll <- obj$collection %||% (if (is.null(st)) NULL else st$collection)
+    tryCatch(mappingAS::mb_legend(coll, ini), error = function(e) NULL)
+  }
+  .aoh_class_choices <- function(leg, lang) {
+    labcol <- if (identical(lang, "en")) "class_en" else "class_pt"
+    labs <- if (labcol %in% names(leg)) leg[[labcol]] else NULL
+    if (is.null(labs)) labs <- rep(NA_character_, nrow(leg))
+    labs[is.na(labs)] <- paste("Class", leg$code[is.na(labs)])
+    stats::setNames(as.character(leg$code), sprintf("%s (%s)", labs, leg$group))
+  }
+  # Populate the suitable-class picker when the species (or result) changes,
+  # defaulting to every natural class.
+  observeEvent(list(result(), input$aoh_species), {
+    req(input$aoh_species)
+    leg <- .aoh_legend(input$aoh_species)
+    if (is.null(leg) || !nrow(leg)) return()
+    ch <- .aoh_class_choices(leg, input$lang %||% "en")
+    nat <- as.character(leg$code[leg$group %in% "natural"])
+    updateSelectizeInput(session, "aoh_classes", choices = ch,
+                         selected = nat, server = FALSE)
+    aoh_marginal(character(0))
+  }, ignoreInit = TRUE)
+  observeEvent(input$aoh_classes_reset, {
+    leg <- .aoh_legend(input$aoh_species)
+    if (is.null(leg) || !nrow(leg)) return()
+    nat <- as.character(leg$code[leg$group %in% "natural"])
+    updateSelectizeInput(session, "aoh_classes", selected = nat)
+    aoh_marginal(character(0))
+  })
+
+  # AOH map: rendered after 'Compute AOH', using exactly the parameters that
+  # produced the computed AOH (classes + elevation band).
+  output$aoh_map <- leaflet::renderLeaflet({
+    ref <- tryCatch(aoh_refined(), error = function(e) NULL)
+    validate(need(!is.null(ref),
+                  "Click 'Compute AOH' to build the Area of Habitat map."))
+    pr <- ref$params
+    withProgress(message = "Rendering Area of Habitat map...", value = 0, {
+      m <- tryCatch(
+        mappingAS::map_aoh(result(), species = ref$species,
+                           suitable_codes = pr$codes,
+                           elev_min = pr$elev_min, elev_max = pr$elev_max,
+                           z = pr$z, lang = input$lang %||% "en"),
+        error = function(e) {
+          showNotification(paste("AOH map:", conditionMessage(e)),
+                           type = "error"); NULL })
+      incProgress(1)
+      validate(need(!is.null(m), "Could not build the AOH map."))
+      m
+    })
+  })
+
+  # ---- Severe fragmentation (button-triggered) ------------------------------
+  # Parse a density string ("5" or a "3-8" range) to a positive numeric vector.
+  .parse_density <- function(x) {
+    if (is.null(x) || !nzchar(trimws(x))) return(numeric(0))
+    parts <- strsplit(trimws(x), "[-/ ]+")[[1]]
+    v <- suppressWarnings(as.numeric(parts))
+    v[is.finite(v) & v > 0]
+  }
+
+  frag_data <- eventReactive(input$frag_run, {
+    req(result(), input$frag_species)
+    obj <- .detail_for(input$frag_species); req(obj)
+    iso <- suppressWarnings(as.numeric(input$frag_iso_km))
+    validate(need(is.finite(iso) && iso > 0,
+                  "Enter a positive isolation distance."))
+    small <- if (is.null(input$frag_small) || is.na(input$frag_small)) NULL
+             else input$frag_small
+    dens <- .parse_density(input$frag_density)
+    st <- result()$settings
+    if (length(dens)) {
+      # Guideline-compliant method: Area of Habitat patches x density (Santini
+      # 2019). Uses the suitable classes / elevation band from the Habitat tab.
+      hull <- tryCatch(obj$eoo$hull, error = function(e) NULL)
+      validate(need(!is.null(hull),
+                    "The EOO polygon is undefined (needs >= 3 points) for the habitat method."))
+      codes <- if (length(input$aoh_classes)) as.integer(input$aoh_classes) else NULL
+      emin <- if (is.null(input$aoh_elev_min) || is.na(input$aoh_elev_min))
+        NA else input$aoh_elev_min
+      emax <- if (is.null(input$aoh_elev_max) || is.na(input$aoh_elev_max))
+        NA else input$aoh_elev_max
+      zz <- as.integer(input$aoh_z %||% 9)
+      withProgress(message = "Reading habitat + clustering subpopulations...",
+                   value = 0, {
+        out <- tryCatch(mappingAS::fragment_habitat(
+          hull, isolation_km = iso, density = dens,
+          year = obj$year %||% st$year,
+          collection = obj$collection %||% st$collection,
+          initiative = obj$initiative %||% st$initiative %||% "brazil",
+          suitable_codes = codes, elev_min = emin, elev_max = emax, z = zz,
+          small_size = small),
+          error = function(e) {
+            showNotification(paste("Fragmentation:", conditionMessage(e)),
+                             type = "error"); NULL })
+        incProgress(1); out
+      })
+    } else {
+      out <- tryCatch(
+        mappingAS::assess_fragmentation(obj$points, isolation_km = iso,
+                                        small_size = small),
+        error = function(e) {
+          showNotification(paste("Fragmentation:", conditionMessage(e)),
+                           type = "error"); NULL })
+      if (!is.null(out)) out$method <- "occurrence"
+      out
+    }
+  })
+
+  output$frag_summary <- renderUI({
+    fr <- frag_data()
+    validate(need(!is.null(fr),
+                  "Set the parameters and click 'Analyse fragmentation'."))
+    hab <- identical(fr$method, "habitat")
+    fmt <- function(x, d = 1) if (is.null(x) || is.na(x)) "&mdash;"
+                              else formatC(x, format = "f", digits = d, big.mark = ",")
+    card <- function(t, v) sprintf(
+      "<div style='flex:1;min-width:150px;border:1px solid #e4ddce;border-radius:.6rem;padding:10px 12px;background:#fffdf8'><div style='color:#7a857b;font-size:.78rem'>%s</div><div style='font-family:monospace;font-weight:700;font-size:1.05rem'>%s</div></div>",
+      t, v)
+    sev <- if (is.na(fr$severe_suggested)) "read off median line"
+           else if (isTRUE(fr$severe_suggested)) "yes (&ge;50% in small subpops)"
+           else "no (&lt;50% in small subpops)"
+    unit <- if (hab) " ind." else ""
+    method_lbl <- if (hab)
+      sprintf("Habitat &times; density (%s ind/km<sup>2</sup>)",
+              paste(fr$density, collapse = "&ndash;"))
+      else "Occurrence-count proxy"
+    pct_largest <- if (hab) fr$pct_largest else fr$largest_subpop_pct
+    cards <- c(
+      card("Method", method_lbl),
+      card("Subpopulations", fmt(fr$n_subpop, 0)),
+      card(paste0("Median subpop size", unit), fmt(fr$median_subpop_size)),
+      card("Largest subpop (% pop) - C2a(ii)", paste0(fmt(pct_largest), "%")),
+      card("Severely fragmented?", sev))
+    if (hab)
+      cards <- append(cards,
+                      card("Max in one subpop - C2a(i)", fmt(fr$max_subpop)),
+                      after = 3)
+    htmltools::HTML(sprintf(
+      "<div style='display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px'>%s</div>",
+      paste(cards, collapse = "")))
+  })
+
+  output$frag_curve <- plotly::renderPlotly({
+    fr <- frag_data()
+    validate(need(!is.null(fr) && nrow(fr$curve) > 0,
+                  "Set the parameters and click 'Analyse fragmentation'."))
+    hab <- identical(fr$method, "habitat")
+    cv <- fr$curve
+    xlab <- if (hab) "Subpopulation size (mature individuals)"
+            else "Subpopulation size (relative, occurrences)"
+    p <- plotly::plot_ly(
+      x = cv$size, y = cv$prop_pop_le * 100, type = "scatter", mode = "lines",
+      line = list(color = "#1f8d49", width = 2),
+      hovertemplate = "size &le; %{x:.1f}: %{y:.1f}% of pop<extra></extra>")
+    shapes <- list(list(type = "line", x0 = min(cv$size), x1 = max(cv$size),
+                        y0 = 50, y1 = 50,
+                        line = list(color = "#999", dash = "dash", width = 1)))
+    if (is.finite(fr$median_subpop_size))
+      shapes <- c(shapes, list(list(
+        type = "line", x0 = fr$median_subpop_size, x1 = fr$median_subpop_size,
+        y0 = 0, y1 = 100, line = list(color = "#d4271e", dash = "dash", width = 1))))
+    plotly::layout(
+      p, title = "Population in subpopulations no larger than a given size",
+      xaxis = list(title = xlab),
+      yaxis = list(title = "% of population", range = c(0, 100)),
+      shapes = shapes)
+  })
+
+  output$frag_map <- leaflet::renderLeaflet({
+    fr <- frag_data()
+    validate(need(!is.null(fr) && !is.null(fr$clusters) &&
+                    length(sf::st_geometry(fr$clusters)) > 0,
+                  "Run the fragmentation analysis to map the subpopulations."))
+    obj <- .detail_for(input$frag_species)
+    cl <- tryCatch(sf::st_sf(cluster = seq_along(sf::st_geometry(fr$clusters)),
+                             geometry = sf::st_transform(fr$clusters, 4326)),
+                   error = function(e) NULL)
+    m <- leaflet::leaflet()
+    m <- leaflet::addProviderTiles(m, "Esri.WorldStreetMap", group = "Light")
+    m <- leaflet::addProviderTiles(m, "Esri.WorldImagery", group = "Satellite")
+    if (!is.null(cl))
+      m <- leaflet::addPolygons(m, data = cl, color = "#1f8d49", weight = 1.5,
+                                fillColor = "#7bc47f", fillOpacity = 0.25,
+                                label = ~paste("Subpopulation", cluster),
+                                group = "Subpopulations")
+    if (!is.null(obj)) {
+      pts <- sf::st_transform(sf::st_geometry(obj$points), 4326)
+      co <- sf::st_coordinates(pts)
+      m <- leaflet::addCircleMarkers(m, lng = co[, 1], lat = co[, 2], radius = 4,
+                                     color = "#111111", fillColor = "#f1c40f",
+                                     fillOpacity = 0.9, weight = 1,
+                                     group = "Occurrences")
+    }
+    leaflet::addLayersControl(
+      m, baseGroups = c("Light", "Satellite"),
+      overlayGroups = c("Subpopulations", "Occurrences"),
+      options = leaflet::layersControlOptions(collapsed = FALSE))
+  })
+
+  output$frag_tbl <- DT::renderDT({
+    fr <- frag_data()
+    validate(need(!is.null(fr) && nrow(fr$sizes) > 0, "No subpopulations yet."))
+    .mas_dt(fr$sizes, page = 10, caption = "Subpopulations (largest first)")
+  })
+
+  output$dl_frag <- downloadHandler(
+    filename = function() paste0("mappingAS_subpops_",
+                                 input$frag_species, "_", Sys.Date(), ".csv"),
+    content = .safe_download(function(file) {
+      fr <- frag_data()
+      utils::write.csv(if (is.null(fr)) data.frame() else fr$sizes, file,
+                       row.names = FALSE)
+    })
+  )
+
+  # ---- Assessment tab: Criterion B category range under AOO uncertainty -----
+  output$assess_uncertainty <- renderUI({
+    req(result(), input$results_species)
+    obj <- .detail_for(input$results_species)
+    validate(need(!is.null(obj), "Select a species."))
+    aoh <- tryCatch(as.numeric(obj$eoo_conversion$natural_km2),
+                    error = function(e) NA_real_)
+    ab <- mappingAS::aoo_bounds(obj$aoo$area_km2, aoh, obj$eoo$area_km2)
+    rng <- mappingAS::iucn_category_B_range(obj$eoo$area_km2,
+                                            ab$aoo_lower, ab$aoo_upper)
+    fkm <- function(x) if (is.null(x) || is.na(x)) "&mdash;"
+                       else formatC(x, format = "f", big.mark = ",", digits = 2)
+    sc <- function(x) if (is.null(x) || is.na(x)) "&mdash;" else x
+    badge <- function(x) { b <- mappingAS:::.iucn_badge(x)
+      sprintf("<span style='display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:28px;padding:0 8px;border-radius:14px;background:%s;color:%s;font-weight:700;font-size:.85rem;border:1px solid rgba(0,0,0,.15)'>%s</span>", b$bg, b$fg, b$code) }
+    rng_badges <- if (identical(rng$worst, rng$best)) badge(rng$worst)
+                  else paste0(badge(rng$worst),
+                              " <span style='color:#7a857b'>to</span> ", badge(rng$best))
+    row <- function(t, v) sprintf(
+      "<tr><td style='padding:3px 10px 3px 0;color:#5a655c'>%s</td><td style='padding:3px 0;font-family:monospace'>%s</td></tr>", t, v)
+    htmltools::HTML(sprintf(
+      "<div style='display:flex;align-items:center;gap:14px;flex-wrap:wrap'><div style='font-size:.9rem'>Plausible screening range (size only):</div><div style='display:flex;align-items:center;gap:8px'>%s</div></div><table style='margin-top:10px;font-size:.85rem;border-collapse:collapse'>%s%s%s%s%s</table><div style='font-size:.78rem;color:#7a857b;margin-top:8px'>Most-threatened = B1 with the lower AOO; least-threatened = B1 with the upper AOO. Sub-criteria (a/b/c) apply on top.</div>",
+      rng_badges,
+      row("B1 (EOO)", sprintf("%s km2 &rarr; %s", fkm(obj$eoo$area_km2), sc(rng$b1_category))),
+      row("AOO lower &rarr; upper", sprintf("%s &rarr; %s km2", fkm(ab$aoo_lower), fkm(ab$aoo_upper))),
+      row("B2 lower (occurrence)", sc(rng$b2_lower)),
+      row("B2 upper (AOH)", sc(rng$b2_upper)),
+      row("Area of Habitat", paste0(fkm(ab$aoh), " km2"))))
   })
 
   # Occurrences read from the uploaded file (NULL when no file is uploaded, so
@@ -1176,6 +2022,9 @@ server <- function(input, output, session) {
     updateSelectInput(session, "ts_species", choices = sp, selected = sp[1])
     updateSelectInput(session, "fire_species", choices = sp, selected = sp[1])
     updateSelectInput(session, "pa_species", choices = sp, selected = sp[1])
+    updateSelectInput(session, "coo_species", choices = sp, selected = sp[1])
+    updateSelectInput(session, "aoh_species", choices = sp, selected = sp[1])
+    updateSelectInput(session, "frag_species", choices = sp, selected = sp[1])
     updateSelectInput(session, "report_species", choices = sp, selected = sp[1])
   })
 

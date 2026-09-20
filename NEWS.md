@@ -1,3 +1,88 @@
+# mappingAS 1.13.2.9000 (development version)
+
+* **Full-criteria analyses assimilated from sRedList (Cazalis *et al.* 2024),
+  keeping Criterion B as the focus and computed entirely from the data
+  mappingAS already produces.** Three new analyses were added, each as an
+  exported function and a dedicated Shiny tab, and the Shiny app was reorganized
+  so the **Assessment** (formerly *Results*) tab now comes at the end of the
+  workflow, just before *Report* and *Methods*:
+    - `countries_of_occurrence()` derives the **countries of occurrence** (each
+      flagged *Extant* / *Possibly Extant*) and an approximate **biogeographical
+      realm** by intersecting the range with the Natural Earth country base map
+      (needs the new `rnaturalearth` suggestion). These are the required /
+      recommended Red List supporting fields.
+    - `aoo_bounds()` brackets the AOO between a **lower** bound (the
+      occurrence-based occupied cells) and an **upper** bound (the Area of
+      Habitat — the natural/suitable habitat within the EOO, capped at the EOO),
+      following Brooks *et al.* (2019), and returns the resulting **B2 category
+      range** so the diagnosis reports the uncertainty explicitly.
+    - `assess_fragmentation()` clusters occurrences into subpopulations by a
+      user-set **isolation distance** and quantifies the share of the population
+      in small subpopulations (a screening proxy after Santini *et al.* 2019),
+      to guide **severe fragmentation** (sub-criterion a). It is never ticked
+      automatically — the judgement stays with the assessor.
+    - `iucn_category_B_range()` combines the fixed EOO (B1) with the bracketed
+      AOO (B2) into the plausible **range** of screening categories under
+      uncertainty (size only), surfaced on the new *Assessment* tab.
+* **Elevation preferences and an elevation-refined Area of Habitat.** Two more
+  functions bring the sRedList elevation step (and the AOHr-style AOH) into the
+  package, reading a DEM only over the EOO/AOO extent (windowed) via the new
+  optional `elevatr` suggestion (AWS Terrain Tiles, no account) or a
+  user-supplied DEM:
+    - `elevation_preferences()` extracts the elevation of each occurrence and
+      suggests the species' elevation limits (min rounded down, max rounded up
+      to the nearest 100 m, as sRedList does).
+    - `calc_aoh()` computes the Area of Habitat as the suitable (natural) land
+      cover within the range, optionally masked to an elevation band, reusing
+      the package's own land-cover backends and `summarise_conversion()`. On the
+      *Habitat & AOO* tab the elevation-refined AOH replaces the plain
+      natural-habitat proxy as the habitat-based upper AOO bound, sharpening the
+      B2 category range. Both degrade gracefully to `NA` when a DEM or land
+      cover is unavailable.
+* **AOO upper bound at the 2 km reference scale, population size and AOH
+  validation.** `calc_aoh()` now also returns `aoo_upper_km2` - the AOH rescaled
+  to the IUCN reference scale (the 2 x 2 km cells that intersect the suitable
+  habitat, IUCN 4.10.7 condition iii) - which the *Habitat & AOO* tab uses as the
+  AOO upper bound instead of the raw habitat area. It returns two validation
+  metrics (Lumbierres *et al.* 2022): `model_prevalence` (suitable share of the
+  range) and `point_prevalence` (occurrences inside the habitat, from a new
+  `points` argument). The tab adds a **population-size** panel (AOH x density,
+  with a density calculator: density in occupied habitat x % mature x % of
+  suitable habitat occupied, and low-high ranges) for criteria C/D.
+* **Richer, guideline-aligned Area-of-Habitat definition.** On the *Habitat &
+  AOO* tab a **'Choose from land cover'** window lists the land-cover classes
+  actually present in the species' range (with area and %), where each is marked
+  **suitable** or **marginal / unknown** - so habitat is chosen from what is
+  really there (IUCN 4.10.7 condition i). Marginal classes add a broader AOH, so
+  `calc_aoh()` now returns an AOH range (`aoh_km2` strict to `aoh_max_km2`) via a
+  new `marginal_codes` argument. A **% of habitat occupied** input scales the
+  potential habitat down to occupied habitat for the AOO upper bound (condition
+  ii), and a note explains conditions i/ii/iii (validation, occupancy, reference
+  scale) for using habitat maps to inform AOO/EOO.
+* **Guideline-compliant severe fragmentation from habitat and density.**
+  `fragment_habitat()` implements the IUCN method (Santini *et al.* 2019, as in
+  sRedList): it splits the Area of Habitat into patches, groups patches closer
+  than the isolation/dispersal distance into subpopulations, and sizes each in
+  **mature individuals** (habitat area x density, dropping subpopulations below
+  two individuals). It returns the fragmentation curve and median subpopulation
+  size, plus the largest subpopulation's size (Criterion **C2a(i)**) and its
+  share of the population (**C2a(ii)**), and flags severe fragmentation when
+  >50% of the population is in small, isolated subpopulations. On the
+  *Fragmentation* tab, entering a density (mature individuals per km^2; a range
+  like `3-8` is accepted) switches from the occurrence-count proxy to this
+  habitat-and-density method, reusing the suitable classes and elevation band
+  from the *Habitat & AOO* tab. `assess_fragmentation()` (occurrence proxy) is
+  kept for when no density is available.
+* **Interactive maps for the new analyses.** `map_aoh()` draws the Area of
+  Habitat (the suitable land-cover classes within the EOO, optionally masked to
+  the elevation band) as a green Leaflet overlay with the EOO hull and the
+  occurrence points; on the *Habitat & AOO* tab a class picker lets the assessor
+  choose which land-cover classes count as habitat (default: every natural
+  class), and both the AOH area and the map use that selection. The
+  *Fragmentation* tab now maps the subpopulation clusters alongside the
+  fragmentation curve. `calc_aoh()` gained a `suitable_codes` argument so the
+  measured AOH can be restricted to specific classes.
+
 # mappingAS 1.13.2
 
 * **Criterion B category now tracks the number of locations (ConR-aligned).**
@@ -46,7 +131,7 @@
   When a species is selected, the (a)/(b)/(c) checkboxes are pre-checked to match
   what the assessment computed, and the category badge reflects them - so the
   buttons show the result rather than an empty form. The assessor keeps full
-  control: unchecking a sub-criterion (e.g. continuing decline) overrides it and
+  control: clearing a sub-criterion (e.g. continuing decline) overrides it and
   can drop the taxon to NT/LC live, and re-checking the automatic state restores
   the computed category. Overrides flow through the table, CSV, report and
   factsheet; a fresh assessment resets them.
