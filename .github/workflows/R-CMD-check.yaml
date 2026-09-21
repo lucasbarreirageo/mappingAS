@@ -1,13 +1,15 @@
 # Workflow derived from https://github.com/r-lib/actions/tree/v2/examples
-# R CMD check on Linux and Windows.
+# R CMD check on Linux, Windows and macOS.
 #
-# macOS is intentionally not in the matrix: the GitHub macOS runner cannot
-# install a binary dependency because pak fetches an arm64 binary from the
-# public Posit package manager that it cannot extract ("unknown archive type").
-# That is an upstream runner/pak issue, not a package problem - the package
-# builds and checks fine on the official macOS builder (mac.r-project.org, the
-# one CRAN uses). Validate macOS before a CRAN submission with
-# devtools::check_mac_release() instead.
+# The Linux/Windows matrix (job R-CMD-check) uses the standard r-lib setup,
+# which installs dependencies with pak.
+#
+# macOS runs as a separate job (R-CMD-check-macos) that does NOT use pak. On
+# the GitHub macOS arm64 runner pak fetches an arm64 binary from the public
+# Posit package manager that it then cannot extract ("unknown archive type"),
+# an upstream runner/pak issue rather than a package problem. To avoid it the
+# macOS job installs every dependency with install.packages/remotes straight
+# from CRAN instead, so the package is checked on macOS with no workaround.
 on:
   push:
     branches: [main, master]
@@ -52,6 +54,50 @@ jobs:
         with:
           extra-packages: any::rcmdcheck
           needs: check
+
+      - uses: r-lib/actions/check-r-package@v2
+        with:
+          upload-snapshots: true
+          build_args: 'c("--no-manual", "--compact-vignettes=gs+qpdf")'
+
+  # Dedicated macOS job that installs dependencies from CRAN with
+  # install.packages/remotes instead of pak, sidestepping the pak archive
+  # extraction failure on the macOS arm64 runner.
+  R-CMD-check-macos:
+    runs-on: macos-latest
+
+    name: macos-latest (release)
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+      # Missing Suggests must not fail the check on this runner.
+      _R_CHECK_FORCE_SUGGESTS_: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: 'release'
+          use-public-rspm: false
+
+      - name: Install dependencies from CRAN (no pak)
+        shell: Rscript {0}
+        run: |
+          options(repos = c(CRAN = "https://cloud.r-project.org"))
+          install.packages(c("remotes", "rcmdcheck"))
+          # Try full dependencies (incl. Suggests); fall back to the required
+          # ones only if an optional package is unavailable on this platform.
+          tryCatch(
+            remotes::install_deps(dependencies = TRUE),
+            error = function(e) {
+              message("Full dependency install failed: ", conditionMessage(e))
+              message("Retrying with required dependencies only.")
+              remotes::install_deps(dependencies = NA)
+            })
 
       - uses: r-lib/actions/check-r-package@v2
         with:
