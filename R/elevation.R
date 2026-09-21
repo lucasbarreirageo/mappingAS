@@ -34,6 +34,7 @@
   if (is.null(g) || !length(g)) return(NULL)
   if (is.na(sf::st_crs(g))) sf::st_crs(g) <- 4326
   g <- sf::st_transform(g, 4326)
+  z <- .dem_zoom_cap(g, z)
 
   if (!is.null(src)) {
     path <- if (grepl("^https?://", src)) paste0("/vsicurl/", src) else src
@@ -59,6 +60,35 @@
     error = function(e) NULL)
   if (is.null(r)) return(NULL)
   tryCatch(terra::rast(r), error = function(e) NULL)
+}
+
+#' Cap the terrain-tile zoom so the DEM mosaic stays within a pixel budget.
+#'
+#' \code{elevatr::get_elev_raster()} downloads a slippy-map terrain-tile mosaic
+#' whose size grows as \code{4^z} with the zoom, and is otherwise unbounded by
+#' the area requested. Over a large range (e.g. a wide-ranging montane species)
+#' a high zoom would fetch a multi-gigabyte mosaic and exhaust memory, which the
+#' operating system answers by killing R ("Terminated"). This lowers the zoom
+#' until the estimated mosaic is at most \code{max_px} pixels, so the DEM read
+#' stays windowed and bounded exactly like the land-cover read. The DEM is
+#' always resampled to a coarse grid afterwards, so a lower zoom over a large
+#' area costs no meaningful accuracy for the elevation mask.
+#' @keywords internal
+#' @noRd
+.dem_zoom_cap <- function(g, z, max_px = 4e6) {
+  z <- suppressWarnings(as.integer(z)[1])
+  if (!is.finite(z)) z <- 9L
+  bb <- tryCatch(sf::st_bbox(g), error = function(e) NULL)
+  if (is.null(bb)) return(z)
+  wdeg <- as.numeric(bb[["xmax"]] - bb[["xmin"]])
+  hdeg <- as.numeric(bb[["ymax"]] - bb[["ymin"]])
+  if (!is.finite(wdeg) || !is.finite(hdeg) || wdeg <= 0 || hdeg <= 0) return(z)
+  # Approximate pixels of the terrain-tile mosaic at zoom zz (256-px tiles on a
+  # 360 x 180 degree global grid); conservative enough to cap the download.
+  est_px <- function(zz)
+    (2^zz * wdeg / 360) * 256 * (2^zz * hdeg / 180) * 256
+  while (z > 1L && est_px(z) > max_px) z <- z - 1L
+  z
 }
 
 #' Suggest elevation preferences from the occurrences' elevation
