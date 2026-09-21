@@ -542,9 +542,9 @@ ui <- bslib::page_sidebar(
         "before assessing).")),
       fluidRow(
         column(6, selectizeInput(
-          "aoh_classes", "Suitable habitat classes (default: all natural)",
+          "aoh_classes", "Suitable habitat classes",
           choices = NULL, multiple = TRUE,
-          options = list(placeholder = "Leave empty to use every natural class"))),
+          options = list(placeholder = "Click to choose classes (empty = all natural)"))),
         column(3, numericInput("aoh_occupancy",
                                "% of habitat occupied", value = 100,
                                min = 1, max = 100, step = 5)),
@@ -561,8 +561,10 @@ ui <- bslib::page_sidebar(
         "classes actually present in the range, with their area, where you mark ",
         "each as <b>suitable</b> or <b>marginal</b>). The AOH, the AOO upper bound ",
         "and the map use this selection plus the elevation band. <b>% of habitat ",
-        "occupied</b> scales the potential habitat down to occupied habitat ",
-        "(IUCN 4.10.7 condition ii); leave 100 if unknown.")),
+        "occupied</b> is the single occupancy correction (IUCN 4.10.7 condition ",
+        "ii): it scales the potential habitat down to occupied habitat for the ",
+        "AOO upper bound <i>and</i> for the population estimate below. Leave 100 ",
+        "if unknown.")),
       bslib::accordion(
         open = FALSE,
         bslib::accordion_panel(
@@ -617,21 +619,19 @@ ui <- bslib::page_sidebar(
           tags$h6("Population size & density (criteria C / D)",
                   class = "card-title"),
           helpText(htmltools::HTML(
-            "Population size = <b>AOH &times; density</b> (mature individuals per ",
-            "km&sup2; of suitable habitat). Enter the density directly, or use the ",
-            "calculator: density in occupied habitat &times; % mature &times; % of ",
-            "suitable habitat occupied. A range (e.g. <code>3-8</code>) gives a ",
-            "low&ndash;high estimate. Compute the AOH above first.")),
+            "Population size = <b>occupied AOH &times; density</b>. The occupancy ",
+            "correction is the <b>% of habitat occupied</b> field at the top of ",
+            "the tab (no need to enter it twice). Enter the density directly, or ",
+            "use the calculator: density in occupied habitat &times; % mature. A ",
+            "range (e.g. <code>3-8</code>) gives a low&ndash;high estimate. ",
+            "Compute the AOH above first.")),
           fluidRow(
-            column(3, textInput("pop_density", "Density (mature ind/km2)",
+            column(4, textInput("pop_density", "Density (mature ind/km2)",
                                 value = "", placeholder = "e.g. 5  or  3-8")),
-            column(3, numericInput("pop_dens_total",
+            column(4, numericInput("pop_dens_total",
                                    "or density in occupied habitat", value = NA,
                                    min = 0)),
-            column(3, numericInput("pop_pct_mature", "% mature", value = NA,
-                                   min = 0, max = 100)),
-            column(3, numericInput("pop_pct_occupied",
-                                   "% suitable habitat occupied", value = NA,
+            column(4, numericInput("pop_pct_mature", "% mature", value = NA,
                                    min = 0, max = 100))
           ),
           uiOutput("aoh_popsize")
@@ -653,24 +653,20 @@ ui <- bslib::page_sidebar(
       "Fragmentation", icon = icon("puzzle-piece"),
       selectInput("frag_species", "Species", choices = NULL),
       helpText(htmltools::HTML(
-        "<b>Severe fragmentation</b> (criterion B sub-criterion <b>a</b>). Per the ",
-        "IUCN guidelines, a taxon is severely fragmented when <b>&gt;50% of its ",
-        "population (or occupied habitat) is in patches that are both (1) too ",
-        "<b>small</b> to be viable and (2) <b>isolated</b> by a distance large ",
-        "relative to the species' dispersal</b>. Two subpopulations far apart, or ",
-        "even a single subpopulation too small to be viable, can qualify. This is ",
-        "independent of the number of locations. Set it on the Assessment tab - ",
-        "it is never ticked automatically.")),
+        "<b>Severe fragmentation</b> (criterion B, sub-criterion <b>a</b>): a taxon ",
+        "qualifies when <b>more than half</b> of its population lives in ",
+        "subpopulations that are <b>both</b> too <b>small</b> to be viable <b>and</b> ",
+        "too <b>isolated</b> to be rescued if they blink out. You tick it on the ",
+        "Assessment tab - it is never set automatically.")),
       helpText(htmltools::HTML(
-        "<b>Recommended (guideline-compliant, Santini et al. 2019):</b> enter a ",
-        "<b>density</b> (mature individuals per km&sup2; of suitable habitat) - ",
-        "the analysis then splits the <b>Area of Habitat</b> (the suitable classes ",
-        "from the <i>Habitat &amp; AOO</i> tab, within the elevation band) into ",
-        "patches, groups patches closer than the isolation distance into ",
-        "subpopulations, and sizes each in <b>individuals</b> (area &times; ",
-        "density). Leave density empty for a rough <b>occurrence-count</b> proxy. ",
-        "Note: 'habitat' should be the area truly habitable by the species, not a ",
-        "land-cover type - treat the land-cover AOH as an approximation.")),
+        "<b>How this tab estimates it:</b> it takes the <b>Area of Habitat</b> from ",
+        "the <i>Habitat &amp; AOO</i> tab (your suitable classes and elevation ",
+        "band), then <b>(1)</b> breaks it into patches, <b>(2)</b> merges patches ",
+        "closer than the <b>isolation distance</b> into subpopulations, and ",
+        "<b>(3)</b> sizes each one. Enter a <b>density</b> to size them in ",
+        "individuals (recommended); leave it blank to fall back on a rough count ",
+        "of occurrences. The land-cover habitat is an approximation of the area ",
+        "truly habitable by the species.")),
       fluidRow(
         column(3, numericInput("frag_iso_km", "Isolation distance (km)",
                                value = 20, min = 0.1, step = 1)),
@@ -685,11 +681,11 @@ ui <- bslib::page_sidebar(
                                    class = "btn-primary")))
       ),
       helpText(htmltools::HTML(
-        "'Small' is the viable-population threshold (for many vertebrates, ",
-        "subpopulations of fewer than ~100 individuals may be too small to be ",
-        "viable); leave it blank to read it off the <b>median</b> line (dashed) - ",
-        "the size below which half the population lives. The isolation distance ",
-        "should be several times the species' average dispersal distance.")),
+        "<b>Isolation distance</b>: set it to several times the species' average ",
+        "dispersal distance. <b>'Small' size</b>: the subpopulation size you treat ",
+        "as non-viable (often ~100 individuals for vertebrates); leave it blank to ",
+        "read it off the <b>median</b> line - the size below which half the ",
+        "population lives.")),
       uiOutput("frag_summary"),
       bslib::layout_columns(
         col_widths = c(6, 6),
@@ -1445,14 +1441,16 @@ server <- function(input, output, session) {
               else aoh_lo
     validate(need(is.finite(aoh_lo),
                   "Compute the AOH above (Compute AOH) to estimate population size."))
+    # Occupied habitat = potential AOH x the single occupancy correction (the
+    # "% of habitat occupied" field at the top of the tab).
+    occ <- a$occupancy / 100
+    aoh_lo <- aoh_lo * occ; aoh_hi <- aoh_hi * occ
     dens <- .parse_density(input$pop_density)
     if (!length(dens)) {
       dt <- suppressWarnings(as.numeric(input$pop_dens_total))
       if (is.finite(dt) && dt > 0) {
         pm <- suppressWarnings(as.numeric(input$pop_pct_mature))
-        po <- suppressWarnings(as.numeric(input$pop_pct_occupied))
-        dens <- dt * (if (is.finite(pm)) pm / 100 else 1) *
-          (if (is.finite(po)) po / 100 else 1)
+        dens <- dt * (if (is.finite(pm)) pm / 100 else 1)
       }
     }
     if (!length(dens))
@@ -1471,12 +1469,15 @@ server <- function(input, output, session) {
                 else fden(dlo)
     pop_lbl <- if (isTRUE(pop_lo != pop_hi))
       sprintf("%s&ndash;%s", fnum(pop_lo), fnum(pop_hi)) else fnum(pop_lo)
+    occ_txt <- if (isTRUE(a$occupancy < 100))
+      sprintf(", %.0f%% occupied", a$occupancy) else ""
     htmltools::HTML(sprintf(
-      "<div style='display:flex;gap:10px;flex-wrap:wrap'>%s%s</div><div style='font-size:.75rem;color:#7a857b;margin-top:6px'>An upper-type estimate (AOH is potential habitat); use the qualifier 'Inferred'. Informs criteria C/D and the fragmentation density.</div>",
+      "<div style='display:flex;gap:10px;flex-wrap:wrap'>%s%s</div><div style='font-size:.75rem;color:#7a857b;margin-top:6px'>Occupied AOH (potential habitat%s) &times; density; an inferred estimate, use the qualifier 'Inferred'. Informs criteria C/D and the fragmentation density.</div>",
+      occ_txt,
       card("Effective density", paste0(dens_lbl, " ind/km<sup>2</sup>"),
            "mature per suitable habitat"),
       card("Population size (est.)", paste0(pop_lbl, " ind."),
-           "AOH &times; density")))
+           "occupied AOH &times; density")))
   })
 
   output$aoh_plot <- plotly::renderPlotly({
@@ -1484,19 +1485,54 @@ server <- function(input, output, session) {
     b <- aoh_data()$bounds
     validate(need(is.finite(b$aoo_lower) || is.finite(b$aoo_upper),
                   "No AOO available for this species."))
-    vals <- c(b$aoo_lower, b$aoo_upper)
-    labs <- c("AOO lower (occurrence)", "AOO upper (AOH)")
-    p <- plotly::plot_ly(
-      x = vals, y = labs, type = "bar", orientation = "h",
-      marker = list(color = c("#1f8d49", "#7bc47f")),
-      hovertemplate = "%{y}: %{x:.1f} km2<extra></extra>")
-    shapes <- lapply(c(10, 500, 2000), function(x) list(
-      type = "line", x0 = x, x1 = x, yref = "paper", y0 = 0, y1 = 1,
-      line = list(color = "#d4271e", dash = "dot", width = 1)))
-    plotly::layout(
-      p, title = "AOO bounds vs B2 thresholds (CR 10 / EN 500 / VU 2000 km2)",
-      xaxis = list(title = "km2 (log scale)", type = "log"),
-      yaxis = list(title = ""), shapes = shapes)
+    lo <- b$aoo_lower; hi <- b$aoo_upper
+    if (!is.finite(lo)) lo <- hi
+    if (!is.finite(hi)) hi <- lo
+    # Log ruler padded around the data and the three B2 thresholds.
+    xmin <- max(1, min(lo, 10) / 3)
+    xmax <- max(hi, 2000) * 1.6
+    # IUCN B2 category zones (km2): CR < 10, EN 10-500, VU 500-2000, else not B2.
+    zx0 <- c(xmin, 10, 500, 2000); zx1 <- c(10, 500, 2000, xmax)
+    zcol <- c("#f4c9c4", "#f6ddc4", "#f6f0c4", "#d8ecd2")
+    zlab <- c("CR", "EN", "VU", "not threatened (B2)")
+    band <- lapply(seq_along(zx0), function(i) list(
+      type = "rect", xref = "x", yref = "paper",
+      x0 = zx0[i], x1 = zx1[i], y0 = 0, y1 = 1,
+      fillcolor = zcol[i], line = list(width = 0), layer = "below"))
+    zone_lab <- lapply(seq_along(zx0), function(i) list(
+      x = log10(sqrt(zx0[i] * zx1[i])), y = 1, yref = "paper",
+      text = zlab[i], showarrow = FALSE, yanchor = "bottom",
+      font = list(size = 11, color = "#5a655b")))
+    p <- plotly::plot_ly()
+    p <- plotly::add_segments(p, x = lo, xend = hi, y = 1, yend = 1,
+      line = list(color = "#4a5a4d", width = 5), showlegend = FALSE,
+      hoverinfo = "skip")
+    p <- plotly::add_markers(p, x = lo, y = 1, name = "AOO lower (occurrence)",
+      marker = list(size = 15, color = "#1f8d49",
+                    line = list(color = "white", width = 2)),
+      text = sprintf("AOO lower (occupied cells): %s km2",
+                     formatC(lo, format = "f", digits = 0, big.mark = ",")),
+      hoverinfo = "text")
+    p <- plotly::add_markers(p, x = hi, y = 1,
+      name = "AOO upper (occupied AOH)",
+      marker = list(size = 15, color = "#7bc47f",
+                    line = list(color = "white", width = 2)),
+      text = sprintf("AOO upper (habitat, capped at EOO): %s km2",
+                     formatC(hi, format = "f", digits = 0, big.mark = ",")),
+      hoverinfo = "text")
+    plotly::layout(p,
+      title = list(
+        text = "Where the AOO sits among the B2 category thresholds",
+        font = list(size = 13)),
+      xaxis = list(title = "AOO (km2, log scale)", type = "log",
+                   range = c(log10(xmin), log10(xmax)),
+                   tickvals = c(10, 500, 2000),
+                   ticktext = c("10", "500", "2,000")),
+      yaxis = list(title = "", range = c(0.4, 1.6),
+                   showticklabels = FALSE, zeroline = FALSE),
+      shapes = band, annotations = zone_lab,
+      legend = list(orientation = "h", x = 0, y = -0.2),
+      margin = list(t = 46))
   })
 
   # Land-cover legend for the selected species (used to populate the suitable-
