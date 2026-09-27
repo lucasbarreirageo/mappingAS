@@ -153,6 +153,84 @@ if (is.null(getOption("shiny.maxRequestSize")))
   }
 }
 
+# Save an htmlwidget (e.g. a Leaflet map) to ONE self-contained HTML file.
+# htmlwidgets::saveWidget(selfcontained = TRUE) needs pandoc and, when pandoc is
+# missing, writes an unusable stub (a YAML header instead of the map) - the cause
+# of the broken "Download map (HTML)". Here we first try the pandoc path (which
+# also inlines CSS images), pointing at RStudio's bundled pandoc when it is not
+# otherwise on the PATH, and otherwise fall back to inlining every local script
+# and stylesheet dependency ourselves, so the file opens standalone with no
+# pandoc. Returns TRUE on success. Basemap tiles load from the web, so the
+# exported map needs an internet connection to draw its background.
+.save_widget_html <- function(widget, out_file, title = "map") {
+  if (!requireNamespace("htmlwidgets", quietly = TRUE) ||
+      !requireNamespace("htmltools", quietly = TRUE)) return(FALSE)
+
+  have_pandoc <- tryCatch(
+    requireNamespace("rmarkdown", quietly = TRUE) && rmarkdown::pandoc_available(),
+    error = function(e) FALSE)
+  if (!have_pandoc) {
+    rp <- Sys.getenv("RSTUDIO_PANDOC")
+    if (nzchar(rp) && dir.exists(rp)) {
+      Sys.setenv(PATH = paste(rp, Sys.getenv("PATH"), sep = .Platform$path.sep))
+      have_pandoc <- tryCatch(
+        requireNamespace("rmarkdown", quietly = TRUE) && rmarkdown::pandoc_available(),
+        error = function(e) FALSE)
+    }
+  }
+
+  # 1) Preferred: pandoc-based self-contained save (into its own temp dir, then
+  #    copy, so htmlwidgets' relative library files never collide with Shiny's
+  #    download path).
+  if (have_pandoc) {
+    d <- tempfile("mapdl"); dir.create(d)
+    on.exit(unlink(d, recursive = TRUE), add = TRUE)
+    tf <- file.path(d, "index.html")
+    ok <- tryCatch({
+      htmlwidgets::saveWidget(widget, tf, selfcontained = TRUE, title = title)
+      TRUE
+    }, error = function(e) FALSE)
+    if (isTRUE(ok) && file.exists(tf)) {
+      file.copy(tf, out_file, overwrite = TRUE)
+      return(TRUE)
+    }
+  }
+
+  # 2) Pandoc-free fallback: inline each local dependency's scripts and styles.
+  page <- tryCatch({
+    tl   <- htmltools::as.tags(widget)
+    tags <- htmltools::renderTags(tl)
+    deps <- htmltools::resolveDependencies(tags$dependencies)
+    head_bits <- character(0)
+    for (dep in deps) {
+      base <- if (!is.null(dep$src$file)) dep$src$file else NULL
+      if (is.null(base)) next            # remote dependency: keep it as a link
+      for (s in dep$stylesheet) {
+        p <- file.path(base, s)
+        if (file.exists(p))
+          head_bits <- c(head_bits, "<style>",
+                         readLines(p, warn = FALSE, encoding = "UTF-8"), "</style>")
+      }
+      for (j in dep$script) {
+        p <- file.path(base, j)
+        if (file.exists(p))
+          head_bits <- c(head_bits, "<script>",
+                         readLines(p, warn = FALSE, encoding = "UTF-8"), "</script>")
+      }
+    }
+    c("<!DOCTYPE html>", "<html>", "<head>", '<meta charset="utf-8"/>',
+      sprintf("<title>%s</title>", htmltools::htmlEscape(title)),
+      head_bits,
+      as.character(tags$head),
+      "</head>", '<body style="margin:0">',
+      as.character(tags$html),
+      "</body>", "</html>")
+  }, error = function(e) NULL)
+  if (is.null(page)) return(FALSE)
+  writeLines(page, out_file, useBytes = TRUE)
+  TRUE
+}
+
 ui <- bslib::page_sidebar(
   title = "mappingAS | Mapping Area of Species",
   # Non-fillable so tall tabs (chart + table) scroll normally instead of being
@@ -417,8 +495,8 @@ ui <- bslib::page_sidebar(
         column(4, radioButtons("ts_by", "Detail",
                                c("Class" = "class", "Group" = "group"),
                                selected = "class", inline = TRUE)),
-        column(4, numericInput("ts_step", "Step (years)", value = 1,
-                               min = 1, max = 10, step = 1))
+        column(4, numericInput("ts_step", "Step (years)", value = 5,
+                               min = 5, max = 10, step = 1))
       ),
       div(
         class = "d-flex gap-2 mb-2",
@@ -426,7 +504,7 @@ ui <- bslib::page_sidebar(
         downloadButton("dl_ts", "Download series (CSV)"),
         downloadButton("dl_ts_png", "Save image (PNG)")
       ),
-      helpText("Complete land-cover history for BOTH extents (EOO and AOO), one chart above the other, each with its own altered-area analysis. A 1-year step reads all years and may be slow; increase the step to speed up."),
+      helpText("Complete land-cover history for BOTH extents (EOO and AOO), one chart above the other, each with its own altered-area analysis. The step is in years; the minimum is 5 (a finer step is not reliably available and is much slower)."),
       # Each block is a self-contained Bootstrap card so the DataTable reserves
       # its height and the sections below it never overlap it.
       tags$div(
@@ -530,7 +608,7 @@ ui <- bslib::page_sidebar(
     ),
     # TAB: AREA OF HABITAT AND LOWER/UPPER AOO BOUNDS (criterion B2 range)
     bslib::nav_panel(
-      "Habitat & AOO", icon = icon("layer-group"),
+      "Habitat", icon = icon("layer-group"),
       selectInput("aoh_species", "Species", choices = NULL),
       helpText(htmltools::HTML(
         "<b>Area of Habitat (AOH)</b> and the resulting <b>lower-upper bounds of ",
@@ -540,31 +618,32 @@ ui <- bslib::page_sidebar(
         "between them (Brooks et al. 2019), so B2 spans a <b>range of ",
         "categories</b>. Needs land cover (tick 'Calculate land-cover conversion' ",
         "before assessing).")),
-      fluidRow(
-        column(6, selectizeInput(
-          "aoh_classes", "Suitable habitat classes",
-          choices = NULL, multiple = TRUE,
-          options = list(placeholder = "Click to choose classes (empty = all natural)"))),
-        column(3, numericInput("aoh_occupancy",
-                               "% of habitat occupied", value = 100,
-                               min = 1, max = 100, step = 5)),
-        column(3, div(class = "pt-4 d-flex gap-2 flex-wrap",
-                      actionButton("aoh_pick_classes", "Choose from land cover",
-                                   icon = icon("layer-group"),
-                                   class = "btn-outline-primary btn-sm"),
-                      actionButton("aoh_classes_reset", "Reset",
-                                   class = "btn-outline-secondary btn-sm")))
+      # Collapsible so the (often long) class list does not crowd the tab.
+      bslib::accordion(
+        open = FALSE,
+        bslib::accordion_panel(
+          "Suitable habitat classes", icon = icon("layer-group"),
+          fluidRow(
+            column(8, selectizeInput(
+              "aoh_classes", NULL, choices = NULL, multiple = TRUE,
+              width = "100%",
+              options = list(
+                placeholder = "Click to choose classes (empty = all natural)"))),
+            column(4, div(class = "d-flex gap-2 flex-wrap",
+                          actionButton("aoh_pick_classes", "Choose from land cover",
+                                       icon = icon("layer-group"),
+                                       class = "btn-outline-primary btn-sm"),
+                          actionButton("aoh_classes_reset", "Reset",
+                                       class = "btn-outline-secondary btn-sm")))
+          ),
+          helpText(htmltools::HTML(
+            "Pick the land-cover classes that make ecological sense as habitat for ",
+            "the species (<b>'Choose from land cover'</b> opens a window listing ",
+            "the classes actually present in the range, with their area, where you ",
+            "mark each as <b>suitable</b> or <b>marginal</b>). The AOH, the AOO ",
+            "upper bound and the map use this selection plus the elevation band.")))
       ),
-      helpText(htmltools::HTML(
-        "Pick the land-cover classes that make ecological sense as habitat for ",
-        "the species (<b>'Choose from land cover'</b> opens a window listing the ",
-        "classes actually present in the range, with their area, where you mark ",
-        "each as <b>suitable</b> or <b>marginal</b>). The AOH, the AOO upper bound ",
-        "and the map use this selection plus the elevation band. <b>% of habitat ",
-        "occupied</b> is the single occupancy correction (IUCN 4.10.7 condition ",
-        "ii): it scales the potential habitat down to occupied habitat for the ",
-        "AOO upper bound <i>and</i> for the population estimate below. Leave 100 ",
-        "if unknown.")),
+      uiOutput("aoh_occupancy_line"),
       bslib::accordion(
         open = FALSE,
         bslib::accordion_panel(
@@ -660,7 +739,7 @@ ui <- bslib::page_sidebar(
         "Assessment tab - it is never set automatically.")),
       helpText(htmltools::HTML(
         "<b>How this tab estimates it:</b> it takes the <b>Area of Habitat</b> from ",
-        "the <i>Habitat &amp; AOO</i> tab (your suitable classes and elevation ",
+        "the <i>Habitat</i> tab (your suitable classes and elevation ",
         "band), then <b>(1)</b> breaks it into patches, <b>(2)</b> merges patches ",
         "closer than the <b>isolation distance</b> into subpopulations, and ",
         "<b>(3)</b> sizes each one. Enter a <b>density</b> to size them in ",
@@ -1369,15 +1448,36 @@ server <- function(input, output, session) {
       else if (is.finite(refined$aoh_max_km2)) refined$aoh_max_km2
       else if (is.finite(refined$aoh_km2)) refined$aoh_km2 else proxy
     } else proxy
-    # Adjust potential habitat to occupied habitat (IUCN 4.10.7 condition ii).
-    occ <- suppressWarnings(as.numeric(input$aoh_occupancy))
-    if (!is.finite(occ) || occ <= 0 || occ > 100) occ <- 100
+    # Occupancy correction (IUCN 4.10.7 condition ii), derived automatically from
+    # the data: the point prevalence (share of occurrences falling in the
+    # suitable habitat), which calc_aoh() returns. Defaults to 100% until an AOH
+    # with occurrence points has been computed.
+    pp <- if (!is.null(refined)) refined$point_prevalence else NA_real_
+    occ <- if (is.finite(pp) && pp > 0) max(1, min(100, 100 * pp)) else 100
     aoh_eff <- if (is.finite(aoh_pot)) aoh_pot * occ / 100 else aoh_pot
     list(bounds = mappingAS::aoo_bounds(
            aoo_lower_km2 = obj$aoo$area_km2, aoh_km2 = aoh_eff,
            eoo_km2 = obj$eoo$area_km2),
          eoo = obj$eoo$area_km2, proxy = proxy, refined = refined,
          occupancy = occ, aoh_potential = aoh_pot, scale2k = scale2k)
+  })
+
+  # Occupancy is derived automatically (point prevalence) and shown read-only,
+  # replacing the old manual "% of habitat occupied" input.
+  output$aoh_occupancy_line <- renderUI({
+    a  <- tryCatch(aoh_data(), error = function(e) NULL)
+    occ <- if (is.null(a)) NA_real_ else a$occupancy
+    pp  <- if (!is.null(a) && !is.null(a$refined)) a$refined$point_prevalence else NA_real_
+    src <- if (is.finite(pp) && pp > 0)
+      "auto, from point prevalence (share of records inside the habitat)"
+      else "default 100% until you compute the AOH with occurrence points"
+    fmt <- paste0(
+      "<b>%% of habitat occupied:</b> <b>%s%%</b> &middot; %s. This occupancy ",
+      "correction (IUCN 4.10.7 condition ii) scales the potential habitat to ",
+      "occupied habitat for the AOO upper bound and the population estimate.")
+    helpText(htmltools::HTML(sprintf(
+      fmt, if (is.finite(occ)) formatC(occ, format = "f", digits = 0) else "100",
+      src)))
   })
 
   output$aoh_cards <- renderUI({
@@ -1650,6 +1750,29 @@ server <- function(input, output, session) {
     }
   })
 
+  # 4C: when the fragmentation analysis suggests severe fragmentation, tick the
+  # "Severely fragmented" box on the Assessment tab for that species (feeding
+  # Criterion B sub-criterion a). Stored as a per-species override so it persists
+  # across species/tab switches; the assessor can still untick it.
+  observeEvent(frag_data(), {
+    fr <- frag_data()
+    sp <- input$frag_species
+    if (is.null(fr) || is.null(sp) || !nzchar(sp) ||
+        !isTRUE(fr$severe_suggested)) return()
+    st  <- subcrit_store()
+    cur <- if (!is.null(st[[sp]])) st[[sp]] else .computed_subcrit(sp)
+    if (isTRUE(cur$frag)) return()
+    cur$frag <- TRUE
+    st[[sp]] <- cur
+    subcrit_store(st)
+    if (identical(sp, input$results_species))
+      updateCheckboxInput(session, "cb_frag", value = TRUE)
+    showNotification(sprintf(
+      paste("Fragmentation suggests severe fragmentation for %s;",
+            "'Severely fragmented' was ticked on the Assessment tab."), sp),
+      type = "message")
+  }, ignoreInit = TRUE)
+
   output$frag_summary <- renderUI({
     fr <- frag_data()
     validate(need(!is.null(fr),
@@ -1845,8 +1968,11 @@ server <- function(input, output, session) {
                                       stringsAsFactors = FALSE)))
   }
 
-  observeEvent(input$edit_map_click, {
-    cl <- input$edit_map_click
+  # Points are added through a custom click input (edit_map_addpt_click) set by
+  # the map's onRender handler, which filters out the click Leaflet emits when a
+  # marker drag ends, so dragging a point does not also drop a new one.
+  observeEvent(input$edit_map_addpt_click, {
+    cl <- input$edit_map_addpt_click
     .add_point(cl$lng, cl$lat)
   })
 
@@ -1919,7 +2045,43 @@ server <- function(input, output, session) {
       leaflet::addLayersControl(
         baseGroups = c("Light", "Satellite"),
         options = leaflet::layersControlOptions(collapsed = TRUE)) |>
-      leaflet::setView(lng = -55, lat = -12, zoom = 4)
+      leaflet::setView(lng = -55, lat = -12, zoom = 4) |>
+      # Keep the map sized correctly (it is rendered while its tab is hidden),
+      # add points through a click input that ignores the click Leaflet emits at
+      # the end of a marker drag (which would otherwise drop a spurious point).
+      htmlwidgets::onRender(
+        "function(el, x) {
+           var map = this;
+           var fix = function() { map.invalidateSize(); };
+           setTimeout(fix, 300);
+           if (window.ResizeObserver) {
+             try { new ResizeObserver(fix).observe(el); } catch (e) {}
+           }
+           document.body.addEventListener('shown.bs.tab', function() {
+             setTimeout(fix, 120);
+           });
+           window.addEventListener('resize', fix);
+
+           // Flag marker drags so the click fired when a drag ends is ignored.
+           map.on('layeradd', function(e) {
+             if (e.layer instanceof L.Marker) {
+               e.layer.on('dragstart', function() { map._addptDragging = true; });
+               e.layer.on('dragend', function() {
+                 map._addptSuppressUntil = Date.now() + 500;
+                 setTimeout(function() { map._addptDragging = false; }, 50);
+               });
+             }
+           });
+
+           // Add a point only on a genuine map click (not a drag release).
+           map.on('click', function(e) {
+             if (map._addptDragging) return;
+             if (Date.now() < (map._addptSuppressUntil || 0)) return;
+             Shiny.setInputValue(el.id + '_addpt_click',
+               {lat: e.latlng.lat, lng: e.latlng.lng, nonce: Math.random()},
+               {priority: 'event'});
+           });
+         }")
   })
   outputOptions(output, "edit_map", suspendWhenHidden = FALSE)
 
@@ -1945,20 +2107,51 @@ server <- function(input, output, session) {
                          max(xy[, 1]), max(xy[, 2]))
   })
 
-  # Hand-added points, filtered to the selected species (green). Refreshed on
-  # every add/undo/clear and on species change, without moving the view.
+  # Green marker centred exactly on its point (anchor at the icon's centre) so
+  # it sits on the clicked coordinate with no offset, and draggable so a point
+  # can be repositioned by hand.
+  .added_icon <- leaflet::makeIcon(
+    iconUrl = paste0(
+      "data:image/svg+xml;base64,",
+      "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxOCIgaGVp",
+      "Z2h0PSIxOCI+PGNpcmNsZSBjeD0iOSIgY3k9IjkiIHI9IjYuNSIgZmlsbD0iIzFmOGQ0OSIg",
+      "c3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utd2lkdGg9IjEuNSIvPjwvc3ZnPg=="),
+    iconWidth = 18, iconHeight = 18, iconAnchorX = 9, iconAnchorY = 9)
+
+  # Hand-added points, filtered to the selected species (green, draggable).
+  # Refreshed on every add/undo/clear/drag and on species change, without moving
+  # the view. layerId carries each point's row in the full store so a drag can
+  # update exactly that point.
   observe({
     sp    <- input$edit_species
     df    <- manual_store()
     proxy <- leaflet::leafletProxy("edit_map")
     leaflet::clearGroup(proxy, "added")
-    if (!is.null(sp) && nzchar(sp))
-      df <- df[!is.na(df$species) & df$species == sp, , drop = FALSE]
-    if (nrow(df)) {
-      leaflet::addCircleMarkers(
-        proxy, lng = df$lon, lat = df$lat, radius = 6, color = "#1f8d49",
-        stroke = TRUE, weight = 1, fillOpacity = 0.85, group = "added",
-        label = sprintf("%s (%.4f, %.4f)", df$species, df$lat, df$lon))
+    idx <- if (!is.null(sp) && nzchar(sp))
+      which(!is.na(df$species) & df$species == sp) else seq_len(nrow(df))
+    if (length(idx)) {
+      sub <- df[idx, , drop = FALSE]
+      leaflet::addMarkers(
+        proxy, lng = sub$lon, lat = sub$lat, group = "added",
+        layerId = paste0("added_", idx), icon = .added_icon,
+        options = leaflet::markerOptions(draggable = TRUE),
+        label = sprintf("%s (%.4f, %.4f) - drag to move",
+                        sub$species, sub$lat, sub$lon))
+    }
+  })
+
+  # Drag a hand-added point to reposition it: Leaflet reports the marker's new
+  # location as <mapId>_marker_dragend, carrying the marker's layerId.
+  observeEvent(input$edit_map_marker_dragend, {
+    ev  <- input$edit_map_marker_dragend
+    id  <- suppressWarnings(as.integer(sub("^added_", "", ev$id %||% "")))
+    lon <- suppressWarnings(as.numeric(ev$lng))
+    lat <- suppressWarnings(as.numeric(ev$lat))
+    df  <- manual_store()
+    if (is.finite(id) && id >= 1 && id <= nrow(df) &&
+        is.finite(lon) && is.finite(lat)) {
+      df$lon[id] <- lon; df$lat[id] <- lat
+      manual_store(df)
     }
   })
 
@@ -2495,7 +2688,17 @@ server <- function(input, output, session) {
   # the two areas at once. Returns a list(eoo = <df|NULL>, aoo = <df|NULL>).
   ts_data <- eventReactive(input$ts_run, {
     req(result(), input$ts_species)
-    yrs <- .year_grid(input$ts_step, result()$settings$collection,
+    # The step is in years and must be at least 5: a finer step is not reliably
+    # available and fails on download. Guard it (in case the input is forced
+    # below the minimum) and tell the user rather than erroring downstream.
+    step <- suppressWarnings(as.integer(input$ts_step))
+    if (!isTRUE(is.finite(step)) || step < 5) {
+      showNotification("The time-series step must be at least 5 years.",
+                       type = "warning")
+      updateNumericInput(session, "ts_step", value = 5)
+      req(FALSE)
+    }
+    yrs <- .year_grid(step, result()$settings$collection,
                       result()$settings$initiative %||% "brazil")
     one <- function(rng) {
       tryCatch(
@@ -2778,7 +2981,11 @@ server <- function(input, output, session) {
                            clip = input$map_clip %||% "eoo",
                            protected = isTRUE(input$do_pa),
                            pa_src = if (isTRUE(input$do_pa)) pa_src_path() else NULL)
-      htmlwidgets::saveWidget(m, file, selfcontained = TRUE)
+      ok <- .save_widget_html(m, file, title = input$map_species %||% "map")
+      if (!isTRUE(ok))
+        stop(paste("Could not export the interactive map as HTML. Install",
+                   "'pandoc' (or run the app from RStudio) for a self-contained",
+                   "file, or use the 'Publishable map (PNG)' export instead."))
     })
   )
 
