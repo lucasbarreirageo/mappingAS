@@ -46,11 +46,11 @@ body{
   background-color:var(--bg);
   -webkit-font-smoothing:antialiased;
   text-rendering:optimizeLegibility;
-  /* Show more of the app at once (equivalent to a browser zoom of 80%). CSS
-     `zoom` is used rather than `transform:scale` because it reflows the layout
-     and keeps Leaflet map coordinates/clicks aligned. Reset the browser zoom to
-     100% so the two do not compound. */
-  zoom:0.8;
+  /* NB: no page-wide CSS `zoom` here. CSS `zoom` desynchronises the mouse
+     coordinate systems Leaflet relies on (getBoundingClientRect vs clientX/Y),
+     which makes map clicks land at a constant offset from the cursor. For a
+     more compact view use the browser's own zoom (Ctrl + minus), which Leaflet
+     handles correctly. */
 }
 h1,h2,h3,h4,h5,h6{ font-weight:700; letter-spacing:-.015em; color:var(--ink); }
 a{ color:var(--green-2); text-decoration:none; }
