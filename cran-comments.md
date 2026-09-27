@@ -1,39 +1,34 @@
 ## Submission
 
-This is a resubmission of mappingAS (version 1.13.2).
+This is an update of mappingAS, from 1.13.2 to 1.14.0.
 
-## Response to the previous CRAN review
+## Changes in this version
 
-* Reset of the user's graphical parameters. The Shiny app
-  (`inst/shiny/app.R`) changed `par()` inside a download handler without
-  restoring it. It now saves and restores the state with
-  `oldpar <- graphics::par(no.readonly = TRUE); on.exit(graphics::par(oldpar))`.
-  We re-checked all examples, vignettes and app code: every `par()` / `setwd()`
-  change is now paired with an `on.exit()` restore, and no example, vignette or
-  demo changes `options()` without restoring it.
-
-* Reviewed the package against the CRAN Cookbook
-  (<https://contributor.r-project.org/cran-cookbook/>): `run_app()` now restores
-  the user's `shiny.maxRequestSize` option on exit; the R source is now
-  ASCII-only (non-ASCII characters remained only in comments); the
-  copyright-holder role (`cph`) was added to `Authors@R`; an unused 3.8 MB image
-  was removed from the build to keep the tarball small; and examples now clean
-  up the files they write to `tempdir()`.
-
-## Other changes in this version
-
-* Fixed a rendering bug where a stacked bar summing to exactly 100% could lose
-  its top segment in downloaded PNGs (clipping now uses `coord_cartesian()`).
-* The report and factsheet now honour the applied IUCN Criterion B category and
-  render support figures with a high-quality graphics device.
+* Assimilated three full-criteria supporting analyses (kept focused on
+  Criterion B, and computed entirely from the data the package already
+  produces), each as an exported function and a Shiny tab: countries and
+  biogeographical realm of occurrence (`countries_of_occurrence()`), the
+  lower-upper AOO bounds and their B2 category range (`aoo_bounds()`,
+  `iucn_category_B_range()`), and severe-fragmentation screening
+  (`assess_fragmentation()`, `fragment_habitat()`).
+* Added an elevation-refined Area of Habitat: `elevation_preferences()` and
+  `calc_aoh()` read a digital elevation model only over the range extent
+  (windowed; the read is now bounded by area so it cannot exhaust memory), via
+  the optional `elevatr` suggestion or a user-supplied DEM. `map_aoh()` maps the
+  result.
+* An inferred population size (Area of Habitat times a density) is shown on the
+  Assessment tab and, via a new optional `population` argument to
+  `assessment_report()`, in the report.
+* Shiny app fixes: the interactive-map HTML download is now genuinely
+  self-contained even when pandoc is absent; the "Add points" map places and
+  drags points correctly; and the land-cover time-series step has a five-year
+  minimum.
 
 ## R CMD check results
 
 0 errors | 0 warnings | 1 note
 
 * checking CRAN incoming feasibility ... NOTE
-
-  New submission.
 
   Possibly misspelled words in DESCRIPTION: AOO, EOO, IUCN, WDPA, Amazonia,
   RAISG, anthropic. These are standard acronyms and technical terms in
@@ -53,9 +48,10 @@ win-builder.)
 
 ## Test environments
 
-* local: Ubuntu 24.04, R 4.3.3 (`R CMD check --as-cran`)
+* local: Windows 11, R 4.5.0 (`R CMD check --as-cran`)
 * win-builder: R-devel (x86_64-w64-mingw32)
-* R-hub: linux, macos, macos-arm64, windows
+* GitHub Actions: ubuntu-latest (devel, release, oldrel-1), windows-latest,
+  macos-latest
 
 ## Internet access
 

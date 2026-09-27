@@ -1,4 +1,4 @@
-# mappingAS 1.13.2.9000 (development version)
+# mappingAS 1.14.0
 
 * **Full-criteria analyses assimilated from sRedList (Cazalis *et al.* 2024),
   keeping Criterion B as the focus and computed entirely from the data
@@ -82,6 +82,41 @@
   *Fragmentation* tab now maps the subpopulation clusters alongside the
   fragmentation curve. `calc_aoh()` gained a `suitable_codes` argument so the
   measured AOH can be restricted to specific classes.
+* **Inferred population size on the Assessment tab and in the report.** The
+  Area of Habitat times a user-supplied density (a low-high range is accepted)
+  gives an inferred number of mature individuals; it now appears on the
+  *Assessment* tab for the assessed species and, via a new optional
+  `population` argument to `assessment_report()`, as a "Population size
+  (inferred)" section of the html/text/docx report. It is framed as an
+  inferred, screening-level figure that informs Criteria C and D.
+* **`% of habitat occupied` derived automatically.** On the *Habitat* tab the
+  occupancy correction (IUCN 4.10.7 condition ii) is now read from the point
+  prevalence (the share of occurrences falling in the suitable habitat that
+  `calc_aoh()` returns) and shown read-only, instead of a manual field, and the
+  suitable-class picker is collapsed into an accordion. The tab is renamed from
+  *Habitat & AOO* to *Habitat*.
+* **Severe fragmentation feeds the Assessment automatically.** When the
+  *Fragmentation* analysis suggests severe fragmentation for a species, the
+  "Severely fragmented" box on the *Assessment* tab is ticked for it (feeding
+  sub-criterion a and the report); the assessor can still override it.
+* **Windowed, memory-safe elevation reads.** The digital elevation model is now
+  fetched with a zoom capped by the requested area, so a wide-ranging or montane
+  species no longer pulls a multi-gigabyte terrain mosaic that could exhaust
+  memory. The AOH and fragmentation habitat reads reuse this bounded DEM.
+* **Add-points map fixes.** Clicking the *Add points* map now drops the point
+  exactly under the cursor (the page-wide CSS `zoom` that desynchronised
+  Leaflet's click coordinates was removed; use the browser's own zoom for a
+  compact view), points can be dragged to reposition them, and dragging no
+  longer also drops a spurious extra point.
+* **Reliable interactive-map HTML download.** "Download map (HTML)" now writes a
+  genuine self-contained page: it uses pandoc when available and otherwise
+  inlines the widget's scripts and styles, instead of emitting an unusable stub
+  when pandoc is missing.
+* **Time-series step floor.** The land-cover time-series step is now a minimum
+  of five years (a finer step is not reliably available), enforced in the UI and
+  on the server.
+* **Clearer AOO-bounds chart.** The lower/upper AOO bounds are shown on a
+  labelled CR/EN/VU category ruler rather than raw log bars.
 
 # mappingAS 1.13.2
 

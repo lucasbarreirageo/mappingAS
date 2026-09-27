@@ -14,6 +14,7 @@ assessment_report(
   fire_series = NULL,
   applied_category = NULL,
   applied_code = NULL,
+  population = NULL,
   figures = FALSE
 )
 }
@@ -43,6 +44,14 @@ characterised over time.}
 user's sub-criteria choices. When supplied, an "Applied Criterion B
 category" section is added; otherwise the assessment's \code{category_B} /
 \code{criterion_B_code} columns are used if present.}
+
+\item{population}{Optional named list carrying an inferred population size to
+report: \code{pop_low} / \code{pop_high} (mature individuals, the estimate
+and its upper end), \code{dens_low} / \code{dens_high} (the density in
+mature individuals per km\eqn{^2} used) and \code{occupancy} (percent of
+habitat occupied). When supplied and \code{pop_low} is finite, a
+"Population size (inferred)" section is added, framed as an inferred,
+screening-level figure.}
 
 \item{figures}{Logical; for \code{output = "docx"} only, embed the supporting
 figures (composition, protection and the land-cover/fire time-series charts)

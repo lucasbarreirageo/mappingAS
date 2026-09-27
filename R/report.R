@@ -29,6 +29,13 @@
 #'   user's sub-criteria choices. When supplied, an "Applied Criterion B
 #'   category" section is added; otherwise the assessment's \code{category_B} /
 #'   \code{criterion_B_code} columns are used if present.
+#' @param population Optional named list carrying an inferred population size to
+#'   report: \code{pop_low} / \code{pop_high} (mature individuals, the estimate
+#'   and its upper end), \code{dens_low} / \code{dens_high} (the density in
+#'   mature individuals per km\eqn{^2} used) and \code{occupancy} (percent of
+#'   habitat occupied). When supplied and \code{pop_low} is finite, a
+#'   "Population size (inferred)" section is added, framed as an inferred,
+#'   screening-level figure.
 #' @param figures Logical; for \code{output = "docx"} only, embed the supporting
 #'   figures (composition, protection and the land-cover/fire time-series charts)
 #'   in the Word document (default \code{FALSE}). Ignored for other outputs.
@@ -52,6 +59,7 @@ assessment_report <- function(assessment, species = NULL,
                               file = NULL,
                               cover_series = NULL, fire_series = NULL,
                               applied_category = NULL, applied_code = NULL,
+                              population = NULL,
                               figures = FALSE) {
   lang <- match.arg(lang)
   output <- match.arg(output)
@@ -62,7 +70,7 @@ assessment_report <- function(assessment, species = NULL,
 
   b <- .report_build(assessment, species, lang, cover_series, fire_series,
                      applied_category = applied_category,
-                     applied_code = applied_code,
+                     applied_code = applied_code, population = population,
                      figures = isTRUE(figures) && output == "docx")
 
   switch(output,
@@ -160,7 +168,7 @@ assessment_report <- function(assessment, species = NULL,
 .report_build <- function(assessment, species, lang,
                           cover_series = NULL, fire_series = NULL,
                           applied_category = NULL, applied_code = NULL,
-                          figures = FALSE) {
+                          population = NULL, figures = FALSE) {
   L <- function(en, pt) if (lang == "en") en else pt
   s <- assessment$summary
   r <- s[s$species == species, , drop = FALSE]
@@ -543,6 +551,36 @@ assessment_report <- function(assessment, species = NULL,
   if (length(cover_cls))
     refs <- c(refs,
       "Mei, W. & Yu, G. (2022). ggtrendline: Add Trendline and Confidence Interval to 'ggplot2'. R package. https://CRAN.R-project.org/package=ggtrendline")
+
+  # --- Population size (optional; inferred from the AOH and a density) ---
+  if (!is.null(population)) {
+    pop_lo <- suppressWarnings(as.numeric(population$pop_low))[1]
+    pop_hi <- suppressWarnings(as.numeric(population$pop_high))[1]
+    if (isTRUE(is.finite(pop_lo))) {
+      rng <- function(lo, hi, digits = 0) {
+        f <- function(z) formatC(if (digits > 0) z else round(z),
+                                 format = if (digits > 0) "f" else "d",
+                                 digits = digits, big.mark = ",")
+        if (isTRUE(is.finite(hi) && hi != lo))
+          sprintf(L("%s to %s", "%s a %s"), f(lo), f(hi)) else f(lo)
+      }
+      pop_str  <- rng(pop_lo, pop_hi, 0)
+      dlo <- suppressWarnings(as.numeric(population$dens_low))[1]
+      dhi <- suppressWarnings(as.numeric(population$dens_high))[1]
+      dens_str <- if (isTRUE(is.finite(dlo))) rng(dlo, dhi, 2) else
+        L("an unstated", "uma nao informada")
+      occ <- suppressWarnings(as.numeric(population$occupancy))[1]
+      occ_str <- if (isTRUE(is.finite(occ) && occ < 100))
+        sprintf(L(" (with %.0f%% of the habitat occupied)",
+                  " (com %.0f%% do habitat ocupado)"), occ) else ""
+      add(
+        L("Population size (inferred)", "Tamanho populacional (inferido)"),
+        sprintf(L(
+          "Inferred number of mature individuals, obtained as the occupied Area of Habitat &times; a density of %s mature individuals per km<sup>2</sup>%s: approximately %s mature individuals. This is an inferred, screening-level figure (use the qualifier 'Inferred'): it depends on the density supplied and on the habitat map, and does not replace a demographic estimate. It informs Criteria C and D where they apply.",
+          "Numero inferido de individuos maduros, obtido como a Area de Habitat ocupada &times; uma densidade de %s individuos maduros por km<sup>2</sup>%s: aproximadamente %s individuos maduros. E uma cifra inferida, de triagem (use o qualificador 'Inferred'): depende da densidade fornecida e do mapa de habitat, e nao substitui uma estimativa demografica. Informa os Criterios C e D quando aplicaveis."),
+          dens_str, occ_str, pop_str))
+    }
+  }
 
   # --- Support figures (only for docx; static ggplots embedded via officer) ---
   figs <- NULL

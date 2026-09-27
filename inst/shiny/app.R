@@ -782,6 +782,7 @@ ui <- bslib::page_sidebar(
       "Assessment", icon = icon("clipboard-check"),
       selectInput("results_species", "Species", choices = NULL),
       uiOutput("results_cards"),
+      uiOutput("results_popsize"),
       bslib::card(
         class = "mb-3",
         bslib::card_header("IUCN Criterion B — applied category"),
@@ -1531,18 +1532,19 @@ server <- function(input, output, session) {
       prev_cards))
   })
 
-  output$aoh_popsize <- renderUI({
+  # Shared population-size estimate for the AOH species: occupied AOH x density.
+  # NULL until an AOH exists AND a density (or the density calculator) is given.
+  # Reused by the Habitat card below, the Assessment tab and the report.
+  pop_estimate <- reactive({
     a <- tryCatch(aoh_data(), error = function(e) NULL)
-    validate(need(!is.null(a), "Compute the AOH above first."))
+    if (is.null(a)) return(NULL)
     ref <- a$refined
     aoh_lo <- if (!is.null(ref) && is.finite(ref$aoh_km2)) ref$aoh_km2
               else a$aoh_potential
     aoh_hi <- if (!is.null(ref) && is.finite(ref$aoh_max_km2)) ref$aoh_max_km2
               else aoh_lo
-    validate(need(is.finite(aoh_lo),
-                  "Compute the AOH above (Compute AOH) to estimate population size."))
-    # Occupied habitat = potential AOH x the single occupancy correction (the
-    # "% of habitat occupied" field at the top of the tab).
+    if (!isTRUE(is.finite(aoh_lo))) return(NULL)
+    # Occupied habitat = potential AOH x the occupancy correction.
     occ <- a$occupancy / 100
     aoh_lo <- aoh_lo * occ; aoh_hi <- aoh_hi * occ
     dens <- .parse_density(input$pop_density)
@@ -1553,32 +1555,56 @@ server <- function(input, output, session) {
         dens <- dt * (if (is.finite(pm)) pm / 100 else 1)
       }
     }
-    if (!length(dens))
+    if (!length(dens)) return(NULL)
+    dlo <- min(dens); dhi <- max(dens)
+    list(species = input$aoh_species,
+         pop_low = aoh_lo * dlo, pop_high = aoh_hi * dhi,
+         dens_low = dlo, dens_high = dhi,
+         aoh_low = aoh_lo, aoh_high = aoh_hi, occupancy = a$occupancy)
+  })
+
+  output$aoh_popsize <- renderUI({
+    a <- tryCatch(aoh_data(), error = function(e) NULL)
+    validate(need(!is.null(a), "Compute the AOH above first."))
+    ref <- a$refined
+    aoh_ok <- (!is.null(ref) && is.finite(ref$aoh_km2)) || is.finite(a$aoh_potential)
+    validate(need(aoh_ok,
+                  "Compute the AOH above (Compute AOH) to estimate population size."))
+    pe <- pop_estimate()
+    if (is.null(pe))
       return(helpText(htmltools::HTML(
         "Enter a <b>density</b> (or the calculator fields) to estimate population ",
         "size.")))
-    dlo <- min(dens); dhi <- max(dens)
-    pop_lo <- aoh_lo * dlo; pop_hi <- aoh_hi * dhi
     fnum <- function(x) if (is.null(x) || is.na(x)) "&mdash;"
                         else formatC(round(x), format = "d", big.mark = ",")
     fden <- function(x) formatC(x, format = "f", digits = 2, big.mark = ",")
     card <- function(t, v, sub = "") sprintf(
       "<div style='flex:1;min-width:170px;border:1px solid #e4ddce;border-radius:.6rem;padding:10px 12px;background:#fffdf8'><div style='color:#7a857b;font-size:.78rem'>%s</div><div style='font-family:monospace;font-weight:700;font-size:1.05rem'>%s</div>%s</div>",
       t, v, if (nzchar(sub)) sprintf("<div style='color:#7a857b;font-size:.75rem;margin-top:2px'>%s</div>", sub) else "")
-    dens_lbl <- if (length(dens) > 1) sprintf("%s&ndash;%s", fden(dlo), fden(dhi))
-                else fden(dlo)
-    pop_lbl <- if (isTRUE(pop_lo != pop_hi))
-      sprintf("%s&ndash;%s", fnum(pop_lo), fnum(pop_hi)) else fnum(pop_lo)
-    occ_txt <- if (isTRUE(a$occupancy < 100))
-      sprintf(", %.0f%% occupied", a$occupancy) else ""
+    dens_lbl <- if (isTRUE(pe$dens_high != pe$dens_low))
+      sprintf("%s&ndash;%s", fden(pe$dens_low), fden(pe$dens_high))
+      else fden(pe$dens_low)
+    pop_lbl <- if (isTRUE(pe$pop_high != pe$pop_low))
+      sprintf("%s&ndash;%s", fnum(pe$pop_low), fnum(pe$pop_high)) else fnum(pe$pop_low)
+    occ_txt <- if (isTRUE(pe$occupancy < 100))
+      sprintf(", %.0f%% occupied", pe$occupancy) else ""
     htmltools::HTML(sprintf(
-      "<div style='display:flex;gap:10px;flex-wrap:wrap'>%s%s</div><div style='font-size:.75rem;color:#7a857b;margin-top:6px'>Occupied AOH (potential habitat%s) &times; density; an inferred estimate, use the qualifier 'Inferred'. Informs criteria C/D and the fragmentation density.</div>",
+      "<div style='display:flex;gap:10px;flex-wrap:wrap'>%s%s</div><div style='font-size:.75rem;color:#7a857b;margin-top:6px'>Occupied AOH (potential habitat%s) &times; density; an inferred estimate, use the qualifier 'Inferred'. Shown on the Assessment tab and the report, and informs criteria C/D and the fragmentation density.</div>",
       occ_txt,
       card("Effective density", paste0(dens_lbl, " ind/km<sup>2</sup>"),
            "mature per suitable habitat"),
       card("Population size (est.)", paste0(pop_lbl, " ind."),
            "occupied AOH &times; density")))
   })
+
+  # Population size for the report, only when it was computed for that species.
+  .pop_for_report <- function(sp) {
+    pe <- tryCatch(pop_estimate(), error = function(e) NULL)
+    if (is.null(pe) || is.null(sp) || !identical(pe$species, sp)) return(NULL)
+    list(pop_low = pe$pop_low, pop_high = pe$pop_high,
+         dens_low = pe$dens_low, dens_high = pe$dens_high,
+         occupancy = pe$occupancy)
+  }
 
   output$aoh_plot <- plotly::renderPlotly({
     req(result(), input$aoh_species)
@@ -2264,6 +2290,28 @@ server <- function(input, output, session) {
   })
 
   # Visual overview cards (with in-cell bars) for the selected species.
+  # Inferred population size on the Assessment tab, shown only when it was
+  # computed for the selected species on the Habitat tab.
+  output$results_popsize <- renderUI({
+    pe <- tryCatch(pop_estimate(), error = function(e) NULL)
+    sp <- input$results_species
+    if (is.null(pe) || is.null(sp) || !identical(pe$species, sp)) return(NULL)
+    fnum <- function(x) if (!isTRUE(is.finite(x))) "&mdash;"
+                        else formatC(round(x), format = "d", big.mark = ",")
+    pop_lbl <- if (isTRUE(pe$pop_high != pe$pop_low))
+      sprintf("%s&ndash;%s", fnum(pe$pop_low), fnum(pe$pop_high)) else fnum(pe$pop_low)
+    htmltools::HTML(sprintf(
+      paste0("<div style='border:1px solid #e4ddce;border-radius:.6rem;",
+             "padding:10px 12px;background:#fffdf8;margin:0 0 12px'>",
+             "<div style='color:#7a857b;font-size:.78rem'>Population size ",
+             "(inferred, from the Habitat tab)</div><div style='font-family:",
+             "monospace;font-weight:700;font-size:1.05rem'>%s mature ind.</div>",
+             "<div style='color:#7a857b;font-size:.75rem;margin-top:2px'>",
+             "occupied AOH &times; density; use the qualifier 'Inferred'; ",
+             "informs criteria C/D. Included in the report.</div></div>"),
+      pop_lbl))
+  })
+
   output$results_cards <- renderUI({
     req(result(), input$results_species)
     s <- result()$summary
@@ -3136,7 +3184,8 @@ server <- function(input, output, session) {
       mappingAS::assessment_report(
         result_applied(), species = sp, lang = input$lang %||% "en", output = "html",
         cover_series = .report_cover(sp), fire_series = .report_fire(sp),
-        applied_category = ab$category, applied_code = ab$code))
+        applied_category = ab$category, applied_code = ab$code,
+        population = .pop_for_report(sp)))
   })
 
   output$dl_report <- downloadHandler(
@@ -3157,7 +3206,8 @@ server <- function(input, output, session) {
         result_applied(), species = sp, lang = input$lang %||% "en", output = "docx",
         file = file, figures = TRUE,
         cover_series = .report_cover(sp), fire_series = .report_fire(sp),
-        applied_category = ab$category, applied_code = ab$code)
+        applied_category = ab$category, applied_code = ab$code,
+        population = .pop_for_report(sp))
     })
   )
 

@@ -1,9 +1,9 @@
 ---
-title: "mappingAS: triagem do Critério B (EOO, AOO e conversão MapBiomas)"
+title: "mappingAS: IUCN Criterion B screening (EOO, AOO and habitat conversion)"
 author: "mappingAS"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{mappingAS: triagem do Critério B (EOO, AOO e conversão MapBiomas)}
+  %\VignetteIndexEntry{mappingAS: IUCN Criterion B screening (EOO, AOO and habitat conversion)}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -12,166 +12,206 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = FALSE        # os exemplos leem o MapBiomas pela rede; nao sao executados aqui
+  eval = FALSE        # examples read MapBiomas over the network; not run here
 )
 ```
 
-## O que o pacote faz
+## What the package does
 
-`mappingAS` é uma ferramenta no estilo do [GeoCat](https://geocat.iucnredlist.org/)
-para **triagem do Critério B** da Lista Vermelha da IUCN. A partir de pontos de
-ocorrência (`.xlsx`, `.csv` ou shapefile), ele:
+`mappingAS` is a [GeoCAT](https://geocat.iucnredlist.org/)-style tool for
+**preliminary IUCN Red List Criterion B screening**. From occurrence points
+(`.xlsx`, `.csv` or a spatial file) it:
 
-- calcula a **EOO** (Extensão de Ocorrência, polígono convexo mínimo) e a
-  **AOO** (Área de Ocupação, grade de 2 km), em projeção de áreas iguais;
-- mede o **% de área convertida (antrópica)** e o **% natural** dentro do EOO e
-  do AOO, além da **área de cada classe** do MapBiomas;
-- monta a **série temporal** da cobertura (% × ano);
-- exporta tudo (tabelas, shapefile/GeoPackage) e tem um **app Shiny**.
+- computes the **EOO** (Extent of Occurrence, minimum convex polygon) and the
+  **AOO** (Area of Occupancy, 2 km grid) on a data-centred equal-area
+  projection, and assigns a provisional Criterion B category;
+- measures the **% converted (anthropic)** and **% natural** area within the EOO
+  and the AOO, plus the **area of each land-cover class**, from MapBiomas (or, for
+  ranges outside its coverage, the global Sentinel-2/Esri 10 m product);
+- builds the land-cover **time series** (% by year);
+- derives the Red List **supporting analyses** described below (countries of
+  occurrence, Area of Habitat and the lower/upper AOO bounds, elevation
+  preferences, severe-fragmentation screening);
+- writes a narrative **assessment report**, and exports everything (tables,
+  shapefile/GeoPackage). A **Shiny app** ties it all together.
 
-> As categorias de risco são **provisórias** (apenas limiares de tamanho de
-> EOO/AOO) e servem só para triagem.
+> The categories are **provisional** (EOO/AOO size thresholds only) and are for
+> screening, not a formal Red List assessment.
 
 ```{r load}
 library(mappingAS)
 ```
 
-## 1. Importar os pontos
+## 1. Import the points
 
-`read_occurrences()` aceita `.csv`/`.tsv`/`.txt`, `.xlsx`/`.xls` e arquivos
-vetoriais (`.shp`, `.gpkg`, `.geojson`, `.zip`) e tenta **detectar
-automaticamente** as colunas de espécie, longitude e latitude.
+`read_occurrences()` accepts `.csv`/`.tsv`/`.txt`, `.xlsx`/`.xls` and spatial
+files (`.shp`, `.gpkg`, `.geojson`, `.zip`) and tries to **detect** the species,
+longitude and latitude columns automatically.
 
 ```{r import}
-# arquivo de exemplo que acompanha o pacote
-ex <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
+ex  <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
 occ <- read_occurrences(ex)
 
-# se a deteccao falhar, informe as colunas manualmente:
+# if detection fails, name the columns explicitly:
+# occ <- read_occurrences("my_data.csv",
+#                         species_col = "species",
+#                         lon_col = "longitude", lat_col = "latitude")
 ```
 
-```{r, eval=FALSE}
-occ <- read_occurrences("meus_dados.csv",
-                        species_col = "especie",
-                        lon_col = "longitude",
-                        lat_col = "latitude")
-```
+The result is an `sf` object of points in WGS84 with a `species` column.
 
-O resultado é um objeto `sf` de pontos em WGS84, com uma coluna `species`.
+## 2. Assess the species
 
-## 2. Avaliar as espécies
-
-`assess_species()` roda toda a cadeia para cada espécie: EOO, AOO, conversão e a
-categoria provisória.
+`assess_species()` runs the whole chain per species: EOO, AOO, conversion and the
+provisional category.
 
 ```{r assess}
 res <- assess_species(
   occ,
-  year = 2024,          # ano do MapBiomas para o "retrato" de cobertura
-  collection = 10,      # coleção do MapBiomas
-  backend = "local"     # "local" (sem conta GEE) ou "gee"
+  year = 2024,          # MapBiomas year for the land-cover snapshot
+  collection = 10,      # MapBiomas collection
+  backend = "local"     # "local" (no GEE account) or "gee"
 )
 
-res            # impressão resumida
-res$summary    # uma linha por espécie
+res            # compact print
+res$summary    # one row per species
 ```
 
-Principais colunas de `res$summary`: `eoo_km2`, `aoo_km2`, `aoo_cells`,
-`eoo_converted_pct`/`eoo_natural_pct`, `aoo_converted_pct`/`aoo_natural_pct` e
-`provisional_cat`.
+Key `res$summary` columns: `eoo_km2`, `aoo_km2`, `aoo_cells`,
+`eoo_converted_pct`/`eoo_natural_pct`, `aoo_converted_pct`/`aoo_natural_pct`,
+`provisional_cat` and `category_B`. The conversion index uses a **terrestrial**
+denominator: `converted = anthropic / (anthropic + natural) * 100` (water and
+"not observed" are excluded by default; change with
+`water_in_denominator = TRUE`).
 
-O índice de conversão usa um denominador **terrestre**:
-`convertido = antrópico / (antrópico + natural) × 100` (água e "não observado"
-ficam de fora por padrão; mude com `water_in_denominator = TRUE`).
-
-## 3. Mapa e gráfico de conversão
+## 3. Map and conversion chart
 
 ```{r viz}
-map_species(res)            # leaflet: pontos + EOO + AOO
-plot_conversion(res)        # barras: natural / alterado / agua / outros
+map_species(res)            # leaflet: points + EOO + AOO
+plot_conversion(res)        # bars: natural / altered / water / other
 ```
 
-## 4. Composição por classe (todas as classes do MapBiomas)
-
-Para ver **cada classe** dentro do EOO e do AOO:
+## 4. Per-class composition
 
 ```{r classes}
 ct <- class_table(res)
 head(ct)
-# species | range(EOO/AOO) | code | class_pt | class_en | group | area_km2 | pct
+# species | range (EOO/AOO) | code | class_pt | class_en | group | area_km2 | pct
 ```
 
-## 5. Série temporal (% da área × ano)
+## 5. Land-cover time series
 
 ```{r timeseries}
-# a cada 5 anos (padrao), dentro do EOO da primeira especie
-ts <- timeseries_for_species(res, range = "eoo", by = "class", years = c(2022, 2024))
-plot_timeseries(ts)         # grafico de area empilhada, cores oficiais MapBiomas
+# every 5 years, within the first species' EOO
+ts <- timeseries_for_species(res, range = "eoo", by = "class",
+                             years = c(2020, 2024))
+plot_timeseries(ts)         # stacked-area chart, official MapBiomas colours
 
-# anual (mais lento) e por grupo:
-ts_anual <- timeseries_for_species(res, range = "eoo",
-                                   years = c(2022, 2024), by = "group")
-
-# ou sobre uma geometria qualquer:
-# ts2 <- cover_timeseries(minha_geometria,
-#                         years = c(1990, 2000, 2010, 2020),
+# or over any geometry:
+# ts2 <- cover_timeseries(my_geometry, years = c(1990, 2000, 2010, 2020),
 #                         by = "class", backend = "local")
 ```
 
-Cada ano é lido separadamente do MapBiomas, então séries anuais de toda a
-coleção podem demorar.
+Each year is read separately from MapBiomas, so a full annual series can be slow;
+the minimum reliable step is 5 years.
 
-## 6. Exportar
+## 6. Red List supporting analyses
 
-```{r export}
-# duas shapefiles (EOO e AOO) + CSV com todas as classes, na pasta "saida"
-export_ranges(res, dir = "saida")
+These assimilate the [sRedList](https://sredlist.eu/) workflow (Cazalis *et al.*
+2024) while keeping the focus on Criterion B, computed from the data the package
+already produces. Most take the range polygon; take it from `calc_eoo()`.
 
-# um GeoPackage com as camadas eoo e aoo
-export_ranges(res, dir = "saida", format = "gpkg")
+```{r supporting}
+sp1  <- occ[occ$species == occ$species[1], ]
+hull <- calc_eoo(sp1)$hull          # EOO polygon
+aoo_lo <- calc_aoo(sp1)$area_km2     # occurrence-based (lower) AOO
 
-# tudo num unico .zip (bom para enviar)
-export_ranges(res, dir = "saida", zip = TRUE)
+# Countries of occurrence + biogeographical realm (needs 'rnaturalearth'):
+countries_of_occurrence(range = hull, points = sp1)
+
+# Area of Habitat (suitable land cover within the EOO, optionally masked to an
+# elevation band; needs land cover, and 'elevatr' or a DEM for elevation):
+aoh <- calc_aoh(hull, year = 2024, elev_min = 0, elev_max = 1500, points = sp1)
+aoh$aoh_km2            # Area of Habitat
+aoh$aoo_upper_km2      # habitat-based (upper) AOO bound, at the 2 km scale
+aoh$point_prevalence  # share of records inside the habitat (a validation metric)
+
+# Suggested elevation band from the occurrences:
+elevation_preferences(sp1)
+
+# Lower/upper AOO bounds and the resulting B2 category range (Brooks et al. 2019):
+b <- aoo_bounds(aoo_lower_km2 = aoo_lo, aoh_km2 = aoh$aoo_upper_km2,
+                eoo_km2 = calc_eoo(sp1)$area_km2)
+b$cat_range
+iucn_category_B_range(eoo_km2 = calc_eoo(sp1)$area_km2,
+                      aoo_lower_km2 = b$aoo_lower, aoo_upper_km2 = b$aoo_upper)
+
+# Severe-fragmentation screening (Santini et al. 2019): cluster occurrences by a
+# dispersal / isolation distance and see how much of the population is in small
+# subpopulations. It never sets sub-criterion (a) automatically.
+assess_fragmentation(sp1, isolation_km = 20)
 ```
 
-A tabela de atributos traz `species`, `eoo_km2`/`aoo_km2`, `conv_pct`,
-`nat_pct`, `cat_B1`/`cat_B2`, `prov_cat`, `mb_year` e `mb_coll`. O arquivo
-`*_classes.csv` traz a área e o % de cada classe.
+## 7. Narrative report
 
-## 7. Aplicativo Shiny
+`assessment_report()` writes an interpretive Criterion B summary as HTML, plain
+text or a Word `.docx` file.
 
-```{r app, eval=FALSE}
+```{r report}
+cat(assessment_report(res, output = "text"))
+
+# Word document (needs the 'officer' package):
+# assessment_report(res, output = "docx", file = "assessment.docx")
+```
+
+## 8. Export
+
+```{r export}
+export_ranges(res, dir = "out")                 # two shapefiles (EOO, AOO) + CSV
+export_ranges(res, dir = "out", format = "gpkg") # one GeoPackage (eoo, aoo layers)
+export_ranges(res, dir = "out", zip = TRUE)      # everything in one .zip
+```
+
+The attribute table carries `species`, `eoo_km2`/`aoo_km2`, `conv_pct`,
+`nat_pct`, `cat_B1`/`cat_B2`, `prov_cat`, `mb_year` and `mb_coll`; the
+`*_classes.csv` file gives each class's area and percentage.
+
+## 9. Shiny app
+
+```{r app}
 run_app()
 ```
 
-A interface tem abas de **Resultados**, **Mapa**, **Conversão**, **Classes**,
-**Série temporal** e **Métodos**, com download de CSV, shapefile/GeoPackage e
-imagens (PNG/HTML).
+The app has tabs for the **Map**, **Add points**, **Conversion**, **Classes**,
+**Protected areas**, **Time series**, **Fire**, **Countries**, **Habitat**,
+**Fragmentation**, and, at the end of the workflow, **Assessment**, **Report**
+and **Methods** - with CSV, shapefile/GeoPackage and image (PNG/HTML) downloads.
 
-## 8. Backends do MapBiomas
+## 10. MapBiomas backends
 
-- **`"local"` (padrão)**: lê pela internet apenas a *janela* do GeoTIFF nacional
-  via GDAL `/vsicurl/`. Não precisa de conta no Earth Engine nem baixar o mosaico
-  inteiro. Para uso offline/repetido, aponte `src=` para um GeoTIFF local.
-- **`"gee"`**: calcula as áreas por classe no servidor do Google Earth Engine
-  (recomendado para distribuições muito grandes). Requer `rgee`:
+- **`"local"` (default)**: reads only the *window* of the national GeoTIFF over
+  the network with GDAL `/vsicurl/`. No Earth Engine account and no full-mosaic
+  download. For offline/repeated use, point `src=` at a local GeoTIFF.
+- **`"gee"`**: computes the per-class areas server-side on Google Earth Engine
+  (recommended for very large ranges). Requires `rgee`:
 
-```{r gee, eval=FALSE}
-install.packages("rgee")
-rgee::ee_install()
-rgee::ee_Initialize()
+```{r gee}
+# install.packages("rgee"); rgee::ee_install(); rgee::ee_Initialize()
 res <- assess_species(occ, backend = "gee")
 ```
 
-## Ressalvas
+## Caveats
 
-- As **categorias são provisórias** (não incluem fragmentação, declínio ou
-  flutuação) — não as reporte como categorias finais.
-- O **AOO** é sensível ao posicionamento da grade e ao esforço amostral.
-- A **acurácia do MapBiomas** varia por classe, bioma e ano.
-- Para distribuições continentais, prefira `backend = "gee"`.
+- The **categories are provisional** (size thresholds only) - do not report them
+  as final categories. The supporting analyses (fragmentation, decline, the
+  AOO bounds) inform the judgement but the assessor decides.
+- The **AOO** is sensitive to grid placement and sampling effort.
+- **MapBiomas accuracy** varies by class, biome and year.
+- For continental ranges, prefer `backend = "gee"`.
 
-## Citação
+## Citation
 
-Cite também o **MapBiomas** (Coleção 10), as **diretrizes da IUCN** para o
-Critério B e o **GeoCAT** (Bachman et al., 2011, ZooKeys).
+Please also cite **MapBiomas** (the collection used), the **IUCN Red List
+Guidelines** for Criterion B, **GeoCAT** (Bachman *et al.* 2011, ZooKeys), and,
+for the supporting analyses, **sRedList** (Cazalis *et al.* 2024, *Biological
+Conservation*).
