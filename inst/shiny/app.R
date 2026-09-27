@@ -172,7 +172,10 @@ if (is.null(getOption("shiny.maxRequestSize")))
   if (!have_pandoc) {
     rp <- Sys.getenv("RSTUDIO_PANDOC")
     if (nzchar(rp) && dir.exists(rp)) {
-      Sys.setenv(PATH = paste(rp, Sys.getenv("PATH"), sep = .Platform$path.sep))
+      # Restore the user's PATH on exit rather than leaving it modified.
+      old_path <- Sys.getenv("PATH")
+      on.exit(Sys.setenv(PATH = old_path), add = TRUE)
+      Sys.setenv(PATH = paste(rp, old_path, sep = .Platform$path.sep))
       have_pandoc <- tryCatch(
         requireNamespace("rmarkdown", quietly = TRUE) && rmarkdown::pandoc_available(),
         error = function(e) FALSE)
