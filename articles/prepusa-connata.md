@@ -136,8 +136,10 @@ app](https://raw.githubusercontent.com/lucasbarreirageo/mappingAS/main/man/figur
 
 The mappingAS Shiny application
 
-> **▶ Try it live:** *(demo link to be added — once the app is deployed
-> to shinyapps.io, paste its URL here.)*
+> **▶ Run it yourself:** the app runs locally in your browser — install
+> the package and call
+> [`run_app()`](https://lucasbarreirageo.github.io/mappingAS/reference/run_app.md)
+> (above). No account or server needed.
 
 ## Caveats
 
