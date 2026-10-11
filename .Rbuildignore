@@ -7,6 +7,9 @@
 ^LICENSE\.md$
 ^codecov\.yml$
 ^_pkgdown\.yml$
+^docs$
+^pkgdown$
+^vignettes/articles$
 ^release_notes\.md$
 ^\.lintr$
 ^\.gitattributes$
@@ -16,5 +19,4 @@
 
 ^.*\.patch$
 ^compare_conR\.R$
-^man/figures/logo1\.png$
 ^CRAN-SUBMISSION$

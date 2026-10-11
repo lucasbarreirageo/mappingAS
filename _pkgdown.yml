@@ -1,8 +1,155 @@
 url: https://lucasbarreirageo.github.io/mappingAS
+
 template:
   bootstrap: 5
   bootswatch: flatly
+  bslib:
+    primary: "#2c6e49"
+    link-color: "#2c6e49"
+
+home:
+  title: mappingAS • IUCN Criterion B screening
+  description: >
+    Spatial range metrics (EOO / AOO), MapBiomas and Sentinel-2 habitat
+    conversion and fire, and protected-area overlap for preliminary species
+    extinction-risk screening under Criterion B of the IUCN Red List — with an
+    interactive Shiny application.
+  sidebar:
+    structure: [links, license, citation, authors, dev]
+
 navbar:
   structure:
-    left:  [intro, reference, articles, news]
-    right: [github]
+    left:  [intro, articles, reference, news]
+    right: [search, github]
+  components:
+    intro:
+      text: Get started
+      href: articles/mappingAS.html
+    articles:
+      text: Articles
+      menu:
+      - text: "Worked example: Prepusa connata"
+        href: articles/prepusa-connata.html
+      - text: "Criterion B screening (full workflow)"
+        href: articles/mappingAS.html
+
+reference:
+- title: "Shiny application"
+  desc: >
+    The interactive app that ties the whole workflow together — upload points,
+    compute EOO/AOO and habitat conversion, explore and export. The recommended
+    entry point for most users.
+  contents:
+  - run_app
+
+- title: "Occurrence data"
+  desc: "Read and prepare occurrence points."
+  contents:
+  - read_occurrences
+  - vouchers_from_occ
+
+- title: "One-call assessment"
+  desc: "Run the whole pipeline for one or many species."
+  contents:
+  - assess_species
+  - class_table
+
+- title: "Range metrics & Criterion B"
+  desc: "Extent of Occurrence, Area of Occupancy and the provisional Criterion B categories."
+  contents:
+  - calc_eoo
+  - calc_aoo
+  - aoo_bounds
+  - iucn_category_B
+  - iucn_category_B_range
+  - iucn_criterion_B
+  - calc_locations
+  - calc_subpop
+
+- title: "Habitat conversion (MapBiomas)"
+  desc: "Converted vs natural land cover within the range, per-class and over time."
+  contents:
+  - summarise_conversion
+  - cover_timeseries
+  - timeseries_for_species
+  - mb_class_areas_raster
+  - mb_class_areas_gee
+  - mb_raster_local
+  - mb_source_url
+  - mb_initiatives
+  - mb_groups
+  - mb_legend
+  - mb_palette
+  - mb_years
+
+- title: "Area of Habitat & elevation"
+  desc: "Elevation-refined suitable habitat within the range."
+  contents:
+  - calc_aoh
+  - map_aoh
+  - elevation_preferences
+
+- title: "Fragmentation"
+  desc: "Subpopulation clustering and severe-fragmentation screening."
+  contents:
+  - assess_fragmentation
+  - fragment_habitat
+
+- title: "Fire (MapBiomas Fire)"
+  desc: "Burned-area metrics and fire time series."
+  contents:
+  - summarise_fire
+  - fire_areas
+  - fire_timeseries
+  - fire_timeseries_for_species
+  - fire_raster_local
+  - fire_palette
+  - mb_fire_url
+
+- title: "Protected areas (WDPA)"
+  desc: "Overlap of the range with the global World Database on Protected Areas."
+  contents:
+  - protected_areas
+  - summarise_protected
+  - pa_table
+  - wdpa_areas
+  - wdpa_query_url
+
+- title: "Global land cover (Sentinel-2 / Esri)"
+  desc: "Fallback 10 m land cover for ranges outside MapBiomas coverage."
+  contents:
+  - s2_raster_local
+  - s2_source_url
+  - s2_years
+  - esri_legend
+
+- title: "Countries & realm"
+  desc: "Countries of occurrence and biogeographical realm."
+  contents:
+  - countries_of_occurrence
+
+- title: "Maps & charts"
+  desc: "Interactive and publication-ready outputs."
+  contents:
+  - map_species
+  - map_static
+  - mas_plotly
+  - plot_conversion
+  - plot_conversion_donut
+  - plot_timeseries
+  - plot_class_trendline
+  - plot_fire_timeseries
+  - plot_protection
+
+- title: "Report & export"
+  desc: "Written assessment report, factsheet and spatial/raster exports."
+  contents:
+  - assessment_report
+  - factsheet_html
+  - export_ranges
+
+- title: "Utilities"
+  desc: "Projection helpers and the package overview."
+  contents:
+  - laea_crs
+  - mappingAS-package

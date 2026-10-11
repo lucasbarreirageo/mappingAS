@@ -6,6 +6,7 @@
 .DS_Store
 inst/doc
 doc/
+docs/
 Meta/
 /saida/
 *.tif
