@@ -37,6 +37,7 @@ ranges.
 Useful links:
 \itemize{
   \item \url{https://github.com/lucasbarreirageo/mappingAS}
+  \item \url{https://lucasbarreirageo.github.io/mappingAS}
   \item Report bugs at \url{https://github.com/lucasbarreirageo/mappingAS/issues}
 }
 
