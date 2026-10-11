@@ -136,8 +136,8 @@ run_app(max_upload_mb = 2048)  # allow very large occurrence tables
 
 ![The mappingAS Shiny application](https://raw.githubusercontent.com/lucasbarreirageo/mappingAS/main/man/figures/shiny-app.png){alt="Screenshot of the mappingAS Shiny app"}
 
-> **▶ Try it live:** _(demo link to be added — once the app is deployed to
-> shinyapps.io, paste its URL here.)_
+> **▶ Run it yourself:** the app runs locally in your browser — install the
+> package and call `run_app()` (above). No account or server needed.
 
 ## Caveats
 
