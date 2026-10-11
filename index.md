@@ -1,0 +1,501 @@
+# mappingAS
+
+> **mappingAS** — *Mapping Area of Species.* Geographic range metrics
+> (EOO / AOO), land-cover conversion and fire, and protected-area
+> overlap for extinction-risk screening — from raw occurrence points to
+> an interactive app and a written assessment report.
+
+`mappingAS` is an R package, with an accompanying **Shiny** application,
+for screening species against **Criterion B** of the IUCN Red List.
+Starting from a set of occurrence points, it estimates each species’
+geographic range (EOO / AOO), measures how much of that range has been
+converted to anthropic land cover and how much has burned, quantifies
+the overlap with protected areas (global WDPA), and packages everything
+for mapping, inspection, export and reporting. Land-cover conversion is
+driven by **MapBiomas** across South America and by the global **Esri /
+Impact Observatory (Sentinel-2)** 10 m land cover elsewhere, so a
+species anywhere on Earth can be screened with the same workflow — no
+Google Earth Engine account required.
+
+> **Screening only.** The categories produced are **provisional** — they
+> rest solely on the EOO/AOO *size* thresholds of Criterion B. They **do
+> not replace** a formal IUCN assessment, which also requires the
+> sub-conditions of fragmentation/few locations, continuing decline and
+> extreme fluctuation.
+
+------------------------------------------------------------------------
+
+## What it does
+
+| Module | What you get | Key functions |
+|----|----|----|
+| **Occurrence import** | Read points from spreadsheets or spatial files, auto-detecting the species/lon/lat columns | [`read_occurrences()`](https://lucasbarreirageo.github.io/mappingAS/reference/read_occurrences.md) |
+| **Range metrics** | Extent of Occurrence (EOO, convex hull) and Area of Occupancy (AOO, 2 km grid) on an equal-area projection, with provisional Criterion B categories | [`assess_species()`](https://lucasbarreirageo.github.io/mappingAS/reference/assess_species.md), [`calc_eoo()`](https://lucasbarreirageo.github.io/mappingAS/reference/calc_eoo.md), [`calc_aoo()`](https://lucasbarreirageo.github.io/mappingAS/reference/calc_aoo.md), [`iucn_category_B()`](https://lucasbarreirageo.github.io/mappingAS/reference/iucn_category_B.md) |
+| **Subpopulations & locations** | Estimate of the number of subpopulations (circular-buffer method) and number of locations (10 km occupied-grid-cell method), following the ConR spatial rationale | [`assess_species()`](https://lucasbarreirageo.github.io/mappingAS/reference/assess_species.md), [`calc_subpop()`](https://lucasbarreirageo.github.io/mappingAS/reference/calc_subpop.md), [`calc_locations()`](https://lucasbarreirageo.github.io/mappingAS/reference/calc_locations.md) |
+| **Habitat conversion** | % converted (anthropic) vs. natural within the EOO/AOO, plus the full per-class land-cover breakdown | [`assess_species()`](https://lucasbarreirageo.github.io/mappingAS/reference/assess_species.md), [`class_table()`](https://lucasbarreirageo.github.io/mappingAS/reference/class_table.md), [`plot_conversion()`](https://lucasbarreirageo.github.io/mappingAS/reference/plot_conversion.md) |
+| **Land-cover time series** | Composition (% × year) as a stacked-area chart (EOO and AOO together), plus a per-class regression trendline with equation, R² and p-value | [`timeseries_for_species()`](https://lucasbarreirageo.github.io/mappingAS/reference/timeseries_for_species.md), [`cover_timeseries()`](https://lucasbarreirageo.github.io/mappingAS/reference/cover_timeseries.md), [`plot_timeseries()`](https://lucasbarreirageo.github.io/mappingAS/reference/plot_timeseries.md), [`plot_class_trendline()`](https://lucasbarreirageo.github.io/mappingAS/reference/plot_class_trendline.md) |
+| **Fire** | % of the range burned at least once and burned-area time series, from MapBiomas Fire (Brazil) | `assess_species(fire = TRUE)`, [`fire_timeseries_for_species()`](https://lucasbarreirageo.github.io/mappingAS/reference/fire_timeseries_for_species.md), [`plot_fire_timeseries()`](https://lucasbarreirageo.github.io/mappingAS/reference/plot_fire_timeseries.md) |
+| **Protected areas** | Overlap of occurrences/EOO/AOO with protected areas (global WDPA), incl. the natural-and-protected share | `assess_species(protected = TRUE)`, [`pa_table()`](https://lucasbarreirageo.github.io/mappingAS/reference/pa_table.md), [`plot_protection()`](https://lucasbarreirageo.github.io/mappingAS/reference/plot_protection.md), [`protected_areas()`](https://lucasbarreirageo.github.io/mappingAS/reference/protected_areas.md) |
+| **Maps** | Interactive Leaflet map and a publication-ready static map (points + EOO + AOO + land cover/fire) | [`map_species()`](https://lucasbarreirageo.github.io/mappingAS/reference/map_species.md), [`map_static()`](https://lucasbarreirageo.github.io/mappingAS/reference/map_static.md) |
+| **Interactive charts** | Every chart as an interactive plotly widget (hover, zoom) | [`mas_plotly()`](https://lucasbarreirageo.github.io/mappingAS/reference/mas_plotly.md) |
+| **Reporting** | A written, referenced assessment report (HTML / text / **Word .docx**) | [`assessment_report()`](https://lucasbarreirageo.github.io/mappingAS/reference/assessment_report.md) |
+| **Factsheet** | A self-contained **HTML factsheet** merging the computed metrics/charts with user-supplied taxonomy, supporting information, land use, conservation units, vouchers, references and up to 4 watermarked photos | [`factsheet_html()`](https://lucasbarreirageo.github.io/mappingAS/reference/factsheet_html.md) |
+| **Export** | EOO/AOO polygons as **shapefile/GeoPackage** and land-cover **rasters (GeoTIFF)** | [`export_ranges()`](https://lucasbarreirageo.github.io/mappingAS/reference/export_ranges.md) |
+| **Interactive app** | A Shiny GUI that runs the whole workflow with no code | [`run_app()`](https://lucasbarreirageo.github.io/mappingAS/reference/run_app.md) |
+
+------------------------------------------------------------------------
+
+## Installation
+
+``` r
+
+# install.packages("remotes")
+remotes::install_github("lucasbarreirageo/mappingAS")
+```
+
+The core dependencies (`sf`, `terra`, `leaflet`, `DT`, `shiny`, `bslib`,
+`ggplot2`, `plotly`, `officer`, `readxl`) are installed automatically —
+including `officer`, so the Word report works out of the box.
+
+The **local** land-cover backend uses **GDAL with `/vsicurl/`** (shipped
+with `terra`/`sf`), so **no Google Earth Engine account and no
+full-mosaic download are needed** — only the window covering each
+species’ range is read (and cached on disk). This applies to both
+MapBiomas and the global Sentinel-2/Esri layer.
+
+The optional Earth Engine backend needs a configured `rgee`:
+
+``` r
+
+install.packages("rgee")
+rgee::ee_install()      # creates the Python environment
+rgee::ee_Initialize()   # authenticates with your Earth Engine account
+```
+
+------------------------------------------------------------------------
+
+## Quick start
+
+``` r
+
+library(mappingAS)
+
+# 1. Read points (csv / xlsx / shp) — columns are auto-detected
+occ <- read_occurrences("my_occurrences.xlsx")
+
+# 2. Run the assessment. `initiative = "auto"` picks MapBiomas for occurrences
+#    in South America and the global Sentinel-2/Esri layer elsewhere.
+res <- assess_species(occ,
+                      initiative = "auto", backend = "local",
+                      mapbiomas = TRUE,   # habitat conversion (default)
+                      fire      = TRUE,   # burned-area metrics (Brazil)
+                      protected = TRUE)   # overlap with protected areas (WDPA)
+
+# 3. Inspect the summary table (one row per species)
+res$summary
+
+# 4. Map and charts
+map_species(res)                    # leaflet: points + EOO + AOO + land cover (+ fire, protected areas)
+plot_conversion(res)                # natural vs. converted, EOO and AOO
+mas_plotly(plot_conversion(res))    # same chart, interactive
+
+# 5. A written assessment report
+cat(assessment_report(res, output = "text"))
+assessment_report(res, output = "docx", file = "assessment.docx")
+
+# 6. Export the ranges as spatial data
+export_ranges(res)                    # mappingAS_EOO.shp + mappingAS_AOO.shp
+export_ranges(res, format = "gpkg")   # one GeoPackage with eoo and aoo layers
+export_ranges(res, zip = TRUE)        # bundled into a single .zip
+```
+
+### Bundled example
+
+``` r
+
+ex  <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
+res <- assess_species(read_occurrences(ex), backend = "local")
+res
+```
+
+------------------------------------------------------------------------
+
+## The Shiny application
+
+``` r
+
+library(mappingAS)
+run_app()
+```
+
+Upload a file (`.xlsx`/`.csv`/`.gpkg`/`.geojson` or a shapefile in a
+`.zip`), map the columns if needed, choose the **land-cover product**
+(default **Auto**), the **year**, the AOO **cell size**, the **source**
+(local / GEE) and which optional modules to run (**fire**, **protected
+areas**), then click **Assess**. The app is organised as tabs:
+
+- **Map** — interactive Leaflet map (points, EOO, AOO, land cover, fire,
+  protected areas) with downloads: interactive HTML, a **publishable
+  PNG**, and the **land-cover / fire rasters as GeoTIFF** (clipped to
+  the selected EOO/AOO).
+- **Results** — a visual overview per species (stat cards with in-line
+  bars and IUCN category badges) plus a **column glossary** explaining
+  every field, and the full table (CSV download).
+- **Conversion** — interactive natural-vs-converted chart (EOO and AOO).
+- **Classes** — area and % of every land-cover class inside the EOO/AOO
+  (CSV download).
+- **Protected areas** — overlap metrics, protection chart and the
+  per-area table (CSV download).
+- **Time Series** — land-cover composition over time (interactive
+  stacked area) for the EOO or AOO.
+- **Fire** — burned-area metrics and time series.
+- **Report** — an interpretive, referenced assessment that you can
+  preview and download as **Word (.docx)**; it accumulates the temporal
+  analysis from any Time series / Fire series you calculate. The same
+  tab also builds a self-contained **HTML factsheet**
+  ([`factsheet_html()`](https://lucasbarreirageo.github.io/mappingAS/reference/factsheet_html.md)):
+  fill in the taxonomy, supporting information, land use, conservation
+  units, vouchers and reference, add up to four (watermarked) photos,
+  and it embeds those alongside the computed metrics, a *top anthropic
+  activities* chart and the standard charts — a single portable `.html`
+  you can open offline or publish (e.g. on GitHub Pages).
+- **Methods** — the methods and references behind the numbers.
+
+A light/dark theme toggle is available in the header.
+
+------------------------------------------------------------------------
+
+## Exporting ranges (shapefile / GeoPackage / raster)
+
+[`export_ranges()`](https://lucasbarreirageo.github.io/mappingAS/reference/export_ranges.md)
+writes the **EOO** and **AOO** polygons (one feature per species by
+default) with area, conversion and provisional-category attributes
+attached:
+
+``` r
+
+export_ranges(res,
+              dir    = "output",      # output directory
+              format = "shapefile",   # or "gpkg"
+              what   = "both",        # "eoo", "aoo" or "both"
+              crs    = 4326,          # output CRS (WGS84 by default)
+              aoo_as = "union",       # "union" (1 feature/species) or "cells"
+              zip    = FALSE)         # TRUE = bundle everything into a .zip
+```
+
+Because the **ESRI Shapefile** format limits field names to 10
+characters, the attribute table uses compact names (`species`,
+`eoo_km2`/`aoo_km2`, `n_cells`, `conv_pct`, `nat_pct`,
+`cat_B1`/`cat_B2`, `prov_cat`, `mb_year`, `mb_coll`). The **GeoPackage**
+(`format = "gpkg"`) stores both layers (`eoo`, `aoo`) in a single file
+with no field-name limit — the easiest option for QGIS/ArcGIS. By
+default, a `mappingAS_classes.csv` with the per-class composition is
+written too (`class_csv = FALSE` to skip).
+
+The Shiny **Map** tab additionally exports the underlying **land-cover
+and fire GeoTIFF rasters**, clipped to the selected species’ EOO or AOO,
+as a `.zip`.
+
+------------------------------------------------------------------------
+
+## Per-class composition and time series
+
+``` r
+
+# Area and % of each land-cover class within the EOO and AOO
+ct <- class_table(res)          # species x range (EOO/AOO) x class
+
+# Land-cover composition over time (stacked-area chart, official class colours)
+ts <- timeseries_for_species(res, species = "sp1", range = "eoo", by = "class")
+plot_timeseries(ts)
+mas_plotly(plot_timeseries(ts))  # interactive
+
+# Directly on any geometry
+ts2 <- cover_timeseries(my_geometry, years = c(1990, 2000, 2010, 2020), by = "class")
+```
+
+Each year is read separately (one GeoTIFF window per year), so an annual
+series across the whole record can take a while; increase the year step
+to speed it up. (The time series uses whichever product the species was
+assessed with — MapBiomas back to 1985, or Sentinel-2/Esri for
+2017–2023.)
+
+------------------------------------------------------------------------
+
+## Fire and protected areas
+
+``` r
+
+# Fire: enable during assessment, then chart the burned-area series
+res <- assess_species(occ, fire = TRUE)
+fts <- fire_timeseries_for_species(res, species = "sp1", range = "eoo")
+plot_fire_timeseries(fts)
+
+# Protected areas (global WDPA)
+res <- assess_species(occ, protected = TRUE)
+pa_table(res)         # per-protected-area overlap table
+plot_protection(res)  # share of the range inside vs. outside protected areas
+```
+
+With `protected = TRUE` **and** `mapbiomas = TRUE`, the summary also
+reports the habitat that is *both* natural *and* inside protected areas
+(effectively protected natural habitat).
+
+------------------------------------------------------------------------
+
+## The results table
+
+Key columns (`res$summary`, also shown with a glossary in the app’s
+**Results** tab):
+
+| Column | Meaning |
+|----|----|
+| `species`, `n_records`, `n_unique` | Species; number of records and unique coordinates |
+| `eoo_km2` | EOO in km² (`NA` if fewer than 3 unique points) |
+| `aoo_km2`, `aoo_cells` | AOO in km² and number of occupied cells |
+| `eoo_converted_pct` / `eoo_natural_pct` | % converted / natural within the EOO |
+| `aoo_converted_pct` / `aoo_natural_pct` | % converted / natural within the AOO |
+| `eoo_cat_B1`, `aoo_cat_B2`, `provisional_cat` | Provisional categories (size only) |
+| `mapbiomas_initiative`, `mapbiomas_year`, `mapbiomas_collection` | Land-cover source used per species (a MapBiomas product, or `sentinel2` when the range fell back to the global Esri/Sentinel-2 layer) |
+| `eoo_burned_pct`, `aoo_burned_pct` | % of the EOO/AOO burned at least once *(fire = TRUE)* |
+| `occ_in_uc_pct`, `eoo_uc_pct`, `aoo_uc_pct`, `n_uc` | Overlap with protected areas *(protected = TRUE)* |
+| `eoo_nat_uc_pct`, `aoo_nat_uc_pct` | Share of the range that is natural *and* protected |
+
+------------------------------------------------------------------------
+
+## Methods in brief
+
+- **EOO** = area of the minimum convex polygon over the points (≥ 3
+  unique coordinates; otherwise `NA`), edges densified along great
+  circles and measured on the WGS84 ellipsoid.
+- **AOO** = number of occupied 2 × 2 km cells × 4 km² (cell size via
+  `cell_km`), taken as the minimum over several translated grids.
+- **Subpopulations** = the circular-buffer method: a circle of radius
+  `subpop_resol_km` (default 1/10 of the maximum inter-point distance,
+  [Rivers et al. 2010](https://doi.org/10.1016/j.biocon.2010.06.028)) is
+  drawn around each occurrence, the circles are dissolved, and the
+  disjoint polygons are counted.
+- **Locations** = number of occupied cells of a 10 km grid (`loc_km`, or
+  a sliding-scale fraction of the max inter-point distance via
+  `loc_scale`), minimum over translated grids. When `protected = TRUE`,
+  occurrences inside protected areas are decoupled from those outside
+  (ConR `method_protected`: `"no_more_than_one"` counts each protected
+  area with occurrences as one location; `"other"` grids inside/outside
+  separately). A grid-based screening proxy, not a formal count of
+  locations under a specific threat.
+- The subpopulation and location methods follow the spatial rationale
+  popularised by the **[ConR](https://github.com/gdauby/ConR)** package
+  ([Dauby et al. 2017](https://doi.org/10.1002/ece3.3704)), cited here
+  for the idea; the mappingAS implementation is independent code.
+- Areas are measured on a data-centred **Lambert Azimuthal Equal-Area**
+  projection, in line with the IUCN guidelines.
+- **Conversion**: land-cover classes are grouped into *natural*,
+  *anthropic*, *water*, *not observed* and *other*. The headline index
+  is `converted_pct = anthropic / (anthropic + natural) × 100`
+  (terrestrial denominator; water and not-observed excluded by default —
+  set `water_in_denominator = TRUE` to include water).
+- **Criterion B thresholds** (screening only): EOO \< 100 / 5,000 /
+  20,000 km² and AOO \< 10 / 500 / 2,000 km² for CR / EN / VU.
+- **Applied Criterion B category** (`category_B` /
+  [`iucn_criterion_B()`](https://lucasbarreirageo.github.io/mappingAS/reference/iucn_criterion_B.md)):
+  combines those size thresholds with the sub-criteria, following ConR’s
+  selection logic. The **number of locations caps the category** through
+  sub-criterion (a) — CR needs a single location, EN ≤ 5, VU ≤ 10 — so a
+  small range spread over many locations is held to the less threatened
+  level its location count supports (or NT if it exceeds every
+  threshold). A **continuing decline (b)** is, when not documented,
+  **inferred from the measured habitat loss** — if the range holds
+  converted (anthropic) cover, b(iii) is taken as met
+  (`decline_basis = "inferred (habitat loss)"`). This has explicit IUCN
+  backing: the Guidelines (v16, §4.6) allow a continuing decline in
+  habitat to be inferred *“from rate of habitat loss”* under B1b/B2b,
+  *at any rate* — there is **no magnitude threshold** for continuing
+  decline under Criterion B (only Criterion C1 has one). When no
+  conversion is available it falls back to a global assumption
+  (`"assumed"`, ConR-style). Pass `infer_decline_from_habitat = FALSE`,
+  `assume_decline = FALSE` or `decline = FALSE` for a stricter “NT until
+  documented” screening.
+
+------------------------------------------------------------------------
+
+## Land-cover backends
+
+- **`"local"` (default)** — reads, over the network, only the *window*
+  of the source GeoTIFF via GDAL `/vsicurl/` (MapBiomas national
+  mosaics, or the Sentinel-2/Esri MGRS tiles). No Earth Engine account,
+  no full-mosaic download. The windowed crop is cached on disk and
+  reused for mapping and re-runs; map overlays use a fast decimated
+  read.
+- **`"gee"`** — computes per-class areas server-side on Google Earth
+  Engine (recommended for very large, e.g. continental, ranges).
+  Requires
+  [`rgee::ee_Initialize()`](https://r-spatial.github.io/rgee/reference/ee_Initialize.html).
+  Wired for `initiative = "brazil"` only.
+
+------------------------------------------------------------------------
+
+## MapBiomas initiatives (Brazil + South America)
+
+[`assess_species()`](https://lucasbarreirageo.github.io/mappingAS/reference/assess_species.md)
+(and the whole pipeline) takes an **`initiative`** argument so a species
+outside Brazil can be screened with the same workflow — **without Google
+Earth Engine and without a Google Drive download**. Every product is
+streamed year-by-year as Cloud-Optimized GeoTIFFs from the public
+MapBiomas bucket via GDAL `/vsicurl/`, exactly like the Brazil backend:
+
+| `initiative` | Product | Default collection | Years |
+|----|----|----|----|
+| `"brazil"` (default) | MapBiomas Brazil | 10 | 1985–2024 |
+| `"amazonia"` | MapBiomas Amazonia / Pan-Amazon (RAISG) | 6 | 1986–2023 |
+| `"colombia"` | MapBiomas Colombia | 3 | 1985–2024 |
+| `"argentina"` | MapBiomas Argentina | 2 | 1985–2024 |
+| `"bolivia"` | MapBiomas Bolivia | 3 | 1985–2024 |
+| `"chile"` | MapBiomas Chile | 1 | 2000–2022 |
+| `"ecuador"` | MapBiomas Ecuador | 3 | 1985–2024 |
+| `"peru"` | MapBiomas Peru | 3 | 1985–2024 |
+| `"venezuela"` | MapBiomas Venezuela | 2 | 1985–2023 |
+| `"paraguay"` | MapBiomas Paraguay | 2 | 1985–2023 |
+| `"uruguay"` | MapBiomas Uruguay | 1 | 1985–2022 |
+
+``` r
+
+# A species in the Peruvian Amazon, no GEE:
+res_pe <- assess_species(occ, initiative = "peru")
+
+# Anywhere in the Amazon basin (Pan-Amazon collection):
+res_az <- assess_species(occ, initiative = "amazonia")
+```
+
+`year` and `collection` default to each initiative’s latest year and
+native collection.
+[`mb_initiatives()`](https://lucasbarreirageo.github.io/mappingAS/reference/mb_initiatives.md)
+lists the products;
+[`mb_source_url()`](https://lucasbarreirageo.github.io/mappingAS/reference/mb_source_url.md),
+[`mb_raster_local()`](https://lucasbarreirageo.github.io/mappingAS/reference/mb_raster_local.md),
+[`mb_years()`](https://lucasbarreirageo.github.io/mappingAS/reference/mb_years.md),
+[`mb_legend()`](https://lucasbarreirageo.github.io/mappingAS/reference/mb_legend.md),
+[`summarise_conversion()`](https://lucasbarreirageo.github.io/mappingAS/reference/summarise_conversion.md)
+and
+[`cover_timeseries()`](https://lucasbarreirageo.github.io/mappingAS/reference/cover_timeseries.md)
+all accept `initiative`.
+
+**One standardised legend.** MapBiomas harmonises its pixel codes across
+initiatives, so
+[`mb_legend()`](https://lucasbarreirageo.github.io/mappingAS/reference/mb_legend.md)
+returns a single *standardised* table (same class names, colours and
+conservation groups) that labels every country’s raster consistently —
+this is what lets a range spanning more than one country be assessed
+coherently. The country-specific classes (Andinean formations, Glacier,
+primary/secondary/dwarf forest, scrubland/steppe/fog oasis/peatlands,
+Pinus/Eucalyptus plantations, salt flat, …) are included; a code absent
+from a given product simply contributes zero area. MapBiomas **Fire** is
+published for Brazil only and is skipped (with a warning) for the other
+initiatives.
+
+## Outside MapBiomas: global Sentinel-2 land cover
+
+For a species whose range falls **outside every MapBiomas country**,
+[`assess_species()`](https://lucasbarreirageo.github.io/mappingAS/reference/assess_species.md)
+can fall back to the global **Esri / Impact Observatory 10 m Annual Land
+Use Land Cover** product — the Sentinel-2-derived data behind the
+[ArcGIS Living Atlas Land Cover
+Explorer](https://livingatlas.arcgis.com/landcoverexplorer/). It is
+streamed the same way as MapBiomas (public Cloud-Optimized GeoTIFFs via
+GDAL `/vsicurl/`, **no Google Earth Engine and no account**), tiled by
+MGRS grid zone and read only over each range.
+
+``` r
+
+# Automatic: try MapBiomas, fall back to Sentinel-2 where it has no data
+res <- assess_species(occ, initiative = "auto")
+
+# Force the global Sentinel-2/Esri layer everywhere
+res <- assess_species(occ, initiative = "sentinel2")
+
+# Turn the automatic fallback off (out-of-coverage ranges return NA, as before)
+res <- assess_species(occ, initiative = "brazil", fallback = "none")
+```
+
+The automatic fallback is **on by default** (`fallback = "sentinel2"`).
+The 9 Sentinel-2 classes are mapped to the same conservation groups as
+MapBiomas — Trees / Rangeland / Flooded vegetation → *natural*; Crops /
+Built area → *anthropic* (converted); Water excluded; Bare ground and
+Snow/Ice excluded as ambiguous; Clouds → *not observed* — so the
+conversion percentages, per-class tables, donut charts, maps and report
+all work unchanged. The product actually used is recorded per species in
+the `mapbiomas_initiative` column. Years available: 2017–2023
+([`s2_years()`](https://lucasbarreirageo.github.io/mappingAS/reference/s2_years.md)).
+Helpers:
+[`esri_legend()`](https://lucasbarreirageo.github.io/mappingAS/reference/esri_legend.md),
+[`s2_source_url()`](https://lucasbarreirageo.github.io/mappingAS/reference/s2_source_url.md),
+[`s2_raster_local()`](https://lucasbarreirageo.github.io/mappingAS/reference/s2_raster_local.md).
+
+------------------------------------------------------------------------
+
+## Protected areas: WDPA (global)
+
+Protected-area overlap (`assess_species(protected = TRUE)`) reads the
+global **World Database on Protected Areas (WDPA)** from its public
+ArcGIS FeatureServer (bounding-box query, cached), standardised to
+`pa_name` / `pa_category` / `pa_group` columns with IUCN categories
+mapped to strict-protection (Ia–III) vs sustainable-use (IV–VI). It
+works anywhere in the world. A local `pa_src` file
+(`.shp`/`.gpkg`/`.geojson`) overrides it for offline use. See
+[`wdpa_areas()`](https://lucasbarreirageo.github.io/mappingAS/reference/wdpa_areas.md).
+
+------------------------------------------------------------------------
+
+## Caveats and limitations
+
+- The **categories are provisional** — they exclude fragmentation,
+  decline and fluctuation.
+- The **AOO is sensitive** to grid origin/placement and to sampling
+  effort; the **EOO** can be inflated by outlying or erroneous records.
+- The **local backend** streams the land-cover window over the network;
+  for **very large (continental) ranges** prefer `backend = "gee"`.
+- **Land-cover accuracy** varies by product, class, biome and year
+  (e.g. high-altitude grassland and rocky-outcrop mosaics in MapBiomas,
+  or fine-grained mosaics in the 10 m global layer); consult the
+  official documentation of the product used.
+
+------------------------------------------------------------------------
+
+## Related tools
+
+`mappingAS` complements other R packages for preliminary, area-based
+conservation assessment — among them
+[**ConR**](https://cran.r-project.org/package=ConR),
+[**red**](https://cran.r-project.org/package=red) and
+[**rCAT**](https://cran.r-project.org/package=rCAT), as well as the
+[**GeoCAT**](https://geocat.iucnredlist.org/) web tool. Its
+distinguishing focus is coupling the EOO/AOO range metrics with
+**habitat-conversion, fire and protected-area** layers (MapBiomas,
+global Sentinel-2/Esri land cover, and WDPA) in a single reproducible
+workflow and Shiny app.
+
+------------------------------------------------------------------------
+
+## Citation
+
+When using this package, please also cite the underlying data and
+methods:
+
+- **MapBiomas** — Projeto MapBiomas (Brazil, Amazonia/RAISG, Colombia,
+  Argentina, Bolivia, Chile, Ecuador, Peru, Venezuela, Paraguay and
+  Uruguay collections; <https://mapbiomas.org>) and MapBiomas Fire
+  Collection 4.
+- **Esri / Impact Observatory** — Karra, K. *et al.* (2021). *Global
+  land use/land cover with Sentinel-2 and deep learning.* IGARSS 2021.
+  The 10 m Annual Land Use Land Cover time series (behind the ArcGIS
+  Living Atlas Land Cover Explorer), used outside MapBiomas coverage.
+- **IUCN** — Standards and Petitions Committee. *Guidelines for Using
+  the IUCN Red List Categories and Criteria.*
+- **WDPA** — UNEP-WCMC and IUCN, Protected Planet: The World Database on
+  Protected Areas (<https://www.protectedplanet.net/en>).
+
+------------------------------------------------------------------------
+
+## Licence
+
+MIT © Antônio Lucas Barreira. See the
+[`LICENSE`](https://lucasbarreirageo.github.io/mappingAS/LICENSE) file.

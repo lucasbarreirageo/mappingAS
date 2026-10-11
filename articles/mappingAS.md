@@ -1,0 +1,221 @@
+# mappingAS: IUCN Criterion B screening (EOO, AOO and habitat conversion)
+
+## What the package does
+
+`mappingAS` is a [GeoCAT](https://geocat.iucnredlist.org/)-style tool
+for **preliminary IUCN Red List Criterion B screening**. From occurrence
+points (`.xlsx`, `.csv` or a spatial file) it:
+
+- computes the **EOO** (Extent of Occurrence, minimum convex polygon)
+  and the **AOO** (Area of Occupancy, 2 km grid) on a data-centred
+  equal-area projection, and assigns a provisional Criterion B category;
+- measures the **% converted (anthropic)** and **% natural** area within
+  the EOO and the AOO, plus the **area of each land-cover class**, from
+  MapBiomas (or, for ranges outside its coverage, the global
+  Sentinel-2/Esri 10 m product);
+- builds the land-cover **time series** (% by year);
+- derives the Red List **supporting analyses** described below
+  (countries of occurrence, Area of Habitat and the lower/upper AOO
+  bounds, elevation preferences, severe-fragmentation screening);
+- writes a narrative **assessment report**, and exports everything
+  (tables, shapefile/GeoPackage). A **Shiny app** ties it all together.
+
+> The categories are **provisional** (EOO/AOO size thresholds only) and
+> are for screening, not a formal Red List assessment.
+
+``` r
+
+library(mappingAS)
+```
+
+## 1. Import the points
+
+[`read_occurrences()`](https://lucasbarreirageo.github.io/mappingAS/reference/read_occurrences.md)
+accepts `.csv`/`.tsv`/`.txt`, `.xlsx`/`.xls` and spatial files (`.shp`,
+`.gpkg`, `.geojson`, `.zip`) and tries to **detect** the species,
+longitude and latitude columns automatically.
+
+``` r
+
+ex  <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")
+occ <- read_occurrences(ex)
+
+# if detection fails, name the columns explicitly:
+# occ <- read_occurrences("my_data.csv",
+#                         species_col = "species",
+#                         lon_col = "longitude", lat_col = "latitude")
+```
+
+The result is an `sf` object of points in WGS84 with a `species` column.
+
+## 2. Assess the species
+
+[`assess_species()`](https://lucasbarreirageo.github.io/mappingAS/reference/assess_species.md)
+runs the whole chain per species: EOO, AOO, conversion and the
+provisional category.
+
+``` r
+
+res <- assess_species(
+  occ,
+  year = 2024,          # MapBiomas year for the land-cover snapshot
+  collection = 10,      # MapBiomas collection
+  backend = "local"     # "local" (no GEE account) or "gee"
+)
+
+res            # compact print
+res$summary    # one row per species
+```
+
+Key `res$summary` columns: `eoo_km2`, `aoo_km2`, `aoo_cells`,
+`eoo_converted_pct`/`eoo_natural_pct`,
+`aoo_converted_pct`/`aoo_natural_pct`, `provisional_cat` and
+`category_B`. The conversion index uses a **terrestrial** denominator:
+`converted = anthropic / (anthropic + natural) * 100` (water and “not
+observed” are excluded by default; change with
+`water_in_denominator = TRUE`).
+
+## 3. Map and conversion chart
+
+``` r
+
+map_species(res)            # leaflet: points + EOO + AOO
+plot_conversion(res)        # bars: natural / altered / water / other
+```
+
+## 4. Per-class composition
+
+``` r
+
+ct <- class_table(res)
+head(ct)
+# species | range (EOO/AOO) | code | class_pt | class_en | group | area_km2 | pct
+```
+
+## 5. Land-cover time series
+
+``` r
+
+# every 5 years, within the first species' EOO
+ts <- timeseries_for_species(res, range = "eoo", by = "class",
+                             years = c(2020, 2024))
+plot_timeseries(ts)         # stacked-area chart, official MapBiomas colours
+
+# or over any geometry:
+# ts2 <- cover_timeseries(my_geometry, years = c(1990, 2000, 2010, 2020),
+#                         by = "class", backend = "local")
+```
+
+Each year is read separately from MapBiomas, so a full annual series can
+be slow; the minimum reliable step is 5 years.
+
+## 6. Red List supporting analyses
+
+These assimilate the sRedList workflow (Cazalis *et al.* 2024) while
+keeping the focus on Criterion B, computed from the data the package
+already produces. Most take the range polygon; take it from
+[`calc_eoo()`](https://lucasbarreirageo.github.io/mappingAS/reference/calc_eoo.md).
+
+``` r
+
+sp1  <- occ[occ$species == occ$species[1], ]
+hull <- calc_eoo(sp1)$hull          # EOO polygon
+aoo_lo <- calc_aoo(sp1)$area_km2     # occurrence-based (lower) AOO
+
+# Countries of occurrence + biogeographical realm (needs 'rnaturalearth'):
+countries_of_occurrence(range = hull, points = sp1)
+
+# Area of Habitat (suitable land cover within the EOO, optionally masked to an
+# elevation band; needs land cover, and 'elevatr' or a DEM for elevation):
+aoh <- calc_aoh(hull, year = 2024, elev_min = 0, elev_max = 1500, points = sp1)
+aoh$aoh_km2            # Area of Habitat
+aoh$aoo_upper_km2      # habitat-based (upper) AOO bound, at the 2 km scale
+aoh$point_prevalence  # share of records inside the habitat (a validation metric)
+
+# Suggested elevation band from the occurrences:
+elevation_preferences(sp1)
+
+# Lower/upper AOO bounds and the resulting B2 category range (Brooks et al. 2019):
+b <- aoo_bounds(aoo_lower_km2 = aoo_lo, aoh_km2 = aoh$aoo_upper_km2,
+                eoo_km2 = calc_eoo(sp1)$area_km2)
+b$cat_range
+iucn_category_B_range(eoo_km2 = calc_eoo(sp1)$area_km2,
+                      aoo_lower_km2 = b$aoo_lower, aoo_upper_km2 = b$aoo_upper)
+
+# Severe-fragmentation screening (Santini et al. 2019): cluster occurrences by a
+# dispersal / isolation distance and see how much of the population is in small
+# subpopulations. It never sets sub-criterion (a) automatically.
+assess_fragmentation(sp1, isolation_km = 20)
+```
+
+## 7. Narrative report
+
+[`assessment_report()`](https://lucasbarreirageo.github.io/mappingAS/reference/assessment_report.md)
+writes an interpretive Criterion B summary as HTML, plain text or a Word
+`.docx` file.
+
+``` r
+
+cat(assessment_report(res, output = "text"))
+
+# Word document (needs the 'officer' package):
+# assessment_report(res, output = "docx", file = "assessment.docx")
+```
+
+## 8. Export
+
+``` r
+
+export_ranges(res, dir = "out")                 # two shapefiles (EOO, AOO) + CSV
+export_ranges(res, dir = "out", format = "gpkg") # one GeoPackage (eoo, aoo layers)
+export_ranges(res, dir = "out", zip = TRUE)      # everything in one .zip
+```
+
+The attribute table carries `species`, `eoo_km2`/`aoo_km2`, `conv_pct`,
+`nat_pct`, `cat_B1`/`cat_B2`, `prov_cat`, `mb_year` and `mb_coll`; the
+`*_classes.csv` file gives each class’s area and percentage.
+
+## 9. Shiny app
+
+``` r
+
+run_app()
+```
+
+The app has tabs for the **Map**, **Add points**, **Conversion**,
+**Classes**, **Protected areas**, **Time series**, **Fire**,
+**Countries**, **Habitat**, **Fragmentation**, and, at the end of the
+workflow, **Assessment**, **Report** and **Methods** - with CSV,
+shapefile/GeoPackage and image (PNG/HTML) downloads.
+
+## 10. MapBiomas backends
+
+- **`"local"` (default)**: reads only the *window* of the national
+  GeoTIFF over the network with GDAL `/vsicurl/`. No Earth Engine
+  account and no full-mosaic download. For offline/repeated use, point
+  `src=` at a local GeoTIFF.
+- **`"gee"`**: computes the per-class areas server-side on Google Earth
+  Engine (recommended for very large ranges). Requires `rgee`:
+
+``` r
+
+# install.packages("rgee"); rgee::ee_install(); rgee::ee_Initialize()
+res <- assess_species(occ, backend = "gee")
+```
+
+## Caveats
+
+- The **categories are provisional** (size thresholds only) - do not
+  report them as final categories. The supporting analyses
+  (fragmentation, decline, the AOO bounds) inform the judgement but the
+  assessor decides.
+- The **AOO** is sensitive to grid placement and sampling effort.
+- **MapBiomas accuracy** varies by class, biome and year.
+- For continental ranges, prefer `backend = "gee"`.
+
+## Citation
+
+Please also cite **MapBiomas** (the collection used), the **IUCN Red
+List Guidelines** for Criterion B, **GeoCAT** (Bachman *et al.* 2011,
+ZooKeys), and, for the supporting analyses, **sRedList** (Cazalis *et
+al.* 2024, *Biological Conservation*).
