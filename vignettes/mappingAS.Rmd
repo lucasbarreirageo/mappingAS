@@ -117,7 +117,7 @@ the minimum reliable step is 5 years.
 
 ## 6. Red List supporting analyses
 
-These assimilate the [sRedList](https://sredlist.eu/) workflow (Cazalis *et al.*
+These assimilate the sRedList workflow (Cazalis *et al.*
 2024) while keeping the focus on Criterion B, computed from the data the package
 already produces. Most take the range polygon; take it from `calc_eoo()`.
 

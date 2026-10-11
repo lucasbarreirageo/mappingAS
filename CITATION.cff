@@ -7,7 +7,8 @@ abstract: >-
   From occurrence points it computes the Extent of Occurrence (EOO) and Area
   of Occupancy (AOO) on an equal-area projection, quantifies MapBiomas
   habitat conversion and fire within the range, and measures the overlap with
-  Brazilian federal Conservation Units. Outputs include interactive and
+  protected areas from the global World Database on Protected Areas (WDPA).
+  Outputs include interactive and
   publication-ready maps and charts, spatial and raster exports, and a written
   assessment report.
 type: software
@@ -15,8 +16,8 @@ authors:
   - given-names: "Antônio Lucas"
     family-names: "Barreira"
     email: barreira_rodrigues@hotmail.com
-version: "1.9.0"
-date-released: "2026-07-27"
+version: "1.14.0"
+date-released: "2026-10-11"
 license: MIT
 repository-code: "https://github.com/lucasbarreirageo/mappingAS"
 url: "https://github.com/lucasbarreirageo/mappingAS"

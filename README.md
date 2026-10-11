@@ -1,4 +1,4 @@
-# mappingAS <img src="man/figures/featured_Resultado.png" align="right" height="139" alt="mappingAS hex logo" />
+# mappingAS <img src="man/figures/logo.png" align="right" height="139" alt="mappingAS logo" />
 
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/lucasbarreirageo/mappingAS/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/lucasbarreirageo/mappingAS/actions/workflows/R-CMD-check.yaml)
