@@ -75,31 +75,32 @@
 <div class="section level2">
 <h2 id="what-the-package-does">What the package does<a class="anchor" aria-label="anchor" href="#what-the-package-does"></a>
 </h2>
-<p><code>mappingAS</code> is a <a href="https://geocat.iucnredlist.org/" class="external-link">GeoCAT</a>-style tool for
-<strong>preliminary IUCN Red List Criterion B screening</strong>. From
-occurrence points (<code>.xlsx</code>, <code>.csv</code> or a spatial
-file) it:</p>
-<ul>
-<li>computes the <strong>EOO</strong> (Extent of Occurrence, minimum
-convex polygon) and the <strong>AOO</strong> (Area of Occupancy, 2 km
-grid) on a data-centred equal-area projection, and assigns a provisional
-Criterion B category;</li>
-<li>measures the <strong>% converted (anthropic)</strong> and <strong>%
-natural</strong> area within the EOO and the AOO, plus the <strong>area
-of each land-cover class</strong>, from MapBiomas (or, for ranges
-outside its coverage, the global Sentinel-2/Esri 10 m product);</li>
-<li>builds the land-cover <strong>time series</strong> (% by year);</li>
-<li>derives the Red List <strong>supporting analyses</strong> described
-below (countries of occurrence, Area of Habitat and the lower/upper AOO
-bounds, elevation preferences, severe-fragmentation screening);</li>
-<li>writes a narrative <strong>assessment report</strong>, and exports
-everything (tables, shapefile/GeoPackage). A <strong>Shiny app</strong>
-ties it all together.</li>
-</ul>
 <blockquote>
-<p>The categories are <strong>provisional</strong> (EOO/AOO size
-thresholds only) and are for screening, not a formal Red List
-assessment.</p>
+<p><strong>mappingAS</strong> — <em>Mapping Area of Species.</em>
+Geographic range metrics (EOO / AOO), land-cover conversion and fire,
+and protected-area overlap for extinction-risk screening — from raw
+occurrence points to an interactive app and a written assessment
+report.</p>
+</blockquote>
+<p><code>mappingAS</code> is an R package, with an accompanying
+<strong>Shiny</strong> application, for screening species against
+<strong>Criterion B</strong> of the IUCN Red List. Starting from a set
+of occurrence points, it estimates each species’ geographic range (EOO /
+AOO), measures how much of that range has been converted to anthropic
+land cover and how much has burned, quantifies the overlap with
+protected areas (global WDPA), and packages everything for mapping,
+inspection, export and reporting. Land-cover conversion is driven by
+<strong>MapBiomas</strong> across South America and by the global
+<strong>Esri / Impact Observatory (Sentinel-2)</strong> 10 m land cover
+elsewhere, so a species anywhere on Earth can be screened with the same
+workflow — no Google Earth Engine account required.</p>
+<blockquote>
+<p><strong>Screening only.</strong> The categories produced are
+<strong>provisional</strong> — they rest solely on the EOO/AOO
+<em>size</em> thresholds of Criterion B. They <strong>do not
+replace</strong> a formal IUCN assessment, which also requires the
+sub-conditions of fragmentation/few locations, continuing decline and
+extreme fluctuation.</p>
 </blockquote>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/lucasbarreirageo/mappingAS" class="external-link">mappingAS</a></span><span class="op">)</span></span></code></pre></div>
