@@ -49,6 +49,8 @@ Useful links:
 
 - <https://github.com/lucasbarreirageo/mappingAS>
 
+- <https://lucasbarreirageo.github.io/mappingAS>
+
 - Report bugs at <https://github.com/lucasbarreirageo/mappingAS/issues>
 
 ## Author
