@@ -1,6 +1,8 @@
 # mappingAS <img src="man/figures/logo.png" align="right" height="139" alt="mappingAS logo" />
 
 <!-- badges: start -->
+[![CRAN status](https://www.r-pkg.org/badges/version/mappingAS)](https://CRAN.R-project.org/package=mappingAS)
+[![CRAN downloads](https://cranlogs.r-pkg.org/badges/grand-total/mappingAS)](https://CRAN.R-project.org/package=mappingAS)
 [![R-CMD-check](https://github.com/lucasbarreirageo/mappingAS/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/lucasbarreirageo/mappingAS/actions/workflows/R-CMD-check.yaml)
 [![Lifecycle: stable](https://img.shields.io/badge/lifecycle-stable-brightgreen.svg)](https://lifecycle.r-lib.org/articles/stages.html#stable)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
