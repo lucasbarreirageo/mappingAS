@@ -32,6 +32,7 @@ assess_species(
   severe_fragmentation = NA,
   assume_decline = TRUE,
   infer_decline_from_habitat = TRUE,
+  decline_years = 10,
   min_records = 1,
   verbose = TRUE
 )
@@ -152,16 +153,28 @@ supplied). The \code{decline_assumed} column flags each species for which
 
 \item{infer_decline_from_habitat}{Logical; when \code{TRUE} (default) and
 \code{decline} is not documented for a species, a continuing decline (b) is
-\emph{inferred from the measured habitat loss} whenever land cover ran and
-the range holds any converted (anthropic) area. The IUCN guidelines (v16,
-sect. 4.6) explicitly allow a continuing decline in the area/quality of
-habitat (sub-criterion b(iii)) to be inferred "from rate of habitat loss"
-under B1b/B2b, "at any rate" (no magnitude threshold). This is recorded as
+\emph{inferred from the recent trend of natural habitat}: the natural area
+of the range (EOO, or AOO when the EOO is undefined) is measured at six
+years spanning the last \code{decline_years} and a decline is inferred
+only when the least-squares slope is negative and significant
+(\eqn{p < 0.05}). The IUCN guidelines (v16, sect. 4.6) allow a continuing
+decline in the area/quality of habitat (b(iii)) to be inferred from the
+rate of habitat loss, at any rate, but the loss must be ongoing: a static
+share of converted land is past loss and is no longer used. The slope
+(\\% of the mean natural area per year) and its p-value are returned as
+\code{habitat_trend_pct_yr} and \code{habitat_trend_p}. The trend needs the
+multi-year public products, so it is skipped when a single-year \code{src}
+file is given. This is recorded as
 \code{decline_basis = "inferred (habitat loss)"} - distinct from
 \code{"assumed"} (the ConR-style global fallback used when no conversion is
 available), \code{"documented"} / \code{"documented (absent)"} (an explicit
 \code{decline}), or \code{"not documented"}. Set \code{FALSE} to rely only
 on \code{decline} / \code{assume_decline}.}
+
+\item{decline_years}{Length in years of the recent window used to test the
+habitat trend (default \code{10}, the IUCN reference of ten years or three
+generations for the shortest-lived taxa). Clamped to the years the product
+publishes.}
 
 \item{min_records}{Minimum records required to attempt an assessment.}
 

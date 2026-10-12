@@ -4,7 +4,7 @@
 
 test_that("size threshold plus >=2 sub-criteria yields a threatened category", {
   # CR EOO (< 100) with fragmentation (a) and decline (b) -> CR B1ab
-  r <- iucn_criterion_B(eoo_km2 = 50, aoo_km2 = 5000,
+  r <- iucn_criterion_B(eoo_km2 = 50, aoo_km2 = 40,
                         severe_fragmentation = TRUE, decline = TRUE)
   expect_equal(r$category, "CR")
   expect_match(r$code, "^CR B1")
@@ -13,11 +13,11 @@ test_that("size threshold plus >=2 sub-criteria yields a threatened category", {
 })
 
 test_that("the B-axes reflect which of EOO (B1) and AOO (B2) meet the size", {
-  # Both EOO and AOO in the EN band, two sub-criteria -> EN B1+2ab
+  # Both EOO and AOO in the EN band, two sub-criteria -> EN B1bc+2bc
   r <- iucn_criterion_B(eoo_km2 = 4000, aoo_km2 = 400,
                         decline = TRUE, extreme_fluctuation = TRUE)
   expect_equal(r$category, "EN")
-  expect_match(r$code, "B1\\+2")
+  expect_equal(r$code, "EN B1bc+2bc")
   expect_true(r$b && r$c)
 })
 
@@ -43,7 +43,7 @@ test_that("continuing decline is assumed by default (ConR), avoiding NT", {
   expect_equal(r$category, "EN")
   expect_true(r$a && r$b)
   expect_true(r$decline_assumed)
-  expect_match(r$code, "^EN B1\\+2ab")
+  expect_equal(r$code, "EN B1ab+2ab")
 })
 
 test_that("assume_decline = FALSE restores the strict NT screening", {
@@ -75,11 +75,11 @@ test_that("decline_detail adds the IUCN roman-numeral element to the code", {
   # b(iii) = continuing decline in area/extent/quality of habitat
   r <- iucn_criterion_B(eoo_km2 = 3000, aoo_km2 = 400, n_locations = 4,
                         decline = TRUE, decline_detail = "iii")
-  expect_equal(r$code, "EN B1+2ab(iii)")
+  expect_equal(r$code, "EN B1ab(iii)+2ab(iii)")
   # default (NULL) keeps the bare letters
   r0 <- iucn_criterion_B(eoo_km2 = 3000, aoo_km2 = 400, n_locations = 4,
                          decline = TRUE)
-  expect_equal(r0$code, "EN B1+2ab")
+  expect_equal(r0$code, "EN B1ab+2ab")
 })
 
 test_that("ranges above every threshold yield LC", {

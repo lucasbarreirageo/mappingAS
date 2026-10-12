@@ -7,11 +7,12 @@
 iucn_category_B(eoo_km2 = NA_real_, aoo_km2 = NA_real_)
 }
 \arguments{
-\item{eoo_km2, aoo_km2}{Numeric range sizes in square kilometres.}
+\item{eoo_km2, aoo_km2}{Numeric range sizes in square kilometres (recycled).}
 }
 \value{
 A list with \code{eoo_category}, \code{aoo_category} and
-\code{combined} (the more threatened of the two size-based flags).
+\code{combined} (the more threatened of the two size-based flags), each a
+character vector of the input length.
 }
 \description{
 Returns the category implied by the EOO (B1) and AOO (B2) \emph{size}
@@ -19,4 +20,9 @@ thresholds only. This is a screening aid, exactly like GeoCat: a full
 Criterion B listing additionally requires at least two of the sub-criteria
 (a) severe fragmentation / few locations, (b) continuing decline, and
 (c) extreme fluctuation. Never report these as final categories.
+}
+\details{
+Vectorised: \code{eoo_km2} and \code{aoo_km2} may be columns of an assessment
+summary. Following the IUCN Guidelines (sect. 4.10), when the EOO is smaller
+than the AOO the EOO is set equal to the AOO before applying the thresholds.
 }

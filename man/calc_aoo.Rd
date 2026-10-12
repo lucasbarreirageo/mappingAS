@@ -4,16 +4,17 @@
 \alias{calc_aoo}
 \title{Area of Occupancy (AOO) via occupied grid cells}
 \usage{
-calc_aoo(points, cell_km = 2, n_rep = 30)
+calc_aoo(points, cell_km = 2, n_rep = 100)
 }
 \arguments{
 \item{points}{An \code{sf} of POINT geometries (one species).}
 
 \item{cell_km}{Grid cell side length in kilometres (default \code{2}).}
 
-\item{n_rep}{Integer; number of randomly translated grids to test (default
-\code{30}, matching the typical ConR setting). The minimum occupied-cell
-count over the replicates is returned.}
+\item{n_rep}{Integer; number of translated grids to test (default
+\code{100}; the lattice is cheap, and more offsets bring the count closer
+to the true minimum). The minimum occupied-cell count over the replicates
+is returned.}
 }
 \value{
 A list with \code{area_km2}, \code{n_cells}, \code{cell_km},
@@ -28,9 +29,11 @@ snapped to a regular grid defined on a data-centred equal-area projection.
 }
 \details{
 Because the occupied-cell count depends on where the grid is placed, this
-function tests several randomly translated grids and returns the
-\emph{smallest} count, as ConR does. The returned \code{cells} correspond to
-the grid placement that produced the reported value.
+function tests several translated grids and returns the \emph{smallest}
+count, as ConR does. The translations follow a deterministic, evenly spread
+lattice, so the result is reproducible (no random seed needed). The returned
+\code{cells} correspond to the grid placement that produced the reported
+value.
 }
 \examples{
 f <- system.file("extdata", "example_occurrences.csv", package = "mappingAS")

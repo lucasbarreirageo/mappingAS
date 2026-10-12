@@ -1,3 +1,43 @@
+# mappingAS (development version)
+
+## Bug fixes
+
+* `iucn_category_B()`, `iucn_category_B_range()` and `iucn_criterion_B()` now
+  raise the EOO to the AOO when it is smaller (IUCN Guidelines sect. 4.10),
+  so a few clustered points no longer receive a CR B1 flag from a tiny hull.
+* `iucn_criterion_B()` writes the code in the official notation, repeating the
+  sub-criteria per axis (`"EN B1ab(iii)+2ab(iii)"` instead of `"EN B1+2ab(iii)"`).
+* `calc_locations(method_protected = "no_more_than_one")` counts nested or
+  overlapping protected areas (e.g. a park inside an APA) once, using the
+  smallest set of areas that holds every inside occurrence.
+* `calc_aoh()`, `map_aoh()` and `fragment_habitat()` with the default
+  `year = NULL` now use the latest year of the product instead of failing
+  silently to `NA` when no `src` is given.
+
+## Improvements
+
+* `calc_aoo()` and `calc_locations()` are reproducible: grid translations follow
+  a deterministic lattice instead of `runif()`, so no seed is needed.
+* `iucn_category_B()` is vectorised (works on whole summary columns).
+* Internal grid and elevation-mask code deduplicated.
+* **Continuing decline (b(iii)) is now inferred from the habitat trend.**
+  `assess_species()` measures the natural area of the range at six years over
+  the last `decline_years` (new argument, default 10) and infers a decline only
+  when the linear slope is negative and significant (p < 0.05). Before, any
+  converted pixel in the range triggered the inference, which made
+  `assume_decline = FALSE` ineffective in converted landscapes. The slope and
+  its p-value are returned as `habitat_trend_pct_yr` and `habitat_trend_p`.
+* `calc_aoh()` reads land cover within `max_pixels`: large MapBiomas windows are
+  decimated on read instead of streamed at native resolution, and the majority
+  (modal) aggregation, which under-counted fragmented habitat, was replaced by
+  unbiased nearest-neighbour sampling.
+* Ranges crossing the antimeridian: `laea_crs()` uses the circular mean
+  longitude and `calc_eoo()` builds the hull on the short side of the globe.
+* `assess_species(fire = TRUE, initiative = "auto")` skips fire per species
+  outside Brazil instead of querying MapBiomas Fire for them.
+* `calc_aoo()` and `calc_locations()` now test 100 grid offsets by default
+  (cheap with the deterministic lattice, and closer to the true minimum).
+
 # mappingAS 1.14.0
 
 * **Full-criteria analyses assimilated from sRedList (Cazalis *et al.* 2024),

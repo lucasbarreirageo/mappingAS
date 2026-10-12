@@ -8,7 +8,7 @@ protected-area aware)}
 calc_locations(
   points,
   grid_km = 10,
-  n_rep = 30,
+  n_rep = 100,
   protected = NULL,
   method_protected = c("no_more_than_one", "other"),
   cell_scale = NULL
@@ -20,8 +20,8 @@ calc_locations(
 \item{grid_km}{Grid cell side length in kilometres (default \code{10}).
 Ignored when \code{cell_scale} is supplied.}
 
-\item{n_rep}{Integer; number of randomly translated grids to test (default
-\code{30}). The minimum occupied-cell count over the replicates is
+\item{n_rep}{Integer; number of translated grids to test (default
+\code{100}). The minimum occupied-cell count over the replicates is
 returned.}
 
 \item{protected}{Optional protected-area layer (an \code{sf}/\code{sfc} of
@@ -57,7 +57,7 @@ the protected-area integration (\code{method_protected}).
 }
 \details{
 As for the AOO, the occupied-cell count depends on where the grid is placed,
-so several randomly translated grids are tested and the \emph{smallest}
+so several translated grids (a deterministic lattice) are tested and the \emph{smallest}
 count is returned (the most conservative, i.e. most threatened, estimate).
 The grid is built on a data-centred Lambert Azimuthal Equal-Area projection
 and this function reuses \pkg{mappingAS}'s own AOO grid machinery, so it
@@ -79,8 +79,11 @@ protected area is not subject to the same threats as one outside:
 \item \code{method_protected = "no_more_than_one"} (default): every
 protected area holding at least one occurrence counts as exactly one
 location (all occurrences within a protected area share a location);
-occurrences outside protected areas are gridded as usual. The total is
-(occupied cells outside) + (number of protected areas with occurrences).
+occurrences outside protected areas are gridded as usual. Overlapping
+or nested designations (common in WDPA, e.g. a national park inside an
+environmental protection area) are counted once: the smallest set of
+protected areas that holds every inside occurrence is used. The total
+is (occupied cells outside) + (size of that set).
 \item \code{method_protected = "other"}: occurrences inside protected areas
 are gridded \emph{separately} from those outside, and the two counts are
 added. Two occurrences closer than the cell size are then still counted

@@ -84,8 +84,10 @@ elevation band is given, an elevation model read over the same extent
 (windowed; via \code{elev_src} or the optional \pkg{elevatr} package) is
 resampled to the land-cover grid and used to mask out pixels outside
 \code{[elev_min, elev_max]}. The remaining suitable area is the AOH. The read
-is bounded by \code{max_pixels} (the land cover is aggregated with a majority
-rule beyond that) so a large range does not exhaust memory. This AOH can be
+is bounded by \code{max_pixels}: beyond it the land cover is decimated on
+read (nearest-neighbour sampling, which keeps class areas unbiased, unlike
+a majority rule that erases fragmented habitat) so a large range never
+streams its native pixels or exhausts memory. This AOH can be
 passed as the habitat-based upper AOO bound to \code{\link{aoo_bounds}}.
 
 Every failure (no DEM, no land cover, an unsupported backend) degrades to

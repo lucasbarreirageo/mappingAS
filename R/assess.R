@@ -99,16 +99,27 @@
 #'   (b) was assumed rather than documented.
 #' @param infer_decline_from_habitat Logical; when \code{TRUE} (default) and
 #'   \code{decline} is not documented for a species, a continuing decline (b) is
-#'   \emph{inferred from the measured habitat loss} whenever land cover ran and
-#'   the range holds any converted (anthropic) area. The IUCN guidelines (v16,
-#'   sect. 4.6) explicitly allow a continuing decline in the area/quality of
-#'   habitat (sub-criterion b(iii)) to be inferred "from rate of habitat loss"
-#'   under B1b/B2b, "at any rate" (no magnitude threshold). This is recorded as
+#'   \emph{inferred from the recent trend of natural habitat}: the natural area
+#'   of the range (EOO, or AOO when the EOO is undefined) is measured at six
+#'   years spanning the last \code{decline_years} and a decline is inferred
+#'   only when the least-squares slope is negative and significant
+#'   (\eqn{p < 0.05}). The IUCN guidelines (v16, sect. 4.6) allow a continuing
+#'   decline in the area/quality of habitat (b(iii)) to be inferred from the
+#'   rate of habitat loss, at any rate, but the loss must be ongoing: a static
+#'   share of converted land is past loss and is no longer used. The slope
+#'   (\% of the mean natural area per year) and its p-value are returned as
+#'   \code{habitat_trend_pct_yr} and \code{habitat_trend_p}. The trend needs the
+#'   multi-year public products, so it is skipped when a single-year \code{src}
+#'   file is given. This is recorded as
 #'   \code{decline_basis = "inferred (habitat loss)"} - distinct from
 #'   \code{"assumed"} (the ConR-style global fallback used when no conversion is
 #'   available), \code{"documented"} / \code{"documented (absent)"} (an explicit
 #'   \code{decline}), or \code{"not documented"}. Set \code{FALSE} to rely only
 #'   on \code{decline} / \code{assume_decline}.
+#' @param decline_years Length in years of the recent window used to test the
+#'   habitat trend (default \code{10}, the IUCN reference of ten years or three
+#'   generations for the shortest-lived taxa). Clamped to the years the product
+#'   publishes.
 #' @param min_records Minimum records required to attempt an assessment.
 #' @param verbose Logical; print progress (default \code{TRUE}).
 #' @return An object of class \code{geoconv_assessment}: a list with
@@ -147,6 +158,7 @@ assess_species <- function(occ, initiative = "brazil",
                            decline = NA, extreme_fluctuation = NA,
                            severe_fragmentation = NA, assume_decline = TRUE,
                            infer_decline_from_habitat = TRUE,
+                           decline_years = 10,
                            min_records = 1, verbose = TRUE) {
   .assert_points(occ, "occ")
   # Run the whole assessment with planar (GEOS) geometry. The S2 spherical
@@ -276,8 +288,12 @@ assess_species <- function(occ, initiative = "brazil",
       }
     }
 
+    # MapBiomas Fire covers Brazil only; with "auto" (or a fallback) the product
+    # is only known per species, so the check happens here.
     eoo_fire <- aoo_fire <- NULL
-    if (fire) {
+    if (fire && !identical(eff_ini, "brazil") && verbose)
+      message("  fire skipped: MapBiomas Fire covers Brazil only.")
+    if (fire && identical(eff_ini, "brazil")) {
       eoo_fire <- .fire_for(eoo$hull, eoo$area_km2, fire_collection,
                             fire_host_collection, fire_src, verbose, "EOO")
       aoo_fire <- .fire_for(aoo_geom, aoo$area_km2,
@@ -315,22 +331,26 @@ assess_species <- function(occ, initiative = "brazil",
     }
     
     # Resolve continuing decline (sub-criterion b) for this species and record
-    # its basis. A documented value always wins; otherwise, when land cover ran
-    # and the range shows measurable habitat conversion, a continuing decline in
-    # the area/quality of habitat is INFERRED from the rate of habitat loss -
-    # which the IUCN guidelines (v16, sect. 4.6 and Table in sect. 3.1)
-    # explicitly permit under B1b/B2b, sub-criterion b(iii), "at any rate";
-    # failing that it falls back to the global assumption (assume_decline).
+    # its basis. A documented value always wins; otherwise a significant recent
+    # decline of natural habitat in the range INFERS b(iii) (IUCN v16 sect.
+    # 4.6: rate of habitat loss, at any rate); failing that it falls back to
+    # the global assumption (assume_decline).
     user_decline <- .pick_subcrit(decline, sp)
     decline_eff  <- user_decline
     decline_basis <- if (isTRUE(user_decline)) "documented"
                      else if (identical(as.logical(user_decline), FALSE))
                        "documented (absent)"
                      else NA_character_
-    if (is.na(decline_eff) && isTRUE(infer_decline_from_habitat) && mapbiomas &&
-        max(.anthropic_km2(eoo_conv), .anthropic_km2(aoo_conv)) > 0) {
-      decline_eff   <- TRUE
-      decline_basis <- "inferred (habitat loss)"
+    trend <- NULL
+    if (is.na(decline_eff) && isTRUE(infer_decline_from_habitat) && mapbiomas) {
+      trend <- .habitat_trend(if (is.null(eoo$hull)) aoo_geom else eoo$hull,
+                              eff_year, eff_coll, eff_ini, backend, src,
+                              span = decline_years,
+                              max_pixels = area_max_pixels / 10)
+      if (trend$declining) {
+        decline_eff   <- TRUE
+        decline_basis <- "inferred (habitat loss)"
+      }
     }
     if (is.na(decline_basis))
       decline_basis <- if (isTRUE(assume_decline)) "assumed" else "not documented"
@@ -373,6 +393,8 @@ assess_species <- function(occ, initiative = "brazil",
       subcrit_c = critB$c,
       decline_assumed = isTRUE(critB$decline_assumed),
       decline_basis = decline_basis,
+      habitat_trend_pct_yr = .pp(trend$slope_pct_yr),
+      habitat_trend_p = if (is.null(trend)) NA_real_ else signif(trend$p, 3),
       mapbiomas_initiative = eff_ini,
       mapbiomas_year = eff_year,
       mapbiomas_collection = eff_coll,
@@ -400,6 +422,7 @@ assess_species <- function(occ, initiative = "brazil",
                          subpop = sub, locations = loc,
                          eoo_conversion = eoo_conv, aoo_conversion = aoo_conv,
                          eoo_fire = eoo_fire, aoo_fire = aoo_fire, pa = pa,
+                         habitat_trend = trend,
                          initiative = eff_ini, year = eff_year,
                          collection = eff_coll)
   }
@@ -423,6 +446,7 @@ assess_species <- function(occ, initiative = "brazil",
                                  assume_decline = assume_decline,
                                  infer_decline_from_habitat =
                                    infer_decline_from_habitat,
+                                 decline_years = decline_years,
                                  water_in_denominator = water_in_denominator)),
             class = "geoconv_assessment")
 }
@@ -454,16 +478,36 @@ assess_species <- function(occ, initiative = "brazil",
   if (length(a) == 0 || is.na(a)) 0 else a
 }
 
-#' Converted (anthropic) area (km^2) of a conversion result; 0 if empty/absent.
-#' A value > 0 is measured habitat loss, the basis on which the IUCN guidelines
-#' allow a continuing decline in habitat (b(iii)) to be inferred "from rate of
-#' habitat loss" under B1b/B2b.
+#' Recent trend of natural habitat inside a range: natural km^2 at up to \code{n}
+#' years over the last \code{span} years, fitted by least squares. A continuing
+#' decline (b(iii)) is inferred only when the slope is negative and significant
+#' (\code{p < alpha}); a static share of converted land is past loss, not
+#' evidence that the loss continues. Not computed (never declining) with a
+#' single-year \code{src} file, fewer than 3 readable years or no habitat.
 #' @keywords internal
 #' @noRd
-.anthropic_km2 <- function(conv) {
-  if (is.null(conv)) return(0)
-  a <- suppressWarnings(as.numeric(conv$anthropic_km2))
-  if (length(a) == 0 || is.na(a)) 0 else a
+.habitat_trend <- function(geom, year, collection, initiative, backend, src,
+                           span = 10, n = 6, alpha = 0.05, max_pixels = 5e6) {
+  out <- list(declining = FALSE, slope_pct_yr = NA_real_, p = NA_real_,
+              years = integer(0), natural_km2 = numeric(0))
+  yrs <- tryCatch(.mb_resolve_initiative(initiative)$years, error = function(e) NULL)
+  if (is.null(geom) || !length(yrs) || !is.null(src) || !isTRUE(span > 0))
+    return(out)
+  years <- unique(round(seq(max(min(yrs), year - span), year, length.out = n)))
+  nat <- vapply(years, function(y) suppressWarnings(.conversion_for(
+    geom, y, collection, initiative, backend, NULL, FALSE, FALSE, "trend",
+    max_pixels = max_pixels)$natural_km2 %||% NA_real_), numeric(1))
+  ok <- is.finite(nat)
+  out$years <- years[ok]; out$natural_km2 <- nat[ok]
+  if (sum(ok) < 3L || mean(nat[ok]) <= 0) return(out)
+  if (stats::sd(nat[ok]) == 0) {
+    out$slope_pct_yr <- 0; out$p <- 1; return(out)
+  }
+  cf <- suppressWarnings(summary(stats::lm(nat[ok] ~ years[ok]))$coefficients)
+  out$slope_pct_yr <- 100 * cf[2, 1] / mean(nat[ok])
+  out$p <- cf[2, 4]
+  out$declining <- isTRUE(cf[2, 1] < 0 && cf[2, 4] < alpha)
+  out
 }
 
 #' Clamp a year into an initiative's available range (defaults to its latest).

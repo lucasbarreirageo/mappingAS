@@ -176,8 +176,10 @@ elevation_preferences <- function(points, z = 9, src = NULL, round_to = 100) {
 #' (windowed; via \code{elev_src} or the optional \pkg{elevatr} package) is
 #' resampled to the land-cover grid and used to mask out pixels outside
 #' \code{[elev_min, elev_max]}. The remaining suitable area is the AOH. The read
-#' is bounded by \code{max_pixels} (the land cover is aggregated with a majority
-#' rule beyond that) so a large range does not exhaust memory. This AOH can be
+#' is bounded by \code{max_pixels}: beyond it the land cover is decimated on
+#' read (nearest-neighbour sampling, which keeps class areas unbiased, unlike
+#' a majority rule that erases fragmented habitat) so a large range never
+#' streams its native pixels or exhausts memory. This AOH can be
 #' passed as the habitat-based upper AOO bound to \code{\link{aoo_bounds}}.
 #'
 #' Every failure (no DEM, no land cover, an unsupported backend) degrades to
@@ -259,21 +261,14 @@ calc_aoh <- function(range, year = NULL, collection = NULL,
   if (is.null(coll))
     coll <- tryCatch(.mb_resolve_initiative(initiative)$collection,
                      error = function(e) 10L)
+  year <- .lc_year(year, initiative)
 
   # 1. Land cover over the range (bounded to protect memory).
-  lc <- tryCatch(
-    mb_raster_local(g, year = year, collection = collection,
-                    initiative = initiative, src = src, mask = TRUE),
-    error = function(e) NULL)
+  lc <- tryCatch(.lc_budget(g, year, collection, initiative, src, max_pixels),
+                 error = function(e) NULL)
   if (is.null(lc)) {
     message("calc_aoh(): land cover unavailable for this range; returning NA.")
     return(out)
-  }
-  npix <- suppressWarnings(prod(dim(lc)[1:2]))
-  if (is.finite(npix) && npix > max_pixels) {
-    fct <- ceiling(sqrt(npix / max_pixels))
-    lc <- tryCatch(terra::aggregate(lc, fact = fct, fun = "modal", na.rm = TRUE),
-                   error = function(e) lc)
   }
 
   # Suitable area without the elevation mask (reference).
@@ -282,24 +277,10 @@ calc_aoh <- function(range, year = NULL, collection = NULL,
 
   # 2. Optional elevation mask.
   lc_use <- lc
-  if (is.finite(elev_min) || is.finite(elev_max)) {
-    dem <- .get_dem(g, z = z, src = elev_src)
-    if (!is.null(dem)) {
-      # project (reproject + align) the DEM onto the land-cover grid, so it works
-      # even when the land-cover CRS differs from the DEM's (e.g. Sentinel-2).
-      dem2 <- tryCatch(terra::project(dem, lc, method = "bilinear"),
-                       error = function(e) NULL)
-      if (!is.null(dem2)) {
-        lo <- if (is.finite(elev_min)) elev_min else -Inf
-        hi <- if (is.finite(elev_max)) elev_max else Inf
-        elevok <- tryCatch(terra::ifel(dem2 >= lo & dem2 <= hi, 1, NA),
-                           error = function(e) NULL)
-        if (!is.null(elevok)) {
-          lc_use <- tryCatch(terra::mask(lc, elevok), error = function(e) lc)
-          out$elev_applied <- !is.null(elevok)
-        }
-      }
-    }
+  elevok <- .elev_mask(lc, g, elev_min, elev_max, z, elev_src)
+  if (!is.null(elevok)) {
+    lc_use <- tryCatch(terra::mask(lc, elevok), error = function(e) lc)
+    out$elev_applied <- TRUE
   }
 
   out$aoh_km2 <- .suitable_area(lc_use, coll, initiative, suitable_groups,
@@ -438,6 +419,7 @@ calc_aoh <- function(range, year = NULL, collection = NULL,
   if (is.null(coll))
     coll <- tryCatch(.mb_resolve_initiative(initiative)$collection,
                      error = function(e) NULL)
+  year <- .lc_year(year, initiative)
   r <- tryCatch(.mb_raster_display(g, year, coll, src, max_pixels = max_pixels,
                                    crs = NULL, initiative = initiative),
                 error = function(e) NULL)
@@ -453,20 +435,59 @@ calc_aoh <- function(range, year = NULL, collection = NULL,
   mv <- ifelse(!is.na(vals) & vals %in% codes, 1L, NA_integer_)
   s <- tryCatch(terra::setValues(r, mv), error = function(e) NULL)
   if (is.null(s)) return(NULL)
-  if (is.finite(elev_min) || is.finite(elev_max)) {
-    dem <- .get_dem(g, z = z, src = elev_src)
-    if (!is.null(dem)) {
-      dem2 <- tryCatch(terra::project(dem, s, method = "bilinear"),
-                       error = function(e) NULL)
-      if (!is.null(dem2)) {
-        lo <- if (is.finite(elev_min)) elev_min else -Inf
-        hi <- if (is.finite(elev_max)) elev_max else Inf
-        elevok <- tryCatch(terra::ifel(dem2 >= lo & dem2 <= hi, 1L, NA),
-                           error = function(e) NULL)
-        if (!is.null(elevok))
-          s <- tryCatch(terra::mask(s, elevok), error = function(e) s)
-      }
-    }
+  elevok <- .elev_mask(s, g, elev_min, elev_max, z, elev_src)
+  if (is.null(elevok)) s else tryCatch(terra::mask(s, elevok), error = function(e) s)
+}
+
+#' Elevation-band mask (1 inside \code{[elev_min, elev_max]}, NA outside) on the
+#' grid of \code{r}. The DEM is reprojected onto \code{r}, so it also works when
+#' the land-cover CRS differs (e.g. Sentinel-2 UTM). \code{NULL} when no band is
+#' set or no DEM is available.
+#' @keywords internal
+#' @noRd
+.elev_mask <- function(r, g, elev_min, elev_max, z = 9, elev_src = NULL) {
+  lo <- suppressWarnings(as.numeric(elev_min)[1]); hi <- suppressWarnings(as.numeric(elev_max)[1])
+  if (!isTRUE(is.finite(lo)) && !isTRUE(is.finite(hi))) return(NULL)
+  dem <- .get_dem(g, z = z, src = elev_src)
+  if (is.null(dem)) return(NULL)
+  tryCatch({
+    d <- terra::project(dem, r, method = "bilinear")
+    terra::ifel(d >= (if (isTRUE(is.finite(lo))) lo else -Inf) &
+                d <= (if (isTRUE(is.finite(hi))) hi else Inf), 1L, NA)
+  }, error = function(e) NULL)
+}
+
+#' Land cover over a range within a pixel budget. A MapBiomas window over the
+#' budget is decimated on read (nearest neighbour via the GeoTIFF overviews), so
+#' a continental range never streams its native pixels; a raster still over
+#' budget (the tiled Sentinel-2 product) is regularly sub-sampled. Both keep the
+#' class areas unbiased, unlike a majority (modal) aggregation, which erases
+#' minority classes and so under-counts fragmented habitat.
+#' @keywords internal
+#' @noRd
+.lc_budget <- function(g, year, collection, initiative, src, max_pixels) {
+  if (!.s2_is_esri(initiative)) {
+    coll <- collection %||% .mb_resolve_initiative(initiative)$collection
+    u <- src %||% mb_source_url(year, coll, initiative)
+    r0 <- terra::rast(if (grepl("^https?://", u)) paste0("/vsicurl/", u) else u)
+    v <- terra::vect(sf::st_transform(sf::st_sf(geometry = sf::st_geometry(g)),
+                                      terra::crs(r0)))
+    px <- .bbox_native_px(r0, as.vector(terra::ext(v)))
+    if (px[["n"]] > max_pixels)
+      return(.mb_display_read(g, year, coll, src,
+                              floor(px[["w"]] / sqrt(px[["n"]] / max_pixels)),
+                              initiative))
   }
-  s
+  lc <- mb_raster_local(g, year = year, collection = collection,
+                        initiative = initiative, src = src, mask = TRUE)
+  if (terra::ncell(lc) <= max_pixels) return(lc)
+  terra::spatSample(lc, max_pixels, method = "regular", as.raster = TRUE)
+}
+
+#' Land-cover year: the given one, else the latest the product publishes.
+#' @keywords internal
+#' @noRd
+.lc_year <- function(year, initiative) {
+  if (length(year)) return(as.integer(year[1]))
+  max(tryCatch(.mb_resolve_initiative(initiative)$years, error = function(e) 2024L))
 }

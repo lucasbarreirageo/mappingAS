@@ -116,6 +116,7 @@ calc_subpop <- function(points, resol_km = NULL) {
 #' @noRd
 .max_interpoint_km <- function(co) {
   if (nrow(co) < 2L) return(NA_real_)
+  co <- .unwrap_lon(co)
   idx <- if (nrow(co) >= 3L) grDevices::chull(co[, 1], co[, 2])
          else seq_len(nrow(co))
   hv <- co[idx, , drop = FALSE]
@@ -130,7 +131,7 @@ calc_subpop <- function(points, resol_km = NULL) {
 #' @keywords internal
 #' @noRd
 .grid_count <- function(co, size, n_rep) {
-  best <- .aoo_min_grid(co, size, max(1L, as.integer(n_rep)))
+  best <- .aoo_min_grid(co, size, n_rep)
   cells <- unique(data.frame(ix = best$ix, iy = best$iy))
   list(n = nrow(cells), cells = cells, best = best)
 }
@@ -139,18 +140,26 @@ calc_subpop <- function(points, resol_km = NULL) {
 #' @keywords internal
 #' @noRd
 .grid_polys <- function(best, cells, size, crs) {
-  n <- nrow(cells)
-  if (n == 0L) return(sf::st_sfc(crs = crs))
-  polys <- vector("list", n)
-  for (i in seq_len(n)) {
-    x0 <- best$ox + cells$ix[i] * size
-    y0 <- best$oy + cells$iy[i] * size
-    polys[[i]] <- sf::st_polygon(list(rbind(
-      c(x0, y0), c(x0 + size, y0), c(x0 + size, y0 + size),
-      c(x0, y0 + size), c(x0, y0)
-    )))
+  sq <- function(x, y) sf::st_polygon(list(cbind(x + c(0, size, size, 0, 0),
+                                                 y + c(0, 0, size, size, 0))))
+  sf::st_sfc(Map(sq, best$ox + cells$ix * size, best$oy + cells$iy * size),
+             crs = crs)
+}
+
+#' Greedy minimum set cover: the fewest protected areas that together hold every
+#' occurrence. \code{hit} is a list (one element per point) of the indices of
+#' the protected areas containing it. Overlapping designations (e.g. a park
+#' nested in an APA) therefore count once instead of once per polygon.
+#' @keywords internal
+#' @noRd
+.min_cover <- function(hit) {
+  sel <- integer(0)
+  while (length(hit)) {
+    k <- as.integer(names(which.max(table(unlist(hit)))))
+    sel <- c(sel, k)
+    hit <- Filter(function(h) !k %in% h, hit)
   }
-  sf::st_sfc(polys, crs = crs)
+  sel
 }
 
 #' Concatenate up to two (possibly NULL) sfc objects, returning an empty sfc
@@ -175,7 +184,7 @@ calc_subpop <- function(points, resol_km = NULL) {
 #' the protected-area integration (\code{method_protected}).
 #'
 #' As for the AOO, the occupied-cell count depends on where the grid is placed,
-#' so several randomly translated grids are tested and the \emph{smallest}
+#' so several translated grids (a deterministic lattice) are tested and the \emph{smallest}
 #' count is returned (the most conservative, i.e. most threatened, estimate).
 #' The grid is built on a data-centred Lambert Azimuthal Equal-Area projection
 #' and this function reuses \pkg{mappingAS}'s own AOO grid machinery, so it
@@ -197,8 +206,11 @@ calc_subpop <- function(points, resol_km = NULL) {
 #'   \item \code{method_protected = "no_more_than_one"} (default): every
 #'     protected area holding at least one occurrence counts as exactly one
 #'     location (all occurrences within a protected area share a location);
-#'     occurrences outside protected areas are gridded as usual. The total is
-#'     (occupied cells outside) + (number of protected areas with occurrences).
+#'     occurrences outside protected areas are gridded as usual. Overlapping
+#'     or nested designations (common in WDPA, e.g. a national park inside an
+#'     environmental protection area) are counted once: the smallest set of
+#'     protected areas that holds every inside occurrence is used. The total
+#'     is (occupied cells outside) + (size of that set).
 #'   \item \code{method_protected = "other"}: occurrences inside protected areas
 #'     are gridded \emph{separately} from those outside, and the two counts are
 #'     added. Two occurrences closer than the cell size are then still counted
@@ -211,8 +223,8 @@ calc_subpop <- function(points, resol_km = NULL) {
 #' @param points An \code{sf} of POINT geometries (one species).
 #' @param grid_km Grid cell side length in kilometres (default \code{10}).
 #'   Ignored when \code{cell_scale} is supplied.
-#' @param n_rep Integer; number of randomly translated grids to test (default
-#'   \code{30}). The minimum occupied-cell count over the replicates is
+#' @param n_rep Integer; number of translated grids to test (default
+#'   \code{100}). The minimum occupied-cell count over the replicates is
 #'   returned.
 #' @param protected Optional protected-area layer (an \code{sf}/\code{sfc} of
 #'   polygons, e.g. from \code{\link{protected_areas}}). \code{NULL} (default)
@@ -249,7 +261,7 @@ calc_subpop <- function(points, resol_km = NULL) {
 #' sp1 <- occ[occ$species == occ$species[1], ]
 #' calc_locations(sp1)$n_locations
 #' @export
-calc_locations <- function(points, grid_km = 10, n_rep = 30,
+calc_locations <- function(points, grid_km = 10, n_rep = 100,
                            protected = NULL,
                            method_protected = c("no_more_than_one", "other"),
                            cell_scale = NULL) {
@@ -307,9 +319,10 @@ calc_locations <- function(points, grid_km = 10, n_rep = 30,
   n_in <- 0L; cells_in <- NULL; pa_loc_geom <- NULL
   if (nrow(co_in) > 0L) {
     if (method_protected == "no_more_than_one") {
-      # Each protected area with >= 1 occurrence counts as a single location.
+      # Each protected area with >= 1 occurrence counts as a single location;
+      # overlapping/nested areas are resolved by the smallest covering set.
       hit <- suppressMessages(sf::st_intersects(pts[inside], pa))
-      pa_idx <- sort(unique(unlist(hit)))
+      pa_idx <- sort(.min_cover(unclass(hit)))
       n_in <- length(pa_idx)
       if (n_in > 0L) pa_loc_geom <- sf::st_transform(pa[pa_idx], crs_laea)
     } else {

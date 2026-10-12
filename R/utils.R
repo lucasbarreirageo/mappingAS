@@ -13,9 +13,11 @@ laea_crs <- function(geom) {
   g <- sf::st_geometry(geom)
   if (is.na(sf::st_crs(g))) sf::st_crs(g) <- 4326
   g <- sf::st_transform(g, 4326)
-  # mean coordinate of all vertices/points as the projection centre
+  # Projection centre: mean latitude and circular mean longitude, so a range
+  # crossing the antimeridian (179 / -179) is centred near 180, not on 0.
   co <- sf::st_coordinates(g)
-  lon0 <- mean(co[, "X"], na.rm = TRUE)
+  rad <- co[, "X"] * pi / 180
+  lon0 <- atan2(mean(sin(rad), na.rm = TRUE), mean(cos(rad), na.rm = TRUE)) * 180 / pi
   lat0 <- mean(co[, "Y"], na.rm = TRUE)
   sprintf(
     "+proj=laea +lat_0=%.6f +lon_0=%.6f +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs",
@@ -186,34 +188,50 @@ laea_crs <- function(geom) {
 #' (a) severe fragmentation / few locations, (b) continuing decline, and
 #' (c) extreme fluctuation. Never report these as final categories.
 #'
-#' @param eoo_km2,aoo_km2 Numeric range sizes in square kilometres.
+#' Vectorised: \code{eoo_km2} and \code{aoo_km2} may be columns of an assessment
+#' summary. Following the IUCN Guidelines (sect. 4.10), when the EOO is smaller
+#' than the AOO the EOO is set equal to the AOO before applying the thresholds.
+#'
+#' @param eoo_km2,aoo_km2 Numeric range sizes in square kilometres (recycled).
 #' @return A list with \code{eoo_category}, \code{aoo_category} and
-#'   \code{combined} (the more threatened of the two size-based flags).
+#'   \code{combined} (the more threatened of the two size-based flags), each a
+#'   character vector of the input length.
 #' @export
 iucn_category_B <- function(eoo_km2 = NA_real_, aoo_km2 = NA_real_) {
-  cat_eoo <- if (is.na(eoo_km2)) NA_character_
-             else if (eoo_km2 < 100)    "CR (B1 size)"
-             else if (eoo_km2 < 5000)   "EN (B1 size)"
-             else if (eoo_km2 < 20000)  "VU (B1 size)"
-             else "not VU/EN/CR by B1 size"
-
-  cat_aoo <- if (is.na(aoo_km2)) NA_character_
-             else if (aoo_km2 < 10)     "CR (B2 size)"
-             else if (aoo_km2 < 500)    "EN (B2 size)"
-             else if (aoo_km2 < 2000)   "VU (B2 size)"
-             else "not VU/EN/CR by B2 size"
-
-  rank <- function(x) {
-    if (is.na(x)) return(NA_integer_)
-    if (grepl("^CR", x)) 3L else if (grepl("^EN", x)) 2L else
-      if (grepl("^VU", x)) 1L else 0L
-  }
-  rk <- c(rank(cat_eoo), rank(cat_aoo))
-  combined <- if (all(is.na(rk))) NA_character_ else {
-    best <- which.max(rk)
-    c(cat_eoo, cat_aoo)[best]
-  }
+  eoo <- .eoo_adj(eoo_km2, aoo_km2)
+  aoo <- rep_len(suppressWarnings(as.numeric(aoo_km2)), length(eoo))
+  cat_eoo <- .b_size(eoo, c(100, 5000, 20000), "B1")
+  cat_aoo <- .b_size(aoo, c(10, 500, 2000), "B2")
+  r_eoo <- .b_rank(cat_eoo); r_aoo <- .b_rank(cat_aoo)
+  combined <- ifelse(is.na(r_aoo) | (!is.na(r_eoo) & r_eoo >= r_aoo), cat_eoo, cat_aoo)
   list(eoo_category = cat_eoo, aoo_category = cat_aoo, combined = combined)
+}
+
+#' EOO raised to the AOO when smaller (IUCN Guidelines sect. 4.10).
+#' @keywords internal
+#' @noRd
+.eoo_adj <- function(eoo, aoo) {
+  eoo <- suppressWarnings(as.numeric(eoo)); aoo <- suppressWarnings(as.numeric(aoo))
+  n <- max(length(eoo), length(aoo))
+  eoo <- rep_len(eoo, n); aoo <- rep_len(aoo, n)
+  ifelse(is.finite(eoo) & is.finite(aoo) & eoo < aoo, aoo, eoo)
+}
+
+#' Size-threshold label for B1/B2 (thresholds are strict "<", as in IUCN).
+#' @keywords internal
+#' @noRd
+.b_size <- function(x, breaks, axis) {
+  lab <- c(sprintf("%s (%s size)", c("CR", "EN", "VU"), axis),
+           sprintf("not VU/EN/CR by %s size", axis))
+  ifelse(is.na(x), NA_character_, lab[findInterval(x, breaks) + 1L])
+}
+
+#' Threat rank of a size label: CR 3, EN 2, VU 1, other 0, NA stays NA.
+#' @keywords internal
+#' @noRd
+.b_rank <- function(x) {
+  r <- match(substr(x, 1, 2), c("VU", "EN", "CR"), nomatch = 0L)
+  replace(r, is.na(x), NA_integer_)
 }
 
 #' Criterion B \emph{size} category range under AOO uncertainty
@@ -246,26 +264,21 @@ iucn_category_B <- function(eoo_km2 = NA_real_, aoo_km2 = NA_real_) {
 #' @export
 iucn_category_B_range <- function(eoo_km2 = NA_real_, aoo_lower_km2 = NA_real_,
                                   aoo_upper_km2 = NA_real_) {
-  eoo <- suppressWarnings(as.numeric(eoo_km2))[1]
   lo  <- suppressWarnings(as.numeric(aoo_lower_km2))[1]
   up  <- suppressWarnings(as.numeric(aoo_upper_km2))[1]
+  eoo <- .eoo_adj(suppressWarnings(as.numeric(eoo_km2))[1], lo)
   if (!is.finite(up)) up <- lo
 
-  b1 <- iucn_category_B(eoo_km2 = eoo)$eoo_category
-  b2_lo <- iucn_category_B(aoo_km2 = lo)$aoo_category
-  b2_up <- iucn_category_B(aoo_km2 = up)$aoo_category
+  b1 <- .b_size(eoo, c(100, 5000, 20000), "B1")
+  b2_lo <- .b_size(lo, c(10, 500, 2000), "B2")
+  b2_up <- .b_size(up, c(10, 500, 2000), "B2")
 
-  rank <- function(x) {
-    if (is.null(x) || is.na(x)) return(0L)
-    if (grepl("^CR", x)) 3L else if (grepl("^EN", x)) 2L else
-      if (grepl("^VU", x)) 1L else 0L
-  }
-  short <- function(r) c("VU", "EN", "CR")[r] # r in 1:3
+  rank <- function(x) max(0L, .b_rank(x), na.rm = TRUE)
   # Most threatened plausible: B1 vs B2 at the lower (smaller) AOO.
   worst_r <- max(rank(b1), rank(b2_lo))
   # Least threatened plausible: B1 vs B2 at the upper (larger) AOO.
   best_r  <- max(rank(b1), rank(b2_up))
-  code <- function(r) if (r >= 1L) short(r) else "not VU/EN/CR (size)"
+  code <- function(r) if (r >= 1L) c("VU", "EN", "CR")[r] else "not VU/EN/CR (size)"
   worst <- code(worst_r); best <- code(best_r)
   rng <- if (identical(worst, best)) worst else paste0(worst, "-", best)
 
@@ -391,8 +404,8 @@ iucn_criterion_B <- function(eoo_km2 = NA_real_, aoo_km2 = NA_real_,
   cc   <- isTRUE(extreme_fluctuation)
   frag <- isTRUE(severe_fragmentation)
   nloc <- suppressWarnings(as.numeric(n_locations))
-  eoo  <- suppressWarnings(as.numeric(eoo_km2))
   aoo  <- suppressWarnings(as.numeric(aoo_km2))
+  eoo  <- .eoo_adj(eoo_km2, aoo)  # IUCN 4.10: EOO is never below AOO
 
   for (lv in names(levels)) {
     th <- levels[[lv]]
@@ -405,16 +418,15 @@ iucn_criterion_B <- function(eoo_km2 = NA_real_, aoo_km2 = NA_real_,
     # the category (ConR's max() of the size- and location-implied levels).
     a <- frag || (is.finite(nloc) && nloc <= th$loc)
     if (sum(a, b, cc) >= 2) {
-      axes <- paste0(c(if (size_b1) "1", if (size_b2) "2"), collapse = "+")
-      # IUCN code notation (v16, sect. 6, e.g. "EN B1ab(iii)"): the letters a/b/c
-      # name the conditions met and, for (b), the parenthetical roman numeral(s)
-      # name the element(s) in continuing decline (i EOO, ii AOO, iii habitat,
-      # iv locations/subpopulations, v mature individuals).
-      b_lab <- if (b) paste0("b", if (!is.null(decline_detail) &&
-                                        nzchar(decline_detail))
-                                    paste0("(", decline_detail, ")") else "")
-      lett <- paste0(c(if (a) "a", b_lab, if (cc) "c"), collapse = "")
-      return(list(category = lv, code = paste0(lv, " B", axes, lett),
+      # IUCN code notation (v16, sect. 6): letters name the conditions met, the
+      # roman numerals after (b) the declining element(s); each sub-criterion
+      # set repeats per axis, e.g. "EN B1ab(iii)+2ab(iii)".
+      b_lab <- if (b) paste0("b", if (length(decline_detail) &&
+                                        nzchar(decline_detail[1]))
+                                    paste0("(", decline_detail[1], ")"))
+      lett <- paste0(if (a) "a", b_lab, if (cc) "c")
+      axes <- paste0(c(if (size_b1) "1", if (size_b2) "2"), lett, collapse = "+")
+      return(list(category = lv, code = paste0(lv, " B", axes),
                   qualifies_size = lv, a = a, b = b, c = cc,
                   decline_assumed = b_assumed))
     }

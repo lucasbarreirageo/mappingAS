@@ -36,7 +36,8 @@
 calc_eoo <- function(points, segmentize_km = 20) {
   .assert_points(points, "points")
   pts <- sf::st_geometry(sf::st_transform(points, 4326))
-  co <- unique(round(sf::st_coordinates(pts)[, c("X", "Y"), drop = FALSE], 8))
+  co <- .unwrap_lon(unique(round(sf::st_coordinates(pts)[, c("X", "Y"),
+                                                          drop = FALSE], 8)))
   n_rec <- length(pts)
   n_uni <- nrow(co)
 
@@ -153,6 +154,17 @@ calc_eoo <- function(points, segmentize_km = 20) {
   tryCatch(sum(as.numeric(sf::st_area(g2))) / 1e6, error = function(e) NA_real_)
 }
 
+#' Shift longitudes to [0, 360) when that shrinks their span, so the convex
+#' hull of a range crossing the antimeridian is built on the short side.
+#' @keywords internal
+#' @noRd
+.unwrap_lon <- function(co) {
+  if (!nrow(co)) return(co)
+  w <- co[, 1] %% 360
+  if (diff(range(w)) < diff(range(co[, 1]))) co[, 1] <- w
+  co
+}
+
 #' @keywords internal
 #' @noRd
 .is_collinear <- function(co) {
@@ -169,15 +181,18 @@ calc_eoo <- function(points, segmentize_km = 20) {
 #' snapped to a regular grid defined on a data-centred equal-area projection.
 #'
 #' Because the occupied-cell count depends on where the grid is placed, this
-#' function tests several randomly translated grids and returns the
-#' \emph{smallest} count, as ConR does. The returned \code{cells} correspond to
-#' the grid placement that produced the reported value.
+#' function tests several translated grids and returns the \emph{smallest}
+#' count, as ConR does. The translations follow a deterministic, evenly spread
+#' lattice, so the result is reproducible (no random seed needed). The returned
+#' \code{cells} correspond to the grid placement that produced the reported
+#' value.
 #'
 #' @param points An \code{sf} of POINT geometries (one species).
 #' @param cell_km Grid cell side length in kilometres (default \code{2}).
-#' @param n_rep Integer; number of randomly translated grids to test (default
-#'   \code{30}, matching the typical ConR setting). The minimum occupied-cell
-#'   count over the replicates is returned.
+#' @param n_rep Integer; number of translated grids to test (default
+#'   \code{100}; the lattice is cheap, and more offsets bring the count closer
+#'   to the true minimum). The minimum occupied-cell count over the replicates
+#'   is returned.
 #' @return A list with \code{area_km2}, \code{n_cells}, \code{cell_km},
 #'   \code{cells} (occupied cells as an \code{sfc} polygon set in WGS84) and
 #'   \code{crs_laea}.
@@ -187,7 +202,7 @@ calc_eoo <- function(points, segmentize_km = 20) {
 #' sp1 <- occ[occ$species == occ$species[1], ]
 #' calc_aoo(sp1)$area_km2
 #' @export
-calc_aoo <- function(points, cell_km = 2, n_rep = 30) {
+calc_aoo <- function(points, cell_km = 2, n_rep = 100) {
   .assert_points(points, "points")
   pts <- sf::st_geometry(sf::st_transform(points, 4326))
   crs_laea <- laea_crs(pts)
@@ -196,54 +211,32 @@ calc_aoo <- function(points, cell_km = 2, n_rep = 30) {
   size <- cell_km * 1000
   co <- sf::st_coordinates(pts_p)[, c("X", "Y"), drop = FALSE]
 
-  best <- .aoo_min_grid(co, size, max(1L, as.integer(n_rep)))
-
-  cells <- unique(data.frame(ix = best$ix, iy = best$iy))
-  n_cells <- nrow(cells)
-
-  # build occupied-cell polygons (for mapping / habitat extraction)
-  polys <- vector("list", n_cells)
-  for (i in seq_len(n_cells)) {
-    x0 <- best$ox + cells$ix[i] * size
-    y0 <- best$oy + cells$iy[i] * size
-    polys[[i]] <- sf::st_polygon(list(rbind(
-      c(x0, y0), c(x0 + size, y0), c(x0 + size, y0 + size),
-      c(x0, y0 + size), c(x0, y0)
-    )))
-  }
-  cells_p <- sf::st_sfc(polys, crs = crs_laea)
-
+  g <- .grid_count(co, size, n_rep)
   list(
-    area_km2 = n_cells * (cell_km^2),
-    n_cells = n_cells,
+    area_km2 = g$n * cell_km^2,
+    n_cells = g$n,
     cell_km = cell_km,
-    cells = sf::st_transform(cells_p, 4326),
+    cells = sf::st_transform(.grid_polys(g$best, g$cells, size, crs_laea), 4326),
     crs_laea = crs_laea
   )
 }
 
+#' Minimum occupied-cell grid over \code{n_rep} translated grids. Offsets follow
+#' a deterministic Fibonacci lattice over one cell (the first is the origin), so
+#' the search is well spread and AOO/locations are reproducible run to run.
 #' @keywords internal
 #' @noRd
 .aoo_min_grid <- function(co, size, n_rep) {
-  best_n <- Inf
+  h <- seq_len(max(1L, as.integer(n_rep))) - 1
+  off <- cbind(h / length(h), (h * 0.6180339887498949) %% 1) * size
   best <- NULL
-  for (h in seq_len(n_rep)) {
-    # First replicate uses the origin grid; the rest are random translations.
-    if (h == 1L) {
-      ox <- 0
-      oy <- 0
-    } else {
-      ox <- stats::runif(1) * size
-      oy <- stats::runif(1) * size
-    }
-    ix <- floor((co[, "X"] - ox) / size)
-    iy <- floor((co[, "Y"] - oy) / size)
-    n  <- nrow(unique(cbind(ix, iy)))
-    if (n < best_n) {
-      best_n <- n
-      best <- list(ix = ix, iy = iy, ox = ox, oy = oy)
-      if (best_n == 1L) break  # cannot do better than a single cell
-    }
+  for (k in seq_along(h)) {
+    ix <- floor((co[, "X"] - off[k, 1]) / size)
+    iy <- floor((co[, "Y"] - off[k, 2]) / size)
+    n <- nrow(unique(cbind(ix, iy)))
+    if (is.null(best) || n < best$n)
+      best <- list(n = n, ix = ix, iy = iy, ox = off[k, 1], oy = off[k, 2])
+    if (n == 1L) break
   }
   best
 }
