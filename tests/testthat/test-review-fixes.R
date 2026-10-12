@@ -111,3 +111,18 @@ test_that("fire is skipped per species outside Brazil under initiative = 'auto'"
     "fire skipped")
   expect_true(is.na(s$eoo_burned_pct))
 })
+
+test_that("the report cites the habitat trend behind an inferred decline", {
+  r <- data.frame(species = "X", eoo_km2 = 3000, aoo_km2 = 400,
+                  provisional_cat = "EN (B1 size)", category_B = "EN",
+                  criterion_B_code = "EN B1ab(iii)+2ab(iii)", subcrit_a = TRUE,
+                  subcrit_b = TRUE, subcrit_c = FALSE,
+                  decline_basis = "inferred (habitat loss)",
+                  habitat_trend_pct_yr = -0.42, habitat_trend_p = 0.003)
+  x <- structure(list(summary = r, detail = list(X = NULL),
+                      settings = list(initiative = "brazil", year = 2024,
+                                      collection = 10)),
+                 class = "geoconv_assessment")
+  expect_match(assessment_report(x, output = "text"), "-0.42%/yr, p = 0.003",
+               fixed = TRUE)
+})

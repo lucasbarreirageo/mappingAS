@@ -290,6 +290,11 @@ assessment_report <- function(assessment, species = NULL,
               else if ("criterion_B_code" %in% names(r) && !is.na(r$criterion_B_code))
                 r$criterion_B_code
               else NA_character_
+  # Recent natural-habitat trend behind an inferred decline, e.g. ", -0.42%/yr, p = 0.003"
+  tr_txt <- if (all(c("habitat_trend_pct_yr", "habitat_trend_p") %in% names(r)) &&
+                isTRUE(is.finite(r$habitat_trend_pct_yr[1])))
+    sprintf(", %+.2f%%/yr, p = %s", r$habitat_trend_pct_yr[1],
+            format.pval(r$habitat_trend_p[1], digits = 2)) else ""
   if (!is.na(app_cat)) {
     sub_txt <- function() {
       have <- character(0)
@@ -300,8 +305,9 @@ assessment_report <- function(assessment, species = NULL,
                    "assumed" else "documented"
       if (isTRUE(r$subcrit_b)) have <- c(have,
         if (identical(b_basis, "inferred (habitat loss)"))
-          L("(b) continuing decline (inferred from the habitat trend)",
-            "(b) declinio continuo (inferido da tendencia do habitat)")
+          L(paste0("(b) continuing decline (inferred from the habitat trend", tr_txt, ")"),
+            paste0("(b) declinio continuo (inferido da tendencia do habitat",
+                   gsub(".", ",", tr_txt, fixed = TRUE), ")"))
         else if (identical(b_basis, "assumed"))
           L("(b) continuing decline (assumed)", "(b) declinio continuo (assumido)")
         else L("(b) continuing decline", "(b) declinio continuo"))

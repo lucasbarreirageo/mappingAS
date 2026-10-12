@@ -938,10 +938,18 @@ ui <- bslib::page_sidebar(
               polygon enclosing all occurrence points. The hull is built in
               geographic coordinates, its edges densified along great circles,
               and the area measured on the WGS84 ellipsoid, following the IUCN
-              guidelines and the approach of the <i>ConR</i> package.</li>
+              guidelines and the approach of the <i>ConR</i> package. When the
+              EOO is smaller than the AOO it is set equal to the AOO before the
+              thresholds are applied (IUCN Guidelines, sect. 4.10).</li>
           <li><b>AOO</b> (Area of Occupancy): number of occupied 2&times;2 km
               cells &times; 4 km<sup>2</sup> (IUCN reference scale). The occupied-cell
-              count is the minimum over several randomly translated grids.</li>
+              count is the minimum over 100 grid offsets laid out on a fixed
+              lattice, so the same data always give the same AOO.</li>
+          <li><b>Continuing decline (b)</b>: when not documented, the natural
+              area of the range is measured at six years over the last decade
+              and a decline in habitat, b(iii), is inferred only when the linear
+              trend is negative and significant (p &lt; 0.05). Otherwise it is
+              assumed (default) or left unmet.</li>
           <li><b>% converted</b> = anthropic / (anthropic + natural) within the
               EOO and AOO, from the land-cover product. <b>% natural</b> (current)
               is the complement. Water and unobserved areas are excluded from the
@@ -2402,12 +2410,14 @@ server <- function(input, output, session) {
       c("aoo_cat_B2", L("Provisional category by AOO size (sub-criterion B2).", "Categoria provisoria pelo tamanho da AOO (subcriterio B2).")),
       c("provisional_cat", L("Combined provisional category (the more threatened of B1/B2). Screening only.", "Categoria provisoria combinada (a mais ameacada entre B1/B2). Apenas triagem.")),
       c("category_B", L("Applied Criterion B category (CR/EN/VU need size AND >=2 sub-criteria; NT if size met but not; LC otherwise). DD/NE are never automatic.", "Categoria aplicada do Criterio B (CR/EN/VU exigem tamanho E >=2 subcriterios; NT se so o tamanho; senao LC). DD/NE nunca automaticos.")),
-      c("criterion_B_code", L("Full Criterion B code, e.g. 'VU B1ab'.", "Codigo completo do Criterio B, ex.: 'VU B1ab'.")),
+      c("criterion_B_code", L("Full Criterion B code in IUCN notation, e.g. 'EN B1ab(iii)+2ab(iii)'.", "Codigo completo do Criterio B na notacao da IUCN, ex.: 'EN B1ab(iii)+2ab(iii)'.")),
       c("subcrit_a", L("Sub-criterion (a): severely fragmented or few locations; the number of locations caps the category.", "Subcriterio (a): severamente fragmentada ou poucas localidades; o numero de localidades limita a categoria.")),
-      c("subcrit_b", L("Sub-criterion (b): continuing decline. Assumed present by default (ConR-style, supported by the conversion data); uncheck to require documentation.", "Subcriterio (b): declinio continuo. Assumido presente por padrao (estilo ConR, apoiado pelos dados de conversao); desmarque para exigir documentacao.")),
+      c("subcrit_b", L("Sub-criterion (b): continuing decline. Inferred from a significant recent decline of natural habitat, or assumed (ConR-style) when the trend cannot be measured; uncheck to require documentation.", "Subcriterio (b): declinio continuo. Inferido de um declinio recente e significativo do habitat natural, ou assumido (estilo ConR) quando a tendencia nao pode ser medida; desmarque para exigir documentacao.")),
       c("subcrit_c", L("Sub-criterion (c): extreme fluctuations (expert input).", "Subcriterio (c): flutuacoes extremas (entrada do especialista).")),
       c("decline_assumed", L("TRUE when sub-criterion (b) was assumed present rather than documented.", "TRUE quando o subcriterio (b) foi assumido presente em vez de documentado.")),
       c("decline_basis", L("How sub-criterion (b) was set: 'documented', 'inferred (habitat loss)' (significant recent decline of natural area, p < 0.05, per IUCN b(iii) 'rate of habitat loss'), 'assumed' (ConR fallback) or 'not documented'.", "Como o subcriterio (b) foi definido: 'documented', 'inferred (habitat loss)' (declinio recente e significativo da area natural, p < 0,05, conforme b(iii) 'taxa de perda de habitat' da IUCN), 'assumed' (fallback ConR) ou 'not documented'.")),
+      c("habitat_trend_pct_yr", L("Recent trend of natural habitat in the range: change per year as % of the mean natural area (negative = loss).", "Tendencia recente do habitat natural na distribuicao: variacao anual em % da area natural media (negativo = perda).")),
+      c("habitat_trend_p", L("p-value of that trend; a decline (b) is inferred when the trend is negative and p < 0.05.", "p-valor dessa tendencia; o declinio (b) e inferido quando a tendencia e negativa e p < 0,05.")),
       c("mapbiomas_initiative", L("Land-cover product used (a MapBiomas country, or 'sentinel2' for the global Esri/Sentinel-2 layer).", "Produto de cobertura usado (um pais do MapBiomas, ou 'sentinel2' para a camada global Esri/Sentinel-2).")),
       c("mapbiomas_year", L("Land-cover year used.", "Ano da cobertura usada.")),
       c("mapbiomas_collection", L("Land-cover collection number (NA for Sentinel-2).", "Numero da colecao de cobertura (NA para Sentinel-2).")),
