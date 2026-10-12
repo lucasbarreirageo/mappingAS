@@ -60,8 +60,9 @@ c(EOO_km2 = round(eoo$area_km2, 1),
 ## 3. Provisional Criterion B category
 
 `iucn_criterion_B()` turns the two sizes into the provisional category and its
-IUCN code notation. **This is a screening result**: it rests on the size
-thresholds only and does not replace a formal assessment.
+IUCN code notation. Called with the sizes alone, as here, the number of
+locations is unknown and a continuing decline is assumed, so **this is a
+screening result** that does not replace a formal assessment.
 
 ```{r category}
 cat_B <- iucn_criterion_B(eoo_km2 = eoo$area_km2, aoo_km2 = aoo$area_km2)
@@ -142,6 +143,7 @@ run_app(max_upload_mb = 2048)  # allow very large occurrence tables
 ## Caveats
 
 The category produced is **provisional and for screening only**. It reflects
-the EOO/AOO size thresholds of Criterion B and does **not** include the
-sub-conditions (severe fragmentation / few locations, continuing decline,
-extreme fluctuation) that a formal IUCN Red List assessment also requires.
+the EOO/AOO size thresholds of Criterion B with sub-conditions that are
+estimated (locations, the trend of natural habitat) or assumed, and the
+assessor must still confirm severe fragmentation, continuing decline and
+extreme fluctuation for a formal IUCN Red List assessment.

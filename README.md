@@ -14,7 +14,7 @@
 
 `mappingAS` is an R package, with an accompanying **Shiny** application, for screening species against **Criterion B** of the IUCN Red List. Starting from a set of occurrence points, it estimates each species' geographic range (EOO / AOO), measures how much of that range has been converted to anthropic land cover and how much has burned, quantifies the overlap with protected areas (global WDPA), and packages everything for mapping, inspection, export and reporting. Land-cover conversion is driven by **MapBiomas** across South America and by the global **Esri / Impact Observatory (Sentinel-2)** 10 m land cover elsewhere, so a species anywhere on Earth can be screened with the same workflow — no Google Earth Engine account required.
 
-> **Screening only.** The categories produced are **provisional** — they rest solely on the EOO/AOO *size* thresholds of Criterion B. They **do not replace** a formal IUCN assessment, which also requires the sub-conditions of fragmentation/few locations, continuing decline and extreme fluctuation.
+> **Screening only.** Two categories are produced. `provisional_cat` rests only on the EOO/AOO *size* thresholds of Criterion B. `category_B` combines those thresholds with the sub-criteria the data can support: the estimated number of locations (a), a continuing decline (b) inferred from a significant recent decline of natural habitat or assumed when that cannot be measured, and extreme fluctuation (c) when you supply it. Neither **replaces** a formal IUCN assessment: the assessor reviews the evidence and decides.
 
 ---
 
@@ -195,6 +195,9 @@ Key columns (`res$summary`, also shown with a glossary in the app's **Results** 
 | `eoo_converted_pct` / `eoo_natural_pct` | % converted / natural within the EOO |
 | `aoo_converted_pct` / `aoo_natural_pct` | % converted / natural within the AOO |
 | `eoo_cat_B1`, `aoo_cat_B2`, `provisional_cat` | Provisional categories (size only) |
+| `n_subpop`, `n_locations` | Estimated subpopulations and locations |
+| `category_B`, `criterion_B_code` | Applied Criterion B category and its IUCN code (e.g. `EN B1ab(iii)+2ab(iii)`) |
+| `decline_basis`, `habitat_trend_pct_yr`, `habitat_trend_p` | How sub-criterion (b) was set, and the recent trend of natural habitat (% per year, p-value) |
 | `mapbiomas_initiative`, `mapbiomas_year`, `mapbiomas_collection` | Land-cover source used per species (a MapBiomas product, or `sentinel2` when the range fell back to the global Esri/Sentinel-2 layer) |
 | `eoo_burned_pct`, `aoo_burned_pct` | % of the EOO/AOO burned at least once *(fire = TRUE)* |
 | `occ_in_uc_pct`, `eoo_uc_pct`, `aoo_uc_pct`, `n_uc` | Overlap with protected areas *(protected = TRUE)* |
@@ -205,14 +208,15 @@ Key columns (`res$summary`, also shown with a glossary in the app's **Results** 
 ## Methods in brief
 
 - **EOO** = area of the minimum convex polygon over the points (≥ 3 unique coordinates; otherwise `NA`), edges densified along great circles and measured on the WGS84 ellipsoid.
-- **AOO** = number of occupied 2 × 2 km cells × 4 km² (cell size via `cell_km`), taken as the minimum over several translated grids.
+- **EOO ≥ AOO**: when the hull is smaller than the AOO, the EOO is set equal to the AOO before the thresholds are applied (IUCN Guidelines §4.10).
+- **AOO** = number of occupied 2 × 2 km cells × 4 km² (cell size via `cell_km`), taken as the minimum over 100 grid offsets on a fixed lattice, so results are reproducible without a random seed.
 - **Subpopulations** = the circular-buffer method: a circle of radius `subpop_resol_km` (default 1/10 of the maximum inter-point distance, [Rivers et al. 2010](https://doi.org/10.1016/j.biocon.2010.06.028)) is drawn around each occurrence, the circles are dissolved, and the disjoint polygons are counted.
-- **Locations** = number of occupied cells of a 10 km grid (`loc_km`, or a sliding-scale fraction of the max inter-point distance via `loc_scale`), minimum over translated grids. When `protected = TRUE`, occurrences inside protected areas are decoupled from those outside (ConR `method_protected`: `"no_more_than_one"` counts each protected area with occurrences as one location; `"other"` grids inside/outside separately). A grid-based screening proxy, not a formal count of locations under a specific threat.
+- **Locations** = number of occupied cells of a 10 km grid (`loc_km`, or a sliding-scale fraction of the max inter-point distance via `loc_scale`), minimum over translated grids. When `protected = TRUE`, occurrences inside protected areas are decoupled from those outside (ConR `method_protected`: `"no_more_than_one"` counts each protected area with occurrences as one location, with nested or overlapping designations counted once; `"other"` grids inside/outside separately). A grid-based screening proxy, not a formal count of locations under a specific threat.
 - The subpopulation and location methods follow the spatial rationale popularised by the **[ConR](https://github.com/gdauby/ConR)** package ([Dauby et al. 2017](https://doi.org/10.1002/ece3.3704)), cited here for the idea; the mappingAS implementation is independent code.
 - Areas are measured on a data-centred **Lambert Azimuthal Equal-Area** projection, in line with the IUCN guidelines.
 - **Conversion**: land-cover classes are grouped into *natural*, *anthropic*, *water*, *not observed* and *other*. The headline index is `converted_pct = anthropic / (anthropic + natural) × 100` (terrestrial denominator; water and not-observed excluded by default — set `water_in_denominator = TRUE` to include water).
 - **Criterion B thresholds** (screening only): EOO < 100 / 5,000 / 20,000 km² and AOO < 10 / 500 / 2,000 km² for CR / EN / VU.
-- **Applied Criterion B category** (`category_B` / `iucn_criterion_B()`): combines those size thresholds with the sub-criteria, following ConR's selection logic. The **number of locations caps the category** through sub-criterion (a) — CR needs a single location, EN ≤ 5, VU ≤ 10 — so a small range spread over many locations is held to the less threatened level its location count supports (or NT if it exceeds every threshold). A **continuing decline (b)** is, when not documented, **inferred from the measured habitat loss** — if the range holds converted (anthropic) cover, b(iii) is taken as met (`decline_basis = "inferred (habitat loss)"`). This has explicit IUCN backing: the Guidelines (v16, §4.6) allow a continuing decline in habitat to be inferred *"from rate of habitat loss"* under B1b/B2b, *at any rate* — there is **no magnitude threshold** for continuing decline under Criterion B (only Criterion C1 has one). When no conversion is available it falls back to a global assumption (`"assumed"`, ConR-style). Pass `infer_decline_from_habitat = FALSE`, `assume_decline = FALSE` or `decline = FALSE` for a stricter "NT until documented" screening.
+- **Applied Criterion B category** (`category_B` / `iucn_criterion_B()`): combines those size thresholds with the sub-criteria, following ConR's selection logic. The **number of locations caps the category** through sub-criterion (a) — CR needs a single location, EN ≤ 5, VU ≤ 10 — so a small range spread over many locations is held to the less threatened level its location count supports (or NT if it exceeds every threshold). A **continuing decline (b)** is, when not documented, **inferred from the recent trend of natural habitat**: the natural area of the range is measured at six years over the last `decline_years` (default 10) and b(iii) is taken as met only when the linear trend is negative and significant (p < 0.05), reported as `habitat_trend_pct_yr` and `habitat_trend_p` (`decline_basis = "inferred (habitat loss)"`). The IUCN Guidelines (v16, §4.6) allow a continuing decline in habitat to be inferred from the rate of habitat loss under B1b/B2b, at any rate, since Criterion B sets **no magnitude threshold** for continuing decline. A share of converted land with no ongoing loss is not counted as a decline. When the trend cannot be measured it falls back to a global assumption (`"assumed"`, ConR-style). Pass `infer_decline_from_habitat = FALSE`, `assume_decline = FALSE` or `decline = FALSE` for a stricter "NT until documented" screening.
 
 ---
 
@@ -280,8 +284,9 @@ Protected-area overlap (`assess_species(protected = TRUE)`) reads the global **W
 
 ## Caveats and limitations
 
-- The **categories are provisional** — they exclude fragmentation, decline and fluctuation.
-- The **AOO is sensitive** to grid origin/placement and to sampling effort; the **EOO** can be inflated by outlying or erroneous records.
+- The **categories are provisional**: sub-criteria are estimated from the data (locations, habitat trend) or assumed, and the assessor decides.
+- The **AOO** is reproducible but depends on sampling effort; the **EOO** can be inflated by outlying or erroneous records.
+- The **habitat trend** measures natural land cover, not the specific habitat of the taxon.
 - The **local backend** streams the land-cover window over the network; for **very large (continental) ranges** prefer `backend = "gee"`.
 - **Land-cover accuracy** varies by product, class, biome and year (e.g. high-altitude grassland and rocky-outcrop mosaics in MapBiomas, or fine-grained mosaics in the 10 m global layer); consult the official documentation of the product used.
 

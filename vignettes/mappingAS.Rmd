@@ -22,7 +22,7 @@ knitr::opts_chunk$set(
 
 `mappingAS` is an R package, with an accompanying **Shiny** application, for screening species against **Criterion B** of the IUCN Red List. Starting from a set of occurrence points, it estimates each species' geographic range (EOO / AOO), measures how much of that range has been converted to anthropic land cover and how much has burned, quantifies the overlap with protected areas (global WDPA), and packages everything for mapping, inspection, export and reporting. Land-cover conversion is driven by **MapBiomas** across South America and by the global **Esri / Impact Observatory (Sentinel-2)** 10 m land cover elsewhere, so a species anywhere on Earth can be screened with the same workflow — no Google Earth Engine account required.
 
-> **Screening only.** The categories produced are **provisional** — they rest solely on the EOO/AOO *size* thresholds of Criterion B. They **do not replace** a formal IUCN assessment, which also requires the sub-conditions of fragmentation/few locations, continuing decline and extreme fluctuation.
+> **Screening only.** Two categories are produced. `provisional_cat` rests only on the EOO/AOO *size* thresholds of Criterion B. `category_B` combines those thresholds with the sub-criteria the data can support: the estimated number of locations (a), a continuing decline (b) inferred from a significant recent decline of natural habitat or assumed when that cannot be measured, and extreme fluctuation (c) when you supply it. Neither **replaces** a formal IUCN assessment: the assessor reviews the evidence and decides.
 
 ```{r load}
 library(mappingAS)
@@ -48,8 +48,8 @@ The result is an `sf` object of points in WGS84 with a `species` column.
 
 ## 2. Assess the species
 
-`assess_species()` runs the whole chain per species: EOO, AOO, conversion and the
-provisional category.
+`assess_species()` runs the whole chain per species: EOO, AOO, subpopulations,
+locations, conversion, the habitat trend and the Criterion B categories.
 
 ```{r assess}
 res <- assess_species(
@@ -63,12 +63,48 @@ res            # compact print
 res$summary    # one row per species
 ```
 
-Key `res$summary` columns: `eoo_km2`, `aoo_km2`, `aoo_cells`,
-`eoo_converted_pct`/`eoo_natural_pct`, `aoo_converted_pct`/`aoo_natural_pct`,
-`provisional_cat` and `category_B`. The conversion index uses a **terrestrial**
-denominator: `converted = anthropic / (anthropic + natural) * 100` (water and
-"not observed" are excluded by default; change with
-`water_in_denominator = TRUE`).
+Key `res$summary` columns: `eoo_km2`, `aoo_km2`, `aoo_cells`, `n_subpop`,
+`n_locations`, `eoo_converted_pct`/`eoo_natural_pct`,
+`aoo_converted_pct`/`aoo_natural_pct`, `provisional_cat`, `category_B`,
+`criterion_B_code`, `decline_basis`, `habitat_trend_pct_yr` and
+`habitat_trend_p`. The conversion index uses a **terrestrial** denominator:
+`converted = anthropic / (anthropic + natural) * 100` (water and "not observed"
+are excluded by default, change with `water_in_denominator = TRUE`).
+
+How the main numbers are obtained:
+
+- **EOO and AOO.** Following the IUCN Guidelines (sect. 4.10), when the EOO is
+  smaller than the AOO it is set equal to the AOO before the thresholds are
+  applied. The AOO is the minimum count of occupied 2 × 2 km cells over 100
+  grid offsets laid out on a fixed lattice, so the same data always give the
+  same AOO and number of locations (no random seed involved).
+- **Continuing decline (b).** When `decline` is not given, the natural area of
+  the range is measured at six years spanning the last `decline_years`
+  (default 10). A decline in habitat, b(iii), is inferred only when the linear
+  trend is negative and significant (p < 0.05). The slope (% of the natural
+  area per year) and its p-value are reported. A share of converted land with
+  no ongoing loss is not treated as a decline. When the trend cannot be
+  measured (for example with a single-year `src` file) the decline is assumed
+  (`assume_decline = TRUE`, the default) or left unmet (`FALSE`).
+- **Locations and protected areas.** With `protected = TRUE`, each protected
+  area holding records counts as one location. Nested or overlapping
+  designations, such as a national park inside an environmental protection
+  area, are counted once.
+- **Code notation.** `criterion_B_code` follows the IUCN style, repeating the
+  sub-criteria for each axis, for example `EN B1ab(iii)+2ab(iii)`.
+
+```{r decline}
+# Stricter screening: a decline must be measured or documented
+res_strict <- assess_species(occ, year = 2024, assume_decline = FALSE)
+
+# Longer window for the habitat trend
+res_20y <- assess_species(occ, year = 2024, decline_years = 20)
+
+# Expert input always wins over the inference
+res_doc <- assess_species(occ, year = 2024,
+                          decline = c("Prepusa connata Gardner" = TRUE,
+                                      "Worsleya procera (Lem.) Traub" = FALSE))
+```
 
 ## 3. Map and conversion chart
 
@@ -88,9 +124,9 @@ head(ct)
 ## 5. Land-cover time series
 
 ```{r timeseries}
-# every 5 years, within the first species' EOO
+# selected years within the first species' EOO
 ts <- timeseries_for_species(res, range = "eoo", by = "class",
-                             years = c(2020, 2024))
+                             years = c(2000, 2010, 2020, 2024))
 plot_timeseries(ts)         # stacked-area chart, official MapBiomas colours
 
 # or over any geometry:
@@ -117,6 +153,8 @@ countries_of_occurrence(range = hull, points = sp1)
 
 # Area of Habitat (suitable land cover within the EOO, optionally masked to an
 # elevation band; needs land cover, and 'elevatr' or a DEM for elevation):
+# (year defaults to the latest one of the product; large ranges are read
+# within `max_pixels` by sampling, which keeps fragmented habitat in the area)
 aoh <- calc_aoh(hull, year = 2024, elev_min = 0, elev_max = 1500, points = sp1)
 aoh$aoh_km2            # Area of Habitat
 aoh$aoo_upper_km2      # habitat-based (upper) AOO bound, at the 2 km scale
@@ -188,12 +226,19 @@ res <- assess_species(occ, backend = "gee")
 
 ## Caveats
 
-- The **categories are provisional** (size thresholds only) - do not report them
-  as final categories. The supporting analyses (fragmentation, decline, the
-  AOO bounds) inform the judgement but the assessor decides.
-- The **AOO** is sensitive to grid placement and sampling effort.
+- The **categories are provisional**: do not report them as final categories.
+  The supporting analyses (fragmentation, the habitat trend, the AOO bounds)
+  inform the judgement but the assessor decides.
+- The **AOO** is reproducible but still depends on sampling effort. Treat it
+  as a lower bound and compare it with the habitat-based upper bound
+  (`aoo_bounds()`).
+- The **habitat trend** measures natural land cover, not the specific habitat
+  of the taxon. Check it against what the species actually depends on.
+- **MapBiomas Fire** covers Brazil only. With `initiative = "auto"` fire is
+  skipped for species outside Brazil.
 - **MapBiomas accuracy** varies by class, biome and year.
-- For continental ranges, prefer `backend = "gee"`.
+- For continental ranges, prefer `backend = "gee"`. Ranges that cross the
+  antimeridian (180°) are handled on the short side of the globe.
 
 ## Citation
 
