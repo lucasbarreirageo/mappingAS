@@ -1,4 +1,4 @@
-# mappingAS (development version)
+# mappingAS 1.15.0
 
 ## Bug fixes
 

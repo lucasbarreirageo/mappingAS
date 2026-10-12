@@ -1,28 +1,21 @@
 ## Submission
 
-This is an update of mappingAS, from 1.13.2 to 1.14.0.
+This is an update of mappingAS, from 1.14.0 to 1.15.0.
 
 ## Changes in this version
 
-* Assimilated three full-criteria supporting analyses (kept focused on
-  Criterion B, and computed entirely from the data the package already
-  produces), each as an exported function and a Shiny tab: countries and
-  biogeographical realm of occurrence (`countries_of_occurrence()`), the
-  lower-upper AOO bounds and their B2 category range (`aoo_bounds()`,
-  `iucn_category_B_range()`), and severe-fragmentation screening
-  (`assess_fragmentation()`, `fragment_habitat()`).
-* Added an elevation-refined Area of Habitat: `elevation_preferences()` and
-  `calc_aoh()` read a digital elevation model only over the range extent
-  (windowed; the read is now bounded by area so it cannot exhaust memory), via
-  the optional `elevatr` suggestion or a user-supplied DEM. `map_aoh()` maps the
-  result.
-* An inferred population size (Area of Habitat times a density) is shown on the
-  Assessment tab and, via a new optional `population` argument to
-  `assessment_report()`, in the report.
-* Shiny app fixes: the interactive-map HTML download is now genuinely
-  self-contained even when pandoc is absent; the "Add points" map places and
-  drags points correctly; and the land-cover time-series step has a five-year
-  minimum.
+* Criterion B helpers now raise the EOO to the AOO when it is smaller (IUCN
+  Guidelines sect. 4.10) and write the code in the official notation
+  (e.g. `EN B1ab(iii)+2ab(iii)`).
+* A continuing decline in habitat (b(iii)) is inferred only from a significant
+  recent decline of natural habitat (new `decline_years` argument and
+  `habitat_trend_pct_yr` / `habitat_trend_p` columns), instead of from any
+  converted area in the range.
+* Nested or overlapping protected areas count as one location.
+* AOO and number of locations are reproducible (deterministic grid offsets).
+* `calc_aoh()` reads land cover within its pixel budget with unbiased sampling,
+  and resolves `year = NULL` to the latest available year.
+* Ranges crossing the antimeridian are handled correctly.
 
 ## R CMD check results
 
