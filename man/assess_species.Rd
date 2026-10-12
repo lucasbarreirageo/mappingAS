@@ -206,7 +206,9 @@ res <- assess_species(occ, mapbiomas = FALSE, verbose = FALSE)
 res$summary
 \donttest{
 # Full screening with MapBiomas land cover and fire (reads data over the web):
-res2 <- assess_species(occ, year = 2024, fire = TRUE, verbose = FALSE)
+# (one species: the habitat-trend test reads six more years of land cover)
+sp1 <- occ[occ$species == occ$species[1], ]
+res2 <- assess_species(sp1, year = 2024, fire = TRUE, verbose = FALSE)
 res2$summary
 }
 }

@@ -18,7 +18,9 @@
 #' \donttest{
 #' occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
 #'                                     package = "mappingAS"))
-#' res <- assess_species(occ, protected = TRUE, verbose = FALSE)  # reads WDPA
+#' # reads WDPA and one year of MapBiomas (the multi-year habitat trend is skipped)
+#' res <- assess_species(occ, protected = TRUE, infer_decline_from_habitat = FALSE,
+#'                       verbose = FALSE)
 #' plot_protection(res)
 #' }
 #' @export
