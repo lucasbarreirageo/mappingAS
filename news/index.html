@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mappingAS</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.14.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.15.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -37,6 +37,37 @@
       <small>Source: <a href="https://github.com/lucasbarreirageo/mappingAS/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="1.15.0" id="mappingas-1150">mappingAS 1.15.0<a class="anchor" aria-label="anchor" href="#mappingas-1150"></a></h2>
+<div class="section level3">
+<h3 id="bug-fixes-1-15-0">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-1-15-0"></a></h3>
+<ul><li>
+<code><a href="../reference/iucn_category_B.html">iucn_category_B()</a></code>, <code><a href="../reference/iucn_category_B_range.html">iucn_category_B_range()</a></code> and <code><a href="../reference/iucn_criterion_B.html">iucn_criterion_B()</a></code> now raise the EOO to the AOO when it is smaller (IUCN Guidelines sect. 4.10), so a few clustered points no longer receive a CR B1 flag from a tiny hull.</li>
+<li>
+<code><a href="../reference/iucn_criterion_B.html">iucn_criterion_B()</a></code> writes the code in the official notation, repeating the sub-criteria per axis (<code>"EN B1ab(iii)+2ab(iii)"</code> instead of <code>"EN B1+2ab(iii)"</code>).</li>
+<li>
+<code>calc_locations(method_protected = "no_more_than_one")</code> counts nested or overlapping protected areas (e.g. a park inside an APA) once, using the smallest set of areas that holds every inside occurrence.</li>
+<li>
+<code><a href="../reference/calc_aoh.html">calc_aoh()</a></code>, <code><a href="../reference/map_aoh.html">map_aoh()</a></code> and <code><a href="../reference/fragment_habitat.html">fragment_habitat()</a></code> with the default <code>year = NULL</code> now use the latest year of the product instead of failing silently to <code>NA</code> when no <code>src</code> is given.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="improvements-1-15-0">Improvements<a class="anchor" aria-label="anchor" href="#improvements-1-15-0"></a></h3>
+<ul><li>
+<code><a href="../reference/calc_aoo.html">calc_aoo()</a></code> and <code><a href="../reference/calc_locations.html">calc_locations()</a></code> are reproducible: grid translations follow a deterministic lattice instead of <code><a href="https://rdrr.io/r/stats/Uniform.html" class="external-link">runif()</a></code>, so no seed is needed.</li>
+<li>
+<code><a href="../reference/iucn_category_B.html">iucn_category_B()</a></code> is vectorised (works on whole summary columns).</li>
+<li>Internal grid and elevation-mask code deduplicated.</li>
+<li>
+<strong>Continuing decline (b(iii)) is now inferred from the habitat trend.</strong> <code><a href="../reference/assess_species.html">assess_species()</a></code> measures the natural area of the range at six years over the last <code>decline_years</code> (new argument, default 10) and infers a decline only when the linear slope is negative and significant (p &lt; 0.05). Before, any converted pixel in the range triggered the inference, which made <code>assume_decline = FALSE</code> ineffective in converted landscapes. The slope and its p-value are returned as <code>habitat_trend_pct_yr</code> and <code>habitat_trend_p</code>.</li>
+<li>
+<code><a href="../reference/calc_aoh.html">calc_aoh()</a></code> reads land cover within <code>max_pixels</code>: large MapBiomas windows are decimated on read instead of streamed at native resolution, and the majority (modal) aggregation, which under-counted fragmented habitat, was replaced by unbiased nearest-neighbour sampling.</li>
+<li>Ranges crossing the antimeridian: <code><a href="../reference/laea_crs.html">laea_crs()</a></code> uses the circular mean longitude and <code><a href="../reference/calc_eoo.html">calc_eoo()</a></code> builds the hull on the short side of the globe.</li>
+<li>
+<code>assess_species(fire = TRUE, initiative = "auto")</code> skips fire per species outside Brazil instead of querying MapBiomas Fire for them.</li>
+<li>
+<code><a href="../reference/calc_aoo.html">calc_aoo()</a></code> and <code><a href="../reference/calc_locations.html">calc_locations()</a></code> now test 100 grid offsets by default (cheap with the deterministic lattice, and closer to the true minimum).</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="1.14.0" id="mappingas-1140">mappingAS 1.14.0<a class="anchor" aria-label="anchor" href="#mappingas-1140"></a></h2>
 <ul><li>

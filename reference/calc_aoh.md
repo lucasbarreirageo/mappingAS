@@ -110,10 +110,12 @@ The land cover is read over the range with the same backend as
 elevation model read over the same extent (windowed; via `elev_src` or
 the optional elevatr package) is resampled to the land-cover grid and
 used to mask out pixels outside `[elev_min, elev_max]`. The remaining
-suitable area is the AOH. The read is bounded by `max_pixels` (the land
-cover is aggregated with a majority rule beyond that) so a large range
-does not exhaust memory. This AOH can be passed as the habitat-based
-upper AOO bound to
+suitable area is the AOH. The read is bounded by `max_pixels`: beyond it
+the land cover is decimated on read (nearest-neighbour sampling, which
+keeps class areas unbiased, unlike a majority rule that erases
+fragmented habitat) so a large range never streams its native pixels or
+exhausts memory. This AOH can be passed as the habitat-based upper AOO
+bound to
 [`aoo_bounds`](https://lucasbarreirageo.github.io/mappingAS/reference/aoo_bounds.md).
 
 Every failure (no DEM, no land cover, an unsupported backend) degrades

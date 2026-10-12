@@ -9,7 +9,7 @@ equal-area projection.
 ## Usage
 
 ``` r
-calc_aoo(points, cell_km = 2, n_rep = 30)
+calc_aoo(points, cell_km = 2, n_rep = 100)
 ```
 
 ## Arguments
@@ -24,9 +24,10 @@ calc_aoo(points, cell_km = 2, n_rep = 30)
 
 - n_rep:
 
-  Integer; number of randomly translated grids to test (default `30`,
-  matching the typical ConR setting). The minimum occupied-cell count
-  over the replicates is returned.
+  Integer; number of translated grids to test (default `100`; the
+  lattice is cheap, and more offsets bring the count closer to the true
+  minimum). The minimum occupied-cell count over the replicates is
+  returned.
 
 ## Value
 
@@ -36,9 +37,11 @@ an `sfc` polygon set in WGS84) and `crs_laea`.
 ## Details
 
 Because the occupied-cell count depends on where the grid is placed,
-this function tests several randomly translated grids and returns the
-*smallest* count, as ConR does. The returned `cells` correspond to the
-grid placement that produced the reported value.
+this function tests several translated grids and returns the *smallest*
+count, as ConR does. The translations follow a deterministic, evenly
+spread lattice, so the result is reproducible (no random seed needed).
+The returned `cells` correspond to the grid placement that produced the
+reported value.
 
 ## Examples
 

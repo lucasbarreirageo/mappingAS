@@ -17,7 +17,7 @@ recurrence, from the MapBiomas Fire accumulated layer."><meta property="og:image
 
     <a class="navbar-brand me-2" href="../index.html">mappingAS</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.14.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.15.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -87,6 +87,7 @@ recurrence, from the MapBiomas Fire accumulated layer.</p>
 <span>  severe_fragmentation <span class="op">=</span> <span class="cn">NA</span>,</span>
 <span>  assume_decline <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  infer_decline_from_habitat <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  decline_years <span class="op">=</span> <span class="fl">10</span>,</span>
 <span>  min_records <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -258,16 +259,30 @@ supplied). The <code>decline_assumed</code> column flags each species for which
 <dt id="arg-infer-decline-from-habitat">infer_decline_from_habitat<a class="anchor" aria-label="anchor" href="#arg-infer-decline-from-habitat"></a></dt>
 <dd><p>Logical; when <code>TRUE</code> (default) and
 <code>decline</code> is not documented for a species, a continuing decline (b) is
-<em>inferred from the measured habitat loss</em> whenever land cover ran and
-the range holds any converted (anthropic) area. The IUCN guidelines (v16,
-sect. 4.6) explicitly allow a continuing decline in the area/quality of
-habitat (sub-criterion b(iii)) to be inferred "from rate of habitat loss"
-under B1b/B2b, "at any rate" (no magnitude threshold). This is recorded as
+<em>inferred from the recent trend of natural habitat</em>: the natural area
+of the range (EOO, or AOO when the EOO is undefined) is measured at six
+years spanning the last <code>decline_years</code> and a decline is inferred
+only when the least-squares slope is negative and significant
+(\(p &lt; 0.05\)). The IUCN guidelines (v16, sect. 4.6) allow a continuing
+decline in the area/quality of habitat (b(iii)) to be inferred from the
+rate of habitat loss, at any rate, but the loss must be ongoing: a static
+share of converted land is past loss and is no longer used. The slope
+(\<!-- % of the mean natural area per year) and its p-value are returned as -->
+<code>habitat_trend_pct_yr</code> and <code>habitat_trend_p</code>. The trend needs the
+multi-year public products, so it is skipped when a single-year <code>src</code>
+file is given. This is recorded as
 <code>decline_basis = "inferred (habitat loss)"</code> - distinct from
 <code>"assumed"</code> (the ConR-style global fallback used when no conversion is
 available), <code>"documented"</code> / <code>"documented (absent)"</code> (an explicit
 <code>decline</code>), or <code>"not documented"</code>. Set <code>FALSE</code> to rely only
 on <code>decline</code> / <code>assume_decline</code>.</p></dd>
+
+
+<dt id="arg-decline-years">decline_years<a class="anchor" aria-label="anchor" href="#arg-decline-years"></a></dt>
+<dd><p>Length in years of the recent window used to test the
+habitat trend (default <code>10</code>, the IUCN reference of ten years or three
+generations for the shortest-lived taxa). Clamped to the years the product
+publishes.</p></dd>
 
 
 <dt id="arg-min-records">min_records<a class="anchor" aria-label="anchor" href="#arg-min-records"></a></dt>
@@ -308,13 +323,17 @@ on <code>decline</code> / <code>assume_decline</code>.</p></dd>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 2              NA EN (B1 size) EN (B2 size)    EN (B1 size)         VU</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 3              NA CR (B1 size) CR (B2 size)    CR (B1 size)         CR</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   criterion_B_code subcrit_a subcrit_b subcrit_c decline_assumed decline_basis</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1        EN B1+2ab      TRUE      TRUE     FALSE            TRUE       assumed</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2        VU B1+2ab      TRUE      TRUE     FALSE            TRUE       assumed</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3        CR B1+2ab      TRUE      TRUE     FALSE            TRUE       assumed</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   mapbiomas_initiative mapbiomas_year mapbiomas_collection</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1               brazil           2024                   10</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2               brazil           2024                   10</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3               brazil           2024                   10</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1      EN B1ab+2ab      TRUE      TRUE     FALSE            TRUE       assumed</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2      VU B1ab+2ab      TRUE      TRUE     FALSE            TRUE       assumed</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3      CR B1ab+2ab      TRUE      TRUE     FALSE            TRUE       assumed</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   habitat_trend_pct_yr habitat_trend_p mapbiomas_initiative mapbiomas_year</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1                   NA              NA               brazil           2024</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2                   NA              NA               brazil           2024</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3                   NA              NA               brazil           2024</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   mapbiomas_collection</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1                   10</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2                   10</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3                   10</span>
 <span class="r-in"><span><span class="co"># \donttest{</span></span></span>
 <span class="r-in"><span><span class="co"># Full screening with MapBiomas land cover and fire (reads data over the web):</span></span></span>
 <span class="r-in"><span><span class="va">res2</span> <span class="op">&lt;-</span> <span class="fu">assess_species</span><span class="op">(</span><span class="va">occ</span>, year <span class="op">=</span> <span class="fl">2024</span>, fire <span class="op">=</span> <span class="cn">TRUE</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
@@ -325,24 +344,24 @@ on <code>decline</code> / <code>assume_decline</code>.</p></dd>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 3 Worsleya procera (Lem.) Traub         3        3    0.00       4         1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   n_subpop n_locations eoo_converted_pct eoo_natural_pct aoo_converted_pct</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1        4           4              44.3            55.7              45.1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2        4           7              40.3            59.7              29.1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3        3           1              37.5            62.5              29.9</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2        4           7              40.3            59.7              32.9</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3        3           1              37.5            62.5              40.5</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   aoo_natural_pct   eoo_cat_B1   aoo_cat_B2 provisional_cat category_B</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1            54.9 EN (B1 size) EN (B2 size)    EN (B1 size)         EN</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2            70.9 EN (B1 size) EN (B2 size)    EN (B1 size)         VU</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3            70.1 CR (B1 size) CR (B2 size)    CR (B1 size)         CR</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   criterion_B_code subcrit_a subcrit_b subcrit_c decline_assumed</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1   EN B1+2ab(iii)      TRUE      TRUE     FALSE           FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2   VU B1+2ab(iii)      TRUE      TRUE     FALSE           FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3   CR B1+2ab(iii)      TRUE      TRUE     FALSE           FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>             decline_basis mapbiomas_initiative mapbiomas_year</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1 inferred (habitat loss)               brazil           2024</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2 inferred (habitat loss)               brazil           2024</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3 inferred (habitat loss)               brazil           2024</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2            67.1 EN (B1 size) EN (B2 size)    EN (B1 size)         VU</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3            59.5 CR (B1 size) CR (B2 size)    CR (B1 size)         CR</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   criterion_B_code subcrit_a subcrit_b subcrit_c decline_assumed decline_basis</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1      EN B1ab+2ab      TRUE      TRUE     FALSE            TRUE       assumed</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2      VU B1ab+2ab      TRUE      TRUE     FALSE            TRUE       assumed</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3      CR B1ab+2ab      TRUE      TRUE     FALSE            TRUE       assumed</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   habitat_trend_pct_yr habitat_trend_p mapbiomas_initiative mapbiomas_year</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1                  0.1          0.0388               brazil           2024</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2                  0.1          0.0222               brazil           2024</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3                  0.0          1.0000               brazil           2024</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   mapbiomas_collection eoo_burned_pct aoo_burned_pct fire_collection</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1                   10           15.5           20.3               4</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2                   10           12.3            4.5               4</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3                   10            0.0           44.6               4</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2                   10           12.3            7.2               4</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3                   10            0.0           11.1               4</span>
 <span class="r-in"><span><span class="co"># }</span></span></span>
 </code></pre></div>
     </div>

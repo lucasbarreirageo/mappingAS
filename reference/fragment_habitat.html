@@ -23,7 +23,7 @@ as a rough proxy when no habitat model or density is available)."><meta property
 
     <a class="navbar-brand me-2" href="../index.html">mappingAS</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.14.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.15.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -185,11 +185,10 @@ assessments with sRedList. <em>Biological Conservation</em> 298:110761.
 <span class="r-in"><span><span class="va">hull</span> <span class="op">&lt;-</span> <span class="fu"><a href="calc_eoo.html">calc_eoo</a></span><span class="op">(</span><span class="va">sp1</span><span class="op">)</span><span class="op">$</span><span class="va">hull</span></span></span>
 <span class="r-in"><span><span class="co"># Reads land cover; density in mature individuals per km^2:</span></span></span>
 <span class="r-in"><span><span class="va">fr</span> <span class="op">&lt;-</span> <span class="fu">fragment_habitat</span><span class="op">(</span><span class="va">hull</span>, isolation_km <span class="op">=</span> <span class="fl">20</span>, density <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> fragment_habitat(): suitable-habitat raster unavailable; NA.</span>
 <span class="r-in"><span><span class="va">fr</span><span class="op">$</span><span class="va">n_subpop</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1</span>
 <span class="r-in"><span><span class="va">fr</span><span class="op">$</span><span class="va">max_subpop</span>      <span class="co"># C2a(i)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 6850.165</span>
 <span class="r-in"><span><span class="co"># }</span></span></span>
 </code></pre></div>
     </div>

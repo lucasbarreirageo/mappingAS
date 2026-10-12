@@ -15,7 +15,7 @@ Criterion B listing additionally requires at least two of the sub-criteria
 
     <a class="navbar-brand me-2" href="../index.html">mappingAS</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.14.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.15.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -64,13 +64,20 @@ Criterion B listing additionally requires at least two of the sub-criteria
 
 
 <dl><dt id="arg-eoo-km-aoo-km-">eoo_km2, aoo_km2<a class="anchor" aria-label="anchor" href="#arg-eoo-km-aoo-km-"></a></dt>
-<dd><p>Numeric range sizes in square kilometres.</p></dd>
+<dd><p>Numeric range sizes in square kilometres (recycled).</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A list with <code>eoo_category</code>, <code>aoo_category</code> and
-<code>combined</code> (the more threatened of the two size-based flags).</p>
+<code>combined</code> (the more threatened of the two size-based flags), each a
+character vector of the input length.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>Vectorised: <code>eoo_km2</code> and <code>aoo_km2</code> may be columns of an assessment
+summary. Following the IUCN Guidelines (sect. 4.10), when the EOO is smaller
+than the AOO the EOO is set equal to the AOO before applying the thresholds.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

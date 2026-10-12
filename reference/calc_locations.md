@@ -15,7 +15,7 @@ the grid method, and the protected-area integration
 calc_locations(
   points,
   grid_km = 10,
-  n_rep = 30,
+  n_rep = 100,
   protected = NULL,
   method_protected = c("no_more_than_one", "other"),
   cell_scale = NULL
@@ -35,8 +35,8 @@ calc_locations(
 
 - n_rep:
 
-  Integer; number of randomly translated grids to test (default `30`).
-  The minimum occupied-cell count over the replicates is returned.
+  Integer; number of translated grids to test (default `100`). The
+  minimum occupied-cell count over the replicates is returned.
 
 - protected:
 
@@ -67,8 +67,8 @@ locations under `"no_more_than_one"`, else `NULL`) and `crs_laea`.
 ## Details
 
 As for the AOO, the occupied-cell count depends on where the grid is
-placed, so several randomly translated grids are tested and the
-*smallest* count is returned (the most conservative, i.e. most
+placed, so several translated grids (a deterministic lattice) are tested
+and the *smallest* count is returned (the most conservative, i.e. most
 threatened, estimate). The grid is built on a data-centred Lambert
 Azimuthal Equal-Area projection and this function reuses mappingAS's own
 AOO grid machinery, so it differs from
@@ -92,9 +92,11 @@ same threats as one outside:
 - `method_protected = "no_more_than_one"` (default): every protected
   area holding at least one occurrence counts as exactly one location
   (all occurrences within a protected area share a location);
-  occurrences outside protected areas are gridded as usual. The total is
-  (occupied cells outside) + (number of protected areas with
-  occurrences).
+  occurrences outside protected areas are gridded as usual. Overlapping
+  or nested designations (common in WDPA, e.g. a national park inside an
+  environmental protection area) are counted once: the smallest set of
+  protected areas that holds every inside occurrence is used. The total
+  is (occupied cells outside) + (size of that set).
 
 - `method_protected = "other"`: occurrences inside protected areas are
   gridded *separately* from those outside, and the two counts are added.

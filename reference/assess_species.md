@@ -38,6 +38,7 @@ assess_species(
   severe_fragmentation = NA,
   assume_decline = TRUE,
   infer_decline_from_habitat = TRUE,
+  decline_years = 10,
   min_records = 1,
   verbose = TRUE
 )
@@ -219,17 +220,30 @@ assess_species(
 - infer_decline_from_habitat:
 
   Logical; when `TRUE` (default) and `decline` is not documented for a
-  species, a continuing decline (b) is *inferred from the measured
-  habitat loss* whenever land cover ran and the range holds any
-  converted (anthropic) area. The IUCN guidelines (v16, sect. 4.6)
-  explicitly allow a continuing decline in the area/quality of habitat
-  (sub-criterion b(iii)) to be inferred "from rate of habitat loss"
-  under B1b/B2b, "at any rate" (no magnitude threshold). This is
-  recorded as `decline_basis = "inferred (habitat loss)"` - distinct
-  from `"assumed"` (the ConR-style global fallback used when no
-  conversion is available), `"documented"` / `"documented (absent)"` (an
-  explicit `decline`), or `"not documented"`. Set `FALSE` to rely only
-  on `decline` / `assume_decline`.
+  species, a continuing decline (b) is *inferred from the recent trend
+  of natural habitat*: the natural area of the range (EOO, or AOO when
+  the EOO is undefined) is measured at six years spanning the last
+  `decline_years` and a decline is inferred only when the least-squares
+  slope is negative and significant (\\p \< 0.05\\). The IUCN guidelines
+  (v16, sect. 4.6) allow a continuing decline in the area/quality of
+  habitat (b(iii)) to be inferred from the rate of habitat loss, at any
+  rate, but the loss must be ongoing: a static share of converted land
+  is past loss and is no longer used. The slope (\\
+  `habitat_trend_pct_yr` and `habitat_trend_p`. The trend needs the
+  multi-year public products, so it is skipped when a single-year `src`
+  file is given. This is recorded as
+  `decline_basis = "inferred (habitat loss)"` - distinct from
+  `"assumed"` (the ConR-style global fallback used when no conversion is
+  available), `"documented"` / `"documented (absent)"` (an explicit
+  `decline`), or `"not documented"`. Set `FALSE` to rely only on
+  `decline` / `assume_decline`.
+
+- decline_years:
+
+  Length in years of the recent window used to test the habitat trend
+  (default `10`, the IUCN reference of ten years or three generations
+  for the shortest-lived taxa). Clamped to the years the product
+  publishes.
 
 - min_records:
 
@@ -270,13 +284,17 @@ res$summary
 #> 2              NA EN (B1 size) EN (B2 size)    EN (B1 size)         VU
 #> 3              NA CR (B1 size) CR (B2 size)    CR (B1 size)         CR
 #>   criterion_B_code subcrit_a subcrit_b subcrit_c decline_assumed decline_basis
-#> 1        EN B1+2ab      TRUE      TRUE     FALSE            TRUE       assumed
-#> 2        VU B1+2ab      TRUE      TRUE     FALSE            TRUE       assumed
-#> 3        CR B1+2ab      TRUE      TRUE     FALSE            TRUE       assumed
-#>   mapbiomas_initiative mapbiomas_year mapbiomas_collection
-#> 1               brazil           2024                   10
-#> 2               brazil           2024                   10
-#> 3               brazil           2024                   10
+#> 1      EN B1ab+2ab      TRUE      TRUE     FALSE            TRUE       assumed
+#> 2      VU B1ab+2ab      TRUE      TRUE     FALSE            TRUE       assumed
+#> 3      CR B1ab+2ab      TRUE      TRUE     FALSE            TRUE       assumed
+#>   habitat_trend_pct_yr habitat_trend_p mapbiomas_initiative mapbiomas_year
+#> 1                   NA              NA               brazil           2024
+#> 2                   NA              NA               brazil           2024
+#> 3                   NA              NA               brazil           2024
+#>   mapbiomas_collection
+#> 1                   10
+#> 2                   10
+#> 3                   10
 # \donttest{
 # Full screening with MapBiomas land cover and fire (reads data over the web):
 res2 <- assess_species(occ, year = 2024, fire = TRUE, verbose = FALSE)
@@ -287,23 +305,23 @@ res2$summary
 #> 3 Worsleya procera (Lem.) Traub         3        3    0.00       4         1
 #>   n_subpop n_locations eoo_converted_pct eoo_natural_pct aoo_converted_pct
 #> 1        4           4              44.3            55.7              45.1
-#> 2        4           7              40.3            59.7              29.1
-#> 3        3           1              37.5            62.5              29.9
+#> 2        4           7              40.3            59.7              32.9
+#> 3        3           1              37.5            62.5              40.5
 #>   aoo_natural_pct   eoo_cat_B1   aoo_cat_B2 provisional_cat category_B
 #> 1            54.9 EN (B1 size) EN (B2 size)    EN (B1 size)         EN
-#> 2            70.9 EN (B1 size) EN (B2 size)    EN (B1 size)         VU
-#> 3            70.1 CR (B1 size) CR (B2 size)    CR (B1 size)         CR
-#>   criterion_B_code subcrit_a subcrit_b subcrit_c decline_assumed
-#> 1   EN B1+2ab(iii)      TRUE      TRUE     FALSE           FALSE
-#> 2   VU B1+2ab(iii)      TRUE      TRUE     FALSE           FALSE
-#> 3   CR B1+2ab(iii)      TRUE      TRUE     FALSE           FALSE
-#>             decline_basis mapbiomas_initiative mapbiomas_year
-#> 1 inferred (habitat loss)               brazil           2024
-#> 2 inferred (habitat loss)               brazil           2024
-#> 3 inferred (habitat loss)               brazil           2024
+#> 2            67.1 EN (B1 size) EN (B2 size)    EN (B1 size)         VU
+#> 3            59.5 CR (B1 size) CR (B2 size)    CR (B1 size)         CR
+#>   criterion_B_code subcrit_a subcrit_b subcrit_c decline_assumed decline_basis
+#> 1      EN B1ab+2ab      TRUE      TRUE     FALSE            TRUE       assumed
+#> 2      VU B1ab+2ab      TRUE      TRUE     FALSE            TRUE       assumed
+#> 3      CR B1ab+2ab      TRUE      TRUE     FALSE            TRUE       assumed
+#>   habitat_trend_pct_yr habitat_trend_p mapbiomas_initiative mapbiomas_year
+#> 1                  0.1          0.0388               brazil           2024
+#> 2                  0.1          0.0222               brazil           2024
+#> 3                  0.0          1.0000               brazil           2024
 #>   mapbiomas_collection eoo_burned_pct aoo_burned_pct fire_collection
 #> 1                   10           15.5           20.3               4
-#> 2                   10           12.3            4.5               4
-#> 3                   10            0.0           44.6               4
+#> 2                   10           12.3            7.2               4
+#> 3                   10            0.0           11.1               4
 # }
 ```

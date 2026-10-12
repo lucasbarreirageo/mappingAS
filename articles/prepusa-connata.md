@@ -48,8 +48,9 @@ c(EOO_km2 = round(eoo$area_km2, 1),
 
 [`iucn_criterion_B()`](https://lucasbarreirageo.github.io/mappingAS/reference/iucn_criterion_B.md)
 turns the two sizes into the provisional category and its IUCN code
-notation. **This is a screening result**: it rests on the size
-thresholds only and does not replace a formal assessment.
+notation. Called with the sizes alone, as here, the number of locations
+is unknown and a continuing decline is assumed, so **this is a screening
+result** that does not replace a formal assessment.
 
 ``` r
 
@@ -144,7 +145,7 @@ The mappingAS Shiny application
 ## Caveats
 
 The category produced is **provisional and for screening only**. It
-reflects the EOO/AOO size thresholds of Criterion B and does **not**
-include the sub-conditions (severe fragmentation / few locations,
-continuing decline, extreme fluctuation) that a formal IUCN Red List
-assessment also requires.
+reflects the EOO/AOO size thresholds of Criterion B with sub-conditions
+that are estimated (locations, the trend of natural habitat) or assumed,
+and the assessor must still confirm severe fragmentation, continuing
+decline and extreme fluctuation for a formal IUCN Red List assessment.

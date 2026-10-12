@@ -28,7 +28,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mappingAS</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.14.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.15.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -117,9 +117,10 @@ species lives.</p>
 <h2 id="provisional-criterion-b-category">3. Provisional Criterion B category<a class="anchor" aria-label="anchor" href="#provisional-criterion-b-category"></a>
 </h2>
 <p><code><a href="../reference/iucn_criterion_B.html">iucn_criterion_B()</a></code> turns the two sizes into the
-provisional category and its IUCN code notation. <strong>This is a
-screening result</strong>: it rests on the size thresholds only and does
-not replace a formal assessment.</p>
+provisional category and its IUCN code notation. Called with the sizes
+alone, as here, the number of locations is unknown and a continuing
+decline is assumed, so <strong>this is a screening result</strong> that
+does not replace a formal assessment.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">cat_B</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/iucn_criterion_B.html">iucn_criterion_B</a></span><span class="op">(</span>eoo_km2 <span class="op">=</span> <span class="va">eoo</span><span class="op">$</span><span class="va">area_km2</span>, aoo_km2 <span class="op">=</span> <span class="va">aoo</span><span class="op">$</span><span class="va">area_km2</span><span class="op">)</span></span>
 <span><span class="va">cat_B</span><span class="op">$</span><span class="va">code</span></span>
@@ -204,9 +205,10 @@ No account or server needed.</p>
 </h2>
 <p>The category produced is <strong>provisional and for screening
 only</strong>. It reflects the EOO/AOO size thresholds of Criterion B
-and does <strong>not</strong> include the sub-conditions (severe
-fragmentation / few locations, continuing decline, extreme fluctuation)
-that a formal IUCN Red List assessment also requires.</p>
+with sub-conditions that are estimated (locations, the trend of natural
+habitat) or assumed, and the assessor must still confirm severe
+fragmentation, continuing decline and extreme fluctuation for a formal
+IUCN Red List assessment.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

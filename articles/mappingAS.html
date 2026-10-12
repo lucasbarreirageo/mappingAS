@@ -25,7 +25,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mappingAS</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.14.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.15.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -95,12 +95,15 @@ inspection, export and reporting. Land-cover conversion is driven by
 elsewhere, so a species anywhere on Earth can be screened with the same
 workflow — no Google Earth Engine account required.</p>
 <blockquote>
-<p><strong>Screening only.</strong> The categories produced are
-<strong>provisional</strong> — they rest solely on the EOO/AOO
-<em>size</em> thresholds of Criterion B. They <strong>do not
-replace</strong> a formal IUCN assessment, which also requires the
-sub-conditions of fragmentation/few locations, continuing decline and
-extreme fluctuation.</p>
+<p><strong>Screening only.</strong> Two categories are produced.
+<code>provisional_cat</code> rests only on the EOO/AOO <em>size</em>
+thresholds of Criterion B. <code>category_B</code> combines those
+thresholds with the sub-criteria the data can support: the estimated
+number of locations (a), a continuing decline (b) inferred from a
+significant recent decline of natural habitat or assumed when that
+cannot be measured, and extreme fluctuation (c) when you supply it.
+Neither <strong>replaces</strong> a formal IUCN assessment: the assessor
+reviews the evidence and decides.</p>
 </blockquote>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/lucasbarreirageo/mappingAS" class="external-link">mappingAS</a></span><span class="op">)</span></span></code></pre></div>
@@ -129,7 +132,8 @@ longitude and latitude columns automatically.</p>
 <h2 id="assess-the-species">2. Assess the species<a class="anchor" aria-label="anchor" href="#assess-the-species"></a>
 </h2>
 <p><code><a href="../reference/assess_species.html">assess_species()</a></code> runs the whole chain per species: EOO,
-AOO, conversion and the provisional category.</p>
+AOO, subpopulations, locations, conversion, the habitat trend and the
+Criterion B categories.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/assess_species.html">assess_species</a></span><span class="op">(</span></span>
 <span>  <span class="va">occ</span>,</span>
@@ -141,26 +145,71 @@ AOO, conversion and the provisional category.</p>
 <span><span class="va">res</span>            <span class="co"># compact print</span></span>
 <span><span class="va">res</span><span class="op">$</span><span class="va">summary</span>    <span class="co"># one row per species</span></span></code></pre></div>
 <p>Key <code>res$summary</code> columns: <code>eoo_km2</code>,
-<code>aoo_km2</code>, <code>aoo_cells</code>,
+<code>aoo_km2</code>, <code>aoo_cells</code>, <code>n_subpop</code>,
+<code>n_locations</code>,
 <code>eoo_converted_pct</code>/<code>eoo_natural_pct</code>,
 <code>aoo_converted_pct</code>/<code>aoo_natural_pct</code>,
-<code>provisional_cat</code> and <code>category_B</code>. The conversion
-index uses a <strong>terrestrial</strong> denominator:
+<code>provisional_cat</code>, <code>category_B</code>,
+<code>criterion_B_code</code>, <code>decline_basis</code>,
+<code>habitat_trend_pct_yr</code> and <code>habitat_trend_p</code>. The
+conversion index uses a <strong>terrestrial</strong> denominator:
 <code>converted = anthropic / (anthropic + natural) * 100</code> (water
-and “not observed” are excluded by default; change with
+and “not observed” are excluded by default, change with
 <code>water_in_denominator = TRUE</code>).</p>
+<p>How the main numbers are obtained:</p>
+<ul>
+<li>
+<strong>EOO and AOO.</strong> Following the IUCN Guidelines (sect.
+4.10), when the EOO is smaller than the AOO it is set equal to the AOO
+before the thresholds are applied. The AOO is the minimum count of
+occupied 2 × 2 km cells over 100 grid offsets laid out on a fixed
+lattice, so the same data always give the same AOO and number of
+locations (no random seed involved).</li>
+<li>
+<strong>Continuing decline (b).</strong> When <code>decline</code>
+is not given, the natural area of the range is measured at six years
+spanning the last <code>decline_years</code> (default 10). A decline in
+habitat, b(iii), is inferred only when the linear trend is negative and
+significant (p &lt; 0.05). The slope (% of the natural area per year)
+and its p-value are reported. A share of converted land with no ongoing
+loss is not treated as a decline. When the trend cannot be measured (for
+example with a single-year <code>src</code> file) the decline is assumed
+(<code>assume_decline = TRUE</code>, the default) or left unmet
+(<code>FALSE</code>).</li>
+<li>
+<strong>Locations and protected areas.</strong> With
+<code>protected = TRUE</code>, each protected area holding records
+counts as one location. Nested or overlapping designations, such as a
+national park inside an environmental protection area, are counted
+once.</li>
+<li>
+<strong>Code notation.</strong> <code>criterion_B_code</code>
+follows the IUCN style, repeating the sub-criteria for each axis, for
+example <code>EN B1ab(iii)+2ab(iii)</code>.</li>
+</ul>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Stricter screening: a decline must be measured or documented</span></span>
+<span><span class="va">res_strict</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/assess_species.html">assess_species</a></span><span class="op">(</span><span class="va">occ</span>, year <span class="op">=</span> <span class="fl">2024</span>, assume_decline <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Longer window for the habitat trend</span></span>
+<span><span class="va">res_20y</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/assess_species.html">assess_species</a></span><span class="op">(</span><span class="va">occ</span>, year <span class="op">=</span> <span class="fl">2024</span>, decline_years <span class="op">=</span> <span class="fl">20</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Expert input always wins over the inference</span></span>
+<span><span class="va">res_doc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/assess_species.html">assess_species</a></span><span class="op">(</span><span class="va">occ</span>, year <span class="op">=</span> <span class="fl">2024</span>,</span>
+<span>                          decline <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Prepusa connata Gardner"</span> <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>                                      <span class="st">"Worsleya procera (Lem.) Traub"</span> <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="map-and-conversion-chart">3. Map and conversion chart<a class="anchor" aria-label="anchor" href="#map-and-conversion-chart"></a>
 </h2>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/map_species.html">map_species</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span>            <span class="co"># leaflet: points + EOO + AOO</span></span>
 <span><span class="fu"><a href="../reference/plot_conversion.html">plot_conversion</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span>        <span class="co"># bars: natural / altered / water / other</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="per-class-composition">4. Per-class composition<a class="anchor" aria-label="anchor" href="#per-class-composition"></a>
 </h2>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">ct</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/class_table.html">class_table</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">ct</span><span class="op">)</span></span>
 <span><span class="co"># species | range (EOO/AOO) | code | class_pt | class_en | group | area_km2 | pct</span></span></code></pre></div>
@@ -168,10 +217,10 @@ and “not observed” are excluded by default; change with
 <div class="section level2">
 <h2 id="land-cover-time-series">5. Land-cover time series<a class="anchor" aria-label="anchor" href="#land-cover-time-series"></a>
 </h2>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># every 5 years, within the first species' EOO</span></span>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># selected years within the first species' EOO</span></span>
 <span><span class="va">ts</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/timeseries_for_species.html">timeseries_for_species</a></span><span class="op">(</span><span class="va">res</span>, range <span class="op">=</span> <span class="st">"eoo"</span>, by <span class="op">=</span> <span class="st">"class"</span>,</span>
-<span>                             years <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2020</span>, <span class="fl">2024</span><span class="op">)</span><span class="op">)</span></span>
+<span>                             years <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2000</span>, <span class="fl">2010</span>, <span class="fl">2020</span>, <span class="fl">2024</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/plot_timeseries.html">plot_timeseries</a></span><span class="op">(</span><span class="va">ts</span><span class="op">)</span>         <span class="co"># stacked-area chart, official MapBiomas colours</span></span>
 <span></span>
 <span><span class="co"># or over any geometry:</span></span>
@@ -187,7 +236,7 @@ can be slow; the minimum reliable step is 5 years.</p>
 while keeping the focus on Criterion B, computed from the data the
 package already produces. Most take the range polygon; take it from
 <code><a href="../reference/calc_eoo.html">calc_eoo()</a></code>.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sp1</span>  <span class="op">&lt;-</span> <span class="va">occ</span><span class="op">[</span><span class="va">occ</span><span class="op">$</span><span class="va">species</span> <span class="op">==</span> <span class="va">occ</span><span class="op">$</span><span class="va">species</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="op">]</span></span>
 <span><span class="va">hull</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/calc_eoo.html">calc_eoo</a></span><span class="op">(</span><span class="va">sp1</span><span class="op">)</span><span class="op">$</span><span class="va">hull</span>          <span class="co"># EOO polygon</span></span>
 <span><span class="va">aoo_lo</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/calc_aoo.html">calc_aoo</a></span><span class="op">(</span><span class="va">sp1</span><span class="op">)</span><span class="op">$</span><span class="va">area_km2</span>     <span class="co"># occurrence-based (lower) AOO</span></span>
@@ -197,6 +246,8 @@ package already produces. Most take the range polygon; take it from
 <span></span>
 <span><span class="co"># Area of Habitat (suitable land cover within the EOO, optionally masked to an</span></span>
 <span><span class="co"># elevation band; needs land cover, and 'elevatr' or a DEM for elevation):</span></span>
+<span><span class="co"># (year defaults to the latest one of the product; large ranges are read</span></span>
+<span><span class="co"># within `max_pixels` by sampling, which keeps fragmented habitat in the area)</span></span>
 <span><span class="va">aoh</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/calc_aoh.html">calc_aoh</a></span><span class="op">(</span><span class="va">hull</span>, year <span class="op">=</span> <span class="fl">2024</span>, elev_min <span class="op">=</span> <span class="fl">0</span>, elev_max <span class="op">=</span> <span class="fl">1500</span>, points <span class="op">=</span> <span class="va">sp1</span><span class="op">)</span></span>
 <span><span class="va">aoh</span><span class="op">$</span><span class="va">aoh_km2</span>            <span class="co"># Area of Habitat</span></span>
 <span><span class="va">aoh</span><span class="op">$</span><span class="va">aoo_upper_km2</span>      <span class="co"># habitat-based (upper) AOO bound, at the 2 km scale</span></span>
@@ -222,7 +273,7 @@ package already produces. Most take the range polygon; take it from
 </h2>
 <p><code><a href="../reference/assessment_report.html">assessment_report()</a></code> writes an interpretive Criterion B
 summary as HTML, plain text or a Word <code>.docx</code> file.</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="../reference/assessment_report.html">assessment_report</a></span><span class="op">(</span><span class="va">res</span>, output <span class="op">=</span> <span class="st">"text"</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Word document (needs the 'officer' package):</span></span>
@@ -231,7 +282,7 @@ summary as HTML, plain text or a Word <code>.docx</code> file.</p>
 <div class="section level2">
 <h2 id="export">8. Export<a class="anchor" aria-label="anchor" href="#export"></a>
 </h2>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/export_ranges.html">export_ranges</a></span><span class="op">(</span><span class="va">res</span>, dir <span class="op">=</span> <span class="st">"out"</span><span class="op">)</span>                 <span class="co"># two shapefiles (EOO, AOO) + CSV</span></span>
 <span><span class="fu"><a href="../reference/export_ranges.html">export_ranges</a></span><span class="op">(</span><span class="va">res</span>, dir <span class="op">=</span> <span class="st">"out"</span>, format <span class="op">=</span> <span class="st">"gpkg"</span><span class="op">)</span> <span class="co"># one GeoPackage (eoo, aoo layers)</span></span>
 <span><span class="fu"><a href="../reference/export_ranges.html">export_ranges</a></span><span class="op">(</span><span class="va">res</span>, dir <span class="op">=</span> <span class="st">"out"</span>, zip <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>      <span class="co"># everything in one .zip</span></span></code></pre></div>
@@ -245,7 +296,7 @@ percentage.</p>
 <div class="section level2">
 <h2 id="shiny-app">9. Shiny app<a class="anchor" aria-label="anchor" href="#shiny-app"></a>
 </h2>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/run_app.html">run_app</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <p>The app has tabs for the <strong>Map</strong>, <strong>Add
 points</strong>, <strong>Conversion</strong>, <strong>Classes</strong>,
@@ -271,7 +322,7 @@ GeoTIFF.</li>
 server-side on Google Earth Engine (recommended for very large ranges).
 Requires <code>rgee</code>:</li>
 </ul>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># install.packages("rgee"); rgee::ee_install(); rgee::ee_Initialize()</span></span>
 <span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/assess_species.html">assess_species</a></span><span class="op">(</span><span class="va">occ</span>, backend <span class="op">=</span> <span class="st">"gee"</span><span class="op">)</span></span></code></pre></div>
 </div>
@@ -279,16 +330,26 @@ Requires <code>rgee</code>:</li>
 <h2 id="caveats">Caveats<a class="anchor" aria-label="anchor" href="#caveats"></a>
 </h2>
 <ul>
-<li>The <strong>categories are provisional</strong> (size thresholds
-only) - do not report them as final categories. The supporting analyses
-(fragmentation, decline, the AOO bounds) inform the judgement but the
-assessor decides.</li>
-<li>The <strong>AOO</strong> is sensitive to grid placement and sampling
-effort.</li>
+<li>The <strong>categories are provisional</strong>: do not report them
+as final categories. The supporting analyses (fragmentation, the habitat
+trend, the AOO bounds) inform the judgement but the assessor
+decides.</li>
+<li>The <strong>AOO</strong> is reproducible but still depends on
+sampling effort. Treat it as a lower bound and compare it with the
+habitat-based upper bound (<code><a href="../reference/aoo_bounds.html">aoo_bounds()</a></code>).</li>
+<li>The <strong>habitat trend</strong> measures natural land cover, not
+the specific habitat of the taxon. Check it against what the species
+actually depends on.</li>
+<li>
+<strong>MapBiomas Fire</strong> covers Brazil only. With
+<code>initiative = "auto"</code> fire is skipped for species outside
+Brazil.</li>
 <li>
 <strong>MapBiomas accuracy</strong> varies by class, biome and
 year.</li>
-<li>For continental ranges, prefer <code>backend = "gee"</code>.</li>
+<li>For continental ranges, prefer <code>backend = "gee"</code>. Ranges
+that cross the antimeridian (180°) are handled on the short side of the
+globe.</li>
 </ul>
 </div>
 <div class="section level2">

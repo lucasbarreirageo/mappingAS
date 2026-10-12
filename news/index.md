@@ -1,5 +1,68 @@
 # Changelog
 
+## mappingAS 1.15.0
+
+### Bug fixes
+
+- [`iucn_category_B()`](https://lucasbarreirageo.github.io/mappingAS/reference/iucn_category_B.md),
+  [`iucn_category_B_range()`](https://lucasbarreirageo.github.io/mappingAS/reference/iucn_category_B_range.md)
+  and
+  [`iucn_criterion_B()`](https://lucasbarreirageo.github.io/mappingAS/reference/iucn_criterion_B.md)
+  now raise the EOO to the AOO when it is smaller (IUCN Guidelines sect.
+  4.10), so a few clustered points no longer receive a CR B1 flag from a
+  tiny hull.
+- [`iucn_criterion_B()`](https://lucasbarreirageo.github.io/mappingAS/reference/iucn_criterion_B.md)
+  writes the code in the official notation, repeating the sub-criteria
+  per axis (`"EN B1ab(iii)+2ab(iii)"` instead of `"EN B1+2ab(iii)"`).
+- `calc_locations(method_protected = "no_more_than_one")` counts nested
+  or overlapping protected areas (e.g. a park inside an APA) once, using
+  the smallest set of areas that holds every inside occurrence.
+- [`calc_aoh()`](https://lucasbarreirageo.github.io/mappingAS/reference/calc_aoh.md),
+  [`map_aoh()`](https://lucasbarreirageo.github.io/mappingAS/reference/map_aoh.md)
+  and
+  [`fragment_habitat()`](https://lucasbarreirageo.github.io/mappingAS/reference/fragment_habitat.md)
+  with the default `year = NULL` now use the latest year of the product
+  instead of failing silently to `NA` when no `src` is given.
+
+### Improvements
+
+- [`calc_aoo()`](https://lucasbarreirageo.github.io/mappingAS/reference/calc_aoo.md)
+  and
+  [`calc_locations()`](https://lucasbarreirageo.github.io/mappingAS/reference/calc_locations.md)
+  are reproducible: grid translations follow a deterministic lattice
+  instead of [`runif()`](https://rdrr.io/r/stats/Uniform.html), so no
+  seed is needed.
+- [`iucn_category_B()`](https://lucasbarreirageo.github.io/mappingAS/reference/iucn_category_B.md)
+  is vectorised (works on whole summary columns).
+- Internal grid and elevation-mask code deduplicated.
+- **Continuing decline (b(iii)) is now inferred from the habitat
+  trend.**
+  [`assess_species()`](https://lucasbarreirageo.github.io/mappingAS/reference/assess_species.md)
+  measures the natural area of the range at six years over the last
+  `decline_years` (new argument, default 10) and infers a decline only
+  when the linear slope is negative and significant (p \< 0.05). Before,
+  any converted pixel in the range triggered the inference, which made
+  `assume_decline = FALSE` ineffective in converted landscapes. The
+  slope and its p-value are returned as `habitat_trend_pct_yr` and
+  `habitat_trend_p`.
+- [`calc_aoh()`](https://lucasbarreirageo.github.io/mappingAS/reference/calc_aoh.md)
+  reads land cover within `max_pixels`: large MapBiomas windows are
+  decimated on read instead of streamed at native resolution, and the
+  majority (modal) aggregation, which under-counted fragmented habitat,
+  was replaced by unbiased nearest-neighbour sampling.
+- Ranges crossing the antimeridian:
+  [`laea_crs()`](https://lucasbarreirageo.github.io/mappingAS/reference/laea_crs.md)
+  uses the circular mean longitude and
+  [`calc_eoo()`](https://lucasbarreirageo.github.io/mappingAS/reference/calc_eoo.md)
+  builds the hull on the short side of the globe.
+- `assess_species(fire = TRUE, initiative = "auto")` skips fire per
+  species outside Brazil instead of querying MapBiomas Fire for them.
+- [`calc_aoo()`](https://lucasbarreirageo.github.io/mappingAS/reference/calc_aoo.md)
+  and
+  [`calc_locations()`](https://lucasbarreirageo.github.io/mappingAS/reference/calc_locations.md)
+  now test 100 grid offsets by default (cheap with the deterministic
+  lattice, and closer to the true minimum).
+
 ## mappingAS 1.14.0
 
 - **Full-criteria analyses assimilated from sRedList (Cazalis *et al.*

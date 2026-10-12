@@ -108,7 +108,7 @@ occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
 res <- assess_species(occ, mapbiomas = FALSE, verbose = FALSE)
 cat(assessment_report(res, output = "text"))
 #> Preliminary Conservation Assessment
-#> IUCN Red List Criterion B screening (provisional) - generated on 2026-10-11 with the mappingAS R package.
+#> IUCN Red List Criterion B screening (provisional) - generated on 2026-10-12 with the mappingAS R package.
 #> Species: Prepusa connata Gardner
 #> 
 #> OVERVIEW AND EXECUTIVE STATUS
@@ -127,7 +127,7 @@ cat(assessment_report(res, output = "text"))
 #> Both subcriteria converge on the same category, which strengthens the provisional attribution and makes it robust to moderate changes in either metric.
 #> 
 #> APPLIED CRITERION B CATEGORY
-#> Combining the size thresholds with the sub-criteria set for this assessment, the applied Criterion B category is EN (EN B1+2ab). The sub-criteria considered met are: (a) severe fragmentation / few locations, (b) continuing decline (assumed). The number of locations caps the category under sub-criterion (a).
+#> Combining the size thresholds with the sub-criteria set for this assessment, the applied Criterion B category is EN (EN B1ab+2ab). The sub-criteria considered met are: (a) severe fragmentation / few locations, (b) continuing decline (assumed). The number of locations caps the category under sub-criterion (a).
 #> A continuing decline (sub-criterion b) was assumed rather than documented, as recommended for range-restricted taxa in converting landscapes; it should be confirmed against the trend of the specific habitat. As with the provisional category, this is a screening aid rather than a formal Red List assessment.
 #> 
 #> RECOMMENDATIONS FOR FORMAL ASSESSMENT

@@ -140,7 +140,7 @@ data. *Ecology and Evolution* 7:11292-11303.
 ``` r
 # EN-sized range with few locations: decline assumed by default -> EN B1ab
 iucn_criterion_B(eoo_km2 = 3000, aoo_km2 = 400, n_locations = 4)$code
-#> [1] "EN B1+2ab"
+#> [1] "EN B1ab+2ab"
 # Same size but spread over 8 locations -> capped to VU by the location count
 iucn_criterion_B(eoo_km2 = 3000, aoo_km2 = 400, n_locations = 8)$category
 #> [1] "VU"

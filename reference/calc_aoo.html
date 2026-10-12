@@ -13,7 +13,7 @@ snapped to a regular grid defined on a data-centred equal-area projection."><met
 
     <a class="navbar-brand me-2" href="../index.html">mappingAS</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.14.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.15.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -53,7 +53,7 @@ snapped to a regular grid defined on a data-centred equal-area projection.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">calc_aoo</span><span class="op">(</span><span class="va">points</span>, cell_km <span class="op">=</span> <span class="fl">2</span>, n_rep <span class="op">=</span> <span class="fl">30</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">calc_aoo</span><span class="op">(</span><span class="va">points</span>, cell_km <span class="op">=</span> <span class="fl">2</span>, n_rep <span class="op">=</span> <span class="fl">100</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -69,9 +69,10 @@ snapped to a regular grid defined on a data-centred equal-area projection.</p>
 
 
 <dt id="arg-n-rep">n_rep<a class="anchor" aria-label="anchor" href="#arg-n-rep"></a></dt>
-<dd><p>Integer; number of randomly translated grids to test (default
-<code>30</code>, matching the typical ConR setting). The minimum occupied-cell
-count over the replicates is returned.</p></dd>
+<dd><p>Integer; number of translated grids to test (default
+<code>100</code>; the lattice is cheap, and more offsets bring the count closer
+to the true minimum). The minimum occupied-cell count over the replicates
+is returned.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -83,9 +84,11 @@ count over the replicates is returned.</p></dd>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>Because the occupied-cell count depends on where the grid is placed, this
-function tests several randomly translated grids and returns the
-<em>smallest</em> count, as ConR does. The returned <code>cells</code> correspond to
-the grid placement that produced the reported value.</p>
+function tests several translated grids and returns the <em>smallest</em>
+count, as ConR does. The translations follow a deterministic, evenly spread
+lattice, so the result is reproducible (no random seed needed). The returned
+<code>cells</code> correspond to the grid placement that produced the reported
+value.</p>
     </div>
 
     <div class="section level2">

@@ -136,10 +136,9 @@ sp1 <- occ[occ$species == occ$species[1], ]
 hull <- calc_eoo(sp1)$hull
 # Reads land cover; density in mature individuals per km^2:
 fr <- fragment_habitat(hull, isolation_km = 20, density = 5)
-#> fragment_habitat(): suitable-habitat raster unavailable; NA.
 fr$n_subpop
-#> [1] NA
+#> [1] 1
 fr$max_subpop      # C2a(i)
-#> [1] NA
+#> [1] 6850.165
 # }
 ```

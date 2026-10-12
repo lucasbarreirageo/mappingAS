@@ -19,7 +19,7 @@ only), this returns a category that can actually be applied."><meta property="og
 
     <a class="navbar-brand me-2" href="../index.html">mappingAS</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.14.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.15.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -188,7 +188,7 @@ multispecies preliminary conservation assessments using distribution data.
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># EN-sized range with few locations: decline assumed by default -&gt; EN B1ab</span></span></span>
 <span class="r-in"><span><span class="fu">iucn_criterion_B</span><span class="op">(</span>eoo_km2 <span class="op">=</span> <span class="fl">3000</span>, aoo_km2 <span class="op">=</span> <span class="fl">400</span>, n_locations <span class="op">=</span> <span class="fl">4</span><span class="op">)</span><span class="op">$</span><span class="va">code</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "EN B1+2ab"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "EN B1ab+2ab"</span>
 <span class="r-in"><span><span class="co"># Same size but spread over 8 locations -&gt; capped to VU by the location count</span></span></span>
 <span class="r-in"><span><span class="fu">iucn_criterion_B</span><span class="op">(</span>eoo_km2 <span class="op">=</span> <span class="fl">3000</span>, aoo_km2 <span class="op">=</span> <span class="fl">400</span>, n_locations <span class="op">=</span> <span class="fl">8</span><span class="op">)</span><span class="op">$</span><span class="va">category</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "VU"</span>

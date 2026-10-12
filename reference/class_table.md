@@ -74,8 +74,8 @@ class_table(res)
 #> 27    Prepusa hookeriana Gardner   AOO   15                       Pastagem
 #> 28    Prepusa hookeriana Gardner   AOO   29            Afloramento Rochoso
 #> 29    Prepusa hookeriana Gardner   AOO   33             Rio, Lago e Oceano
-#> 30    Prepusa hookeriana Gardner   AOO   25     Outras Areas nao Vegetadas
-#> 31    Prepusa hookeriana Gardner   AOO    9                   Silvicultura
+#> 30    Prepusa hookeriana Gardner   AOO    9                   Silvicultura
+#> 31    Prepusa hookeriana Gardner   AOO   25     Outras Areas nao Vegetadas
 #> 32    Prepusa hookeriana Gardner   AOO   32                         Apicum
 #> 33    Prepusa hookeriana Gardner   EOO    3             Formacao Florestal
 #> 34    Prepusa hookeriana Gardner   EOO   21                Mosaico de Usos
@@ -94,14 +94,14 @@ class_table(res)
 #> 47    Prepusa hookeriana Gardner   EOO    4              Formacao Savanica
 #> 48 Worsleya procera (Lem.) Traub   AOO    3             Formacao Florestal
 #> 49 Worsleya procera (Lem.) Traub   AOO   21                Mosaico de Usos
-#> 50 Worsleya procera (Lem.) Traub   AOO   12             Formacao Campestre
-#> 51 Worsleya procera (Lem.) Traub   AOO   15                       Pastagem
+#> 50 Worsleya procera (Lem.) Traub   AOO   15                       Pastagem
+#> 51 Worsleya procera (Lem.) Traub   AOO   12             Formacao Campestre
 #> 52 Worsleya procera (Lem.) Traub   EOO   12             Formacao Campestre
 #> 53 Worsleya procera (Lem.) Traub   EOO   21                Mosaico de Usos
 #>                     class_en     group  area_km2   pct
-#> 1           Forest Formation   natural    8.0857 49.22
+#> 1           Forest Formation   natural    8.0841 49.22
 #> 2                    Pasture anthropic    3.9554 24.08
-#> 3             Mosaic of Uses anthropic    3.4059 20.73
+#> 3             Mosaic of Uses anthropic    3.4068 20.74
 #> 4                  Grassland   natural    0.9241  5.63
 #> 5          Forest Plantation anthropic    0.0324  0.20
 #> 6      River, Lake and Ocean     water    0.0157  0.10
@@ -121,15 +121,15 @@ class_table(res)
 #> 20                    Mining anthropic    0.0928  0.00
 #> 21    Hypersaline Tidal Flat   natural    0.0464  0.00
 #> 22         Savanna Formation   natural    0.0008  0.00
-#> 23          Forest Formation   natural   31.6794 59.27
-#> 24            Mosaic of Uses anthropic    9.1067 17.04
-#> 25                Urban Area anthropic    6.4147 12.00
-#> 26                 Grassland   natural    3.3987  6.36
-#> 27                   Pasture anthropic    2.4078  4.50
-#> 28             Rocky Outcrop   natural    0.2344  0.44
-#> 29     River, Lake and Ocean     water    0.0812  0.15
-#> 30 Other non Vegetated Areas     other    0.0571  0.11
-#> 31         Forest Plantation anthropic    0.0514  0.10
+#> 23          Forest Formation   natural   31.7461 59.37
+#> 24            Mosaic of Uses anthropic    9.1545 17.12
+#> 25                Urban Area anthropic    6.3550 11.88
+#> 26                 Grassland   natural    3.7249  6.97
+#> 27                   Pasture anthropic    1.9575  3.66
+#> 28             Rocky Outcrop   natural    0.2526  0.47
+#> 29     River, Lake and Ocean     water    0.1210  0.23
+#> 30         Forest Plantation anthropic    0.0714  0.13
+#> 31 Other non Vegetated Areas     other    0.0695  0.13
 #> 32    Hypersaline Tidal Flat   natural    0.0215  0.04
 #> 33          Forest Formation   natural 1191.5279 57.25
 #> 34            Mosaic of Uses anthropic  468.3845 22.51
@@ -146,10 +146,10 @@ class_table(res)
 #> 45                    Mining anthropic    0.0928  0.00
 #> 46    Hypersaline Tidal Flat   natural    0.0588  0.00
 #> 47         Savanna Formation   natural    0.0008  0.00
-#> 48          Forest Formation   natural    2.2133 53.85
-#> 49            Mosaic of Uses anthropic    1.0110 24.60
-#> 50                 Grassland   natural    0.7047 17.14
-#> 51                   Pasture anthropic    0.1813  4.41
+#> 48          Forest Formation   natural    1.9004 46.23
+#> 49            Mosaic of Uses anthropic    1.0947 26.63
+#> 50                   Pasture anthropic    0.5714 13.90
+#> 51                 Grassland   natural    0.5440 13.23
 #> 52                 Grassland   natural    0.0041 62.50
 #> 53            Mosaic of Uses anthropic    0.0025 37.50
 # }

@@ -19,7 +19,7 @@ the protected-area integration (method_protected).'><meta property="og:image" co
 
     <a class="navbar-brand me-2" href="../index.html">mappingAS</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.14.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.15.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -65,7 +65,7 @@ the protected-area integration (<code>method_protected</code>).</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">calc_locations</span><span class="op">(</span></span>
 <span>  <span class="va">points</span>,</span>
 <span>  grid_km <span class="op">=</span> <span class="fl">10</span>,</span>
-<span>  n_rep <span class="op">=</span> <span class="fl">30</span>,</span>
+<span>  n_rep <span class="op">=</span> <span class="fl">100</span>,</span>
 <span>  protected <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  method_protected <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"no_more_than_one"</span>, <span class="st">"other"</span><span class="op">)</span>,</span>
 <span>  cell_scale <span class="op">=</span> <span class="cn">NULL</span></span>
@@ -86,8 +86,8 @@ Ignored when <code>cell_scale</code> is supplied.</p></dd>
 
 
 <dt id="arg-n-rep">n_rep<a class="anchor" aria-label="anchor" href="#arg-n-rep"></a></dt>
-<dd><p>Integer; number of randomly translated grids to test (default
-<code>30</code>). The minimum occupied-cell count over the replicates is
+<dd><p>Integer; number of translated grids to test (default
+<code>100</code>). The minimum occupied-cell count over the replicates is
 returned.</p></dd>
 
 
@@ -123,7 +123,7 @@ locations under <code>"no_more_than_one"</code>, else <code>NULL</code>) and
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>As for the AOO, the occupied-cell count depends on where the grid is placed,
-so several randomly translated grids are tested and the <em>smallest</em>
+so several translated grids (a deterministic lattice) are tested and the <em>smallest</em>
 count is returned (the most conservative, i.e. most threatened, estimate).
 The grid is built on a data-centred Lambert Azimuthal Equal-Area projection
 and this function reuses <span class="pkg">mappingAS</span>'s own AOO grid machinery, so it
@@ -141,8 +141,11 @@ inside and outside protected areas, because a subpopulation inside a
 protected area is not subject to the same threats as one outside:</p><ul><li><p><code>method_protected = "no_more_than_one"</code> (default): every
 protected area holding at least one occurrence counts as exactly one
 location (all occurrences within a protected area share a location);
-occurrences outside protected areas are gridded as usual. The total is
-(occupied cells outside) + (number of protected areas with occurrences).</p></li>
+occurrences outside protected areas are gridded as usual. Overlapping
+or nested designations (common in WDPA, e.g. a national park inside an
+environmental protection area) are counted once: the smallest set of
+protected areas that holds every inside occurrence is used. The total
+is (occupied cells outside) + (size of that set).</p></li>
 <li><p><code>method_protected = "other"</code>: occurrences inside protected areas
 are gridded <em>separately</em> from those outside, and the two counts are
 added. Two occurrences closer than the cell size are then still counted
