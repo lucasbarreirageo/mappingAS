@@ -42,7 +42,9 @@ warning) if MapBiomas was not computed.
 # \donttest{
 occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
                                     package = "mappingAS"))
-res <- assess_species(occ, year = 2024, verbose = FALSE)  # reads MapBiomas
+# reads MapBiomas (one year; the multi-year habitat trend is skipped)
+res <- assess_species(occ, year = 2024, infer_decline_from_habitat = FALSE,
+                      verbose = FALSE)
 class_table(res)
 #>                          species range code                       class_pt
 #> 1        Prepusa connata Gardner   AOO    3             Formacao Florestal

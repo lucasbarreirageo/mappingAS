@@ -44,7 +44,7 @@ recurrence, from the MapBiomas Fire accumulated layer."><meta property="og:image
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.png" class="logo" alt=""><h1>Assess one or many species: EOO, AOO, MapBiomas conversion and fire</h1>
-      <small class="dont-index">Source: <a href="https://github.com/lucasbarreirageo/mappingAS/blob/v1.15.0/R/assess.R" class="external-link"><code>R/assess.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/lucasbarreirageo/mappingAS/blob/main/R/assess.R" class="external-link"><code>R/assess.R</code></a></small>
       <div class="d-none name"><code>assess_species.Rd</code></div>
     </div>
 
@@ -336,32 +336,22 @@ publishes.</p></dd>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 3                   10</span>
 <span class="r-in"><span><span class="co"># \donttest{</span></span></span>
 <span class="r-in"><span><span class="co"># Full screening with MapBiomas land cover and fire (reads data over the web):</span></span></span>
-<span class="r-in"><span><span class="va">res2</span> <span class="op">&lt;-</span> <span class="fu">assess_species</span><span class="op">(</span><span class="va">occ</span>, year <span class="op">=</span> <span class="fl">2024</span>, fire <span class="op">=</span> <span class="cn">TRUE</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="co"># (one species: the habitat-trend test reads six more years of land cover)</span></span></span>
+<span class="r-in"><span><span class="va">sp1</span> <span class="op">&lt;-</span> <span class="va">occ</span><span class="op">[</span><span class="va">occ</span><span class="op">$</span><span class="va">species</span> <span class="op">==</span> <span class="va">occ</span><span class="op">$</span><span class="va">species</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="op">]</span></span></span>
+<span class="r-in"><span><span class="va">res2</span> <span class="op">&lt;-</span> <span class="fu">assess_species</span><span class="op">(</span><span class="va">sp1</span>, year <span class="op">=</span> <span class="fl">2024</span>, fire <span class="op">=</span> <span class="cn">TRUE</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">res2</span><span class="op">$</span><span class="va">summary</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                         species n_records n_unique eoo_km2 aoo_km2 aoo_cells</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1       Prepusa connata Gardner         5        5 2461.73      16         4</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2    Prepusa hookeriana Gardner        21       21 2077.46      52        13</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3 Worsleya procera (Lem.) Traub         3        3    0.00       4         1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   n_subpop n_locations eoo_converted_pct eoo_natural_pct aoo_converted_pct</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1        4           4              44.3            55.7              45.1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2        4           7              40.3            59.7              32.9</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3        3           1              37.5            62.5              40.5</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                   species n_records n_unique eoo_km2 aoo_km2 aoo_cells n_subpop</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1 Prepusa connata Gardner         5        5 2461.73      16         4        4</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   n_locations eoo_converted_pct eoo_natural_pct aoo_converted_pct</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1           4              44.3            55.7              45.1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   aoo_natural_pct   eoo_cat_B1   aoo_cat_B2 provisional_cat category_B</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1            54.9 EN (B1 size) EN (B2 size)    EN (B1 size)         EN</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2            67.1 EN (B1 size) EN (B2 size)    EN (B1 size)         VU</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3            59.5 CR (B1 size) CR (B2 size)    CR (B1 size)         CR</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   criterion_B_code subcrit_a subcrit_b subcrit_c decline_assumed decline_basis</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1      EN B1ab+2ab      TRUE      TRUE     FALSE            TRUE       assumed</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2      VU B1ab+2ab      TRUE      TRUE     FALSE            TRUE       assumed</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3      CR B1ab+2ab      TRUE      TRUE     FALSE            TRUE       assumed</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   habitat_trend_pct_yr habitat_trend_p mapbiomas_initiative mapbiomas_year</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1                  0.1          0.0388               brazil           2024</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2                  0.1          0.0222               brazil           2024</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3                  0.0          1.0000               brazil           2024</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   mapbiomas_collection eoo_burned_pct aoo_burned_pct fire_collection</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1                   10           15.5           20.3               4</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2                   10           12.3            7.2               4</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3                   10            0.0           11.1               4</span>
 <span class="r-in"><span><span class="co"># }</span></span></span>
 </code></pre></div>
     </div>

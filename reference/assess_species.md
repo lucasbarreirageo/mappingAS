@@ -297,31 +297,21 @@ res$summary
 #> 3                   10
 # \donttest{
 # Full screening with MapBiomas land cover and fire (reads data over the web):
-res2 <- assess_species(occ, year = 2024, fire = TRUE, verbose = FALSE)
+# (one species: the habitat-trend test reads six more years of land cover)
+sp1 <- occ[occ$species == occ$species[1], ]
+res2 <- assess_species(sp1, year = 2024, fire = TRUE, verbose = FALSE)
 res2$summary
-#>                         species n_records n_unique eoo_km2 aoo_km2 aoo_cells
-#> 1       Prepusa connata Gardner         5        5 2461.73      16         4
-#> 2    Prepusa hookeriana Gardner        21       21 2077.46      52        13
-#> 3 Worsleya procera (Lem.) Traub         3        3    0.00       4         1
-#>   n_subpop n_locations eoo_converted_pct eoo_natural_pct aoo_converted_pct
-#> 1        4           4              44.3            55.7              45.1
-#> 2        4           7              40.3            59.7              32.9
-#> 3        3           1              37.5            62.5              40.5
+#>                   species n_records n_unique eoo_km2 aoo_km2 aoo_cells n_subpop
+#> 1 Prepusa connata Gardner         5        5 2461.73      16         4        4
+#>   n_locations eoo_converted_pct eoo_natural_pct aoo_converted_pct
+#> 1           4              44.3            55.7              45.1
 #>   aoo_natural_pct   eoo_cat_B1   aoo_cat_B2 provisional_cat category_B
 #> 1            54.9 EN (B1 size) EN (B2 size)    EN (B1 size)         EN
-#> 2            67.1 EN (B1 size) EN (B2 size)    EN (B1 size)         VU
-#> 3            59.5 CR (B1 size) CR (B2 size)    CR (B1 size)         CR
 #>   criterion_B_code subcrit_a subcrit_b subcrit_c decline_assumed decline_basis
 #> 1      EN B1ab+2ab      TRUE      TRUE     FALSE            TRUE       assumed
-#> 2      VU B1ab+2ab      TRUE      TRUE     FALSE            TRUE       assumed
-#> 3      CR B1ab+2ab      TRUE      TRUE     FALSE            TRUE       assumed
 #>   habitat_trend_pct_yr habitat_trend_p mapbiomas_initiative mapbiomas_year
 #> 1                  0.1          0.0388               brazil           2024
-#> 2                  0.1          0.0222               brazil           2024
-#> 3                  0.0          1.0000               brazil           2024
 #>   mapbiomas_collection eoo_burned_pct aoo_burned_pct fire_collection
 #> 1                   10           15.5           20.3               4
-#> 2                   10           12.3            7.2               4
-#> 3                   10            0.0           11.1               4
 # }
 ```

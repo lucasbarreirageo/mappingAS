@@ -1,5 +1,11 @@
 # Changelog
 
+## mappingAS (development version)
+
+- Network examples (`\donttest{}`) skip the multi-year habitat-trend
+  reads or use a single species, so `R CMD check --as-cran`, which runs
+  them, stays as fast as before the trend was introduced.
+
 ## mappingAS 1.15.0
 
 ### Bug fixes

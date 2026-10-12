@@ -7,7 +7,7 @@
 ## Citation
 
 Source:
-[`DESCRIPTION`](https://github.com/lucasbarreirageo/mappingAS/blob/v1.15.0/DESCRIPTION)
+[`DESCRIPTION`](https://github.com/lucasbarreirageo/mappingAS/blob/main/DESCRIPTION)
 
 Antônio Lucas Barreira (2026). *mappingAS: Spatial Metrics and Habitat
 Conversion for Extinction Risk Assessment*. R package version 1.15.0,

@@ -40,7 +40,7 @@ class-by-class breakdown."><meta property="og:image" content="https://lucasbarre
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.png" class="logo" alt=""><h1>Per-class MapBiomas composition table (every class) for an assessment</h1>
-      <small class="dont-index">Source: <a href="https://github.com/lucasbarreirageo/mappingAS/blob/v1.15.0/R/classes.R" class="external-link"><code>R/classes.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/lucasbarreirageo/mappingAS/blob/main/R/classes.R" class="external-link"><code>R/classes.R</code></a></small>
       <div class="d-none name"><code>class_table.Rd</code></div>
     </div>
 
@@ -87,7 +87,9 @@ within that range). Empty (with a warning) if MapBiomas was not computed.</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
 <span class="r-in"><span><span class="va">occ</span> <span class="op">&lt;-</span> <span class="fu"><a href="read_occurrences.html">read_occurrences</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"example_occurrences.csv"</span>,</span></span>
 <span class="r-in"><span>                                    package <span class="op">=</span> <span class="st">"mappingAS"</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="assess_species.html">assess_species</a></span><span class="op">(</span><span class="va">occ</span>, year <span class="op">=</span> <span class="fl">2024</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span>  <span class="co"># reads MapBiomas</span></span></span>
+<span class="r-in"><span><span class="co"># reads MapBiomas (one year; the multi-year habitat trend is skipped)</span></span></span>
+<span class="r-in"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="assess_species.html">assess_species</a></span><span class="op">(</span><span class="va">occ</span>, year <span class="op">=</span> <span class="fl">2024</span>, infer_decline_from_habitat <span class="op">=</span> <span class="cn">FALSE</span>,</span></span>
+<span class="r-in"><span>                      verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu">class_table</span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>                          species range code                       class_pt</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1        Prepusa connata Gardner   AOO    3             Formacao Florestal</span>

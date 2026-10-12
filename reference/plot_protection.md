@@ -46,7 +46,9 @@ for the interactive version.
 # \donttest{
 occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
                                     package = "mappingAS"))
-res <- assess_species(occ, protected = TRUE, verbose = FALSE)  # reads WDPA
+# reads WDPA and one year of MapBiomas (the multi-year habitat trend is skipped)
+res <- assess_species(occ, protected = TRUE, infer_decline_from_habitat = FALSE,
+                      verbose = FALSE)
 #> although coordinates are longitude/latitude, st_intersection assumes that they
 #> are planar
 #> although coordinates are longitude/latitude, st_intersection assumes that they

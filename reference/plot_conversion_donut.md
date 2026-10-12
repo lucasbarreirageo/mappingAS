@@ -57,7 +57,9 @@ no class data are available.
 # \donttest{
 occ <- read_occurrences(system.file("extdata", "example_occurrences.csv",
                                     package = "mappingAS"))
-res <- assess_species(occ, year = 2024, verbose = FALSE)  # reads MapBiomas
+# reads MapBiomas (one year; the multi-year habitat trend is skipped)
+res <- assess_species(occ, year = 2024, infer_decline_from_habitat = FALSE,
+                      verbose = FALSE)
 plot_conversion_donut(res, by = "class")
 
 # }
